@@ -1,0 +1,153 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Careers</title>
+<style>
+  body { font: 14px sans-serif; }
+  [role=listbox] { position: absolute; background: #fff; border: 1px solid #999; width: 320px; max-height: 200px; overflow: auto; z-index: 5; }
+  [role=option] { padding: 4px; min-height: 20px; }
+  .ff { margin: 10px 0; }
+</style>
+<script>
+window.__logs = [];
+window.__errors = [];
+const origLog = console.log;
+console.log = (...a) => {
+  if (a[0] === "[autofill]") window.__logs.push(a.slice(1).map((x) => (typeof x === "string" ? x : x && x.nodeType ? "<" + x.tagName + ">" : JSON.stringify(x))).join(" "));
+  origLog(...a);
+};
+window.addEventListener("error", (e) => window.__errors.push("error: " + e.message + " @ " + (e.filename || "").split("/").pop() + ":" + e.lineno));
+window.addEventListener("unhandledrejection", (e) => window.__errors.push("rejection: " + (e.reason && e.reason.stack || e.reason)));
+
+// ---- A background tab, simulated (headless doesn't throttle): document.hidden is true for the first
+// 6 s, and while hidden every setTimeout waits at least 1 s, like Chrome's background-tab throttling.
+// The extension's background worker (the WAKE message) is not throttled.
+const realTimeout = window.setTimeout.bind(window);
+let hidden = true;
+Object.defineProperty(document, "hidden", { configurable: true, get: () => hidden });
+Object.defineProperty(document, "visibilityState", { configurable: true, get: () => (hidden ? "hidden" : "visible") });
+window.setTimeout = (fn, ms, ...a) => realTimeout(fn, hidden ? Math.max(ms || 0, 1000) : ms, ...a);
+const T0 = Date.now();
+window.__timeline = [];
+window.__showAt = 6000;
+realTimeout(() => {
+  hidden = false;
+  window.__timeline.push(`tab visible again @ ${Date.now() - T0} ms`);
+  document.dispatchEvent(new Event("visibilitychange"));
+}, window.__showAt);
+
+const STORE = {
+  profile: {
+    firstName: "Test", lastName: "Applicant", email: "test@example.com", phone: "6465550100",
+    address1: "1 Test Street", city: "Springfield", zip: "10001", state: "New York",
+    answers: { previousEmployers: "Examplecorp" }, eeo: {}, api: { key: "" },
+  },
+  settings: { useAI: true, learn: true, threshold: 0.75 },
+  learned: [],
+};
+let onMsg = null;
+// Location settings have no default in Options: the New York values these tests were written with (settings a fixture
+// sets itself are kept; a blank search took the old default search, and the default list when the list was blank too).
+{ const P = STORE.profile, AL = (P.applicationLocation ||= {}), A = (P.answers ||= {}), blank = !String(AL.search || "").trim();
+  if (blank) AL.search = "New York";
+  if (blank && !String(AL.matches || "").trim()) AL.matches = "New York City, New York, United States | New York, New York, United States | New York, NY, United States | New York, NY | New York City | New York, NY, USA | New York, USA";
+  if (!String(A.officeMetro || "").trim()) A.officeMetro = "New York City | NYC | New York, NY | New York, New York | Manhattan | Brooklyn | Queens | Bronx | Staten Island | Long Island | Jersey City | Hoboken | Newark | Westchester | Stamford"; }
+window.chrome = {
+  storage: {
+    local: {
+      get: async (keys) => {
+        const ks = typeof keys === "string" ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys || {});
+        const out = {};
+        for (const k of ks) if (STORE[k] !== undefined) out[k] = JSON.parse(JSON.stringify(STORE[k]));
+        return out;
+      },
+      set: async (o) => Object.assign(STORE, o),
+    },
+    onChanged: { addListener: () => {} },
+  },
+  runtime: {
+    id: "test-extension",
+    onMessage: { addListener: (fn) => (onMsg = fn) },
+    sendMessage: async (msg) => {
+      if (msg.type === "WAKE") return new Promise((r) => realTimeout(() => r(true), msg.ms));
+      if (msg.type === "PAUSED") window.__timeline.push(`badge: ${msg.paused ? "paused" : msg.done ? "cleared (fill ended)" : "resumed"} @ ${Date.now() - T0} ms`);
+      return { model: "stub", answers: [] };
+    },
+  },
+};
+window.__runFill = () => new Promise((res) => onMsg({ type: "FILL" }, {}, res));
+</script>
+</head>
+<body>
+<div data-automation-id="progressBar"></div>
+<h2>My Information</h2>
+<div class="ff" data-automation-id="formField-legalName--firstName"><label>First Name<abbr>*</abbr></label><input type="text"></div>
+<div class="ff" data-automation-id="formField-legalName--lastName"><label>Last Name<abbr>*</abbr></label><input type="text"></div>
+<div class="ff" data-automation-id="formField-addressLine1"><label>Address Line 1<abbr>*</abbr></label><input type="text"></div>
+<div class="ff" data-automation-id="formField-city"><label>City<abbr>*</abbr></label><input type="text"></div>
+<div class="ff" data-automation-id="formField-countryRegion"><label>State<abbr>*</abbr></label>
+  <button aria-haspopup="listbox" aria-expanded="false" data-opts="Select One|New Jersey|New York|Pennsylvania">Select One</button></div>
+<div class="ff" data-automation-id="formField-postalCode"><label>Postal Code<abbr>*</abbr></label><input type="text"></div>
+<div class="ff" data-automation-id="formField-email"><label>Email Address<abbr>*</abbr></label><input type="text"></div>
+<div class="ff" data-automation-id="formField-phoneNumber"><label>Phone Number<abbr>*</abbr></label><input type="text"></div>
+<div class="ff" data-automation-id="formField-candidateIsPreviousWorker"><label>Have you previously worked for Acme?<abbr>*</abbr></label>
+  <div><input type="radio" id="pw-yes" name="pw" value="true"><label for="pw-yes">Yes</label> <input type="radio" id="pw-no" name="pw" value="false"><label for="pw-no">No</label></div></div>
+<pre id="out"></pre>
+
+<script>
+// ---- Workday-like dropdown (test only); records when each field got its value.
+let n = 0;
+for (const btn of document.querySelectorAll("button[aria-haspopup=listbox]")) {
+  const id = "lb" + n++;
+  btn.setAttribute("aria-controls", id);
+  btn.addEventListener("click", () => {
+    let lb = document.getElementById(id);
+    if (btn.getAttribute("aria-expanded") === "true") { lb && lb.remove(); btn.setAttribute("aria-expanded", "false"); return; }
+    lb = document.createElement("div");
+    lb.id = id; lb.setAttribute("role", "listbox");
+    for (const t of btn.dataset.opts.split("|")) {
+      const o = document.createElement("div"); o.setAttribute("role", "option"); o.textContent = t;
+      o.addEventListener("click", () => {
+        btn.textContent = t; lb.remove(); btn.setAttribute("aria-expanded", "false");
+        window.__timeline.push(`State <- ${t} @ ${Date.now() - T0} ms (${hidden ? "hidden" : "visible"})`);
+      });
+      lb.appendChild(o);
+    }
+    btn.after(lb);
+    btn.setAttribute("aria-expanded", "true");
+  });
+}
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  for (const b of document.querySelectorAll("button[aria-expanded=true]")) { document.getElementById(b.getAttribute("aria-controls"))?.remove(); b.setAttribute("aria-expanded", "false"); }
+});
+for (const inp of document.querySelectorAll("input[type=text]")) {
+  inp.addEventListener("change", () => window.__timeline.push(`${inp.closest(".ff").querySelector("label").textContent.replace("*", "")} <- ${inp.value} @ ${Date.now() - T0} ms (${hidden ? "hidden" : "visible"})`));
+}
+for (const r of document.querySelectorAll("input[type=radio]")) {
+  r.addEventListener("change", () => window.__timeline.push(`Previously worked <- ${r.value} @ ${Date.now() - T0} ms (${hidden ? "hidden" : "visible"})`));
+}
+</script>
+<!--SCRIPTS-->
+<script>
+realTimeout(async () => {
+  let stats;
+  const t = Date.now();
+  try { stats = await window.__runFill(); } catch (e) { window.__errors.push("run: " + e.stack); }
+  window.__timeline.push(`fill ended @ ${Date.now() - T0} ms (took ${Date.now() - t} ms)`);
+  const fields = [...document.querySelectorAll("[data-automation-id^=formField]")].map((c) => {
+    const b = c.querySelector("button"); const r = c.querySelector("input[type=radio]:checked"); const i = c.querySelector("input[type=text]");
+    return c.getAttribute("data-automation-id") + " = " + JSON.stringify(b ? b.textContent : r ? r.value : i ? i.value : "") + " mark=" + (c.dataset.wdaf || "-");
+  });
+  document.getElementById("out").textContent = "@@BEGIN\n" + [
+    "STATS " + JSON.stringify(stats), "TOAST " + JSON.stringify((document.getElementById("aaf-done-toast")?.shadowRoot?.querySelector(".box")?.innerText || "").replace(/\n/g, " | ")),
+    ...window.__timeline.map((x) => "TIME " + x),
+    ...window.__errors.map((e) => "ERR " + e),
+    ...window.__logs.map((l) => "LOG " + l),
+    ...fields.map((f) => "FIELD " + f),
+  ].join("\n") + "\n@@END";
+}, 300);
+</script>
+</body>
+</html>

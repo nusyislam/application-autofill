@@ -1,0 +1,105 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Software Engineer Intern at Samplelabs | Y Combinator</title>
+<style> body { font: 14px sans-serif; } </style>
+<script>
+// ---- stub chrome API (test only)
+window.__logs = [];
+window.__errors = [];
+const origLog = console.log;
+console.log = (...a) => {
+  if (a[0] === "[autofill]") window.__logs.push(a.slice(1).map((x) => (typeof x === "string" ? x : x && x.nodeType ? "<" + x.tagName + ">" : JSON.stringify(x))).join(" "));
+  origLog(...a);
+};
+window.addEventListener("error", (e) => window.__errors.push("error: " + e.message + " @ " + (e.filename || "").split("/").pop() + ":" + e.lineno));
+window.addEventListener("unhandledrejection", (e) => window.__errors.push("rejection: " + (e.reason && e.reason.stack || e.reason)));
+const STORE = {
+  profile: {
+    firstName: "Test", lastName: "Applicant", preferredName: "Tess", email: "test@example.com", phone: "6465550100",
+    country: "United States of America", city: "Springfield", state: "New York",
+    expectedGraduation: "05/2027",
+    experiences: [{ title: "Engineering Intern", company: "Examplecorp", current: false, startYear: "2026", endYear: "2026" }],
+    education: [{ school: "Lakeview University", field: "Computer Engineering", endYear: "2027" }],
+    answers: { workAuth: "Yes", sponsorship: "No" },
+    eeo: {}, api: { key: "test-key", model: "stub" },
+  },
+  settings: { useAI: true, learn: true, drafts: true, threshold: 0.75 },
+  learned: [],
+};
+// Canned notes, one per YC_NOTE call: an em dash to remove; one without the greeting; a too-short one.
+const NOTES = [
+  "Hi Sam,\n\nI built a data pipeline for a class project that cleaned and labeled survey data \u2014 close to the dataset work Samplelabs does. I'm looking for a software engineering internship for summer 2026 and can start after May.\n\nTess",
+  "I wrote a small tool that checks labeled examples for mistakes, which is the part of dataset work I liked most. I'm looking for an internship starting summer 2026.\n\nTess",
+  "Hi Sam, hello.",
+];
+let onMsg = null;
+window.__ycCalls = [];
+// Location settings have no default in Options: the New York values these tests were written with (settings a fixture
+// sets itself are kept; a blank search took the old default search, and the default list when the list was blank too).
+{ const P = STORE.profile, AL = (P.applicationLocation ||= {}), A = (P.answers ||= {}), blank = !String(AL.search || "").trim();
+  if (blank) AL.search = "New York";
+  if (blank && !String(AL.matches || "").trim()) AL.matches = "New York City, New York, United States | New York, New York, United States | New York, NY, United States | New York, NY | New York City | New York, NY, USA | New York, USA";
+  if (!String(A.officeMetro || "").trim()) A.officeMetro = "New York City | NYC | New York, NY | New York, New York | Manhattan | Brooklyn | Queens | Bronx | Staten Island | Long Island | Jersey City | Hoboken | Newark | Westchester | Stamford"; }
+window.chrome = {
+  storage: {
+    local: {
+      get: async (keys) => {
+        const ks = typeof keys === "string" ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys || {});
+        const out = {};
+        for (const k of ks) if (STORE[k] !== undefined) out[k] = JSON.parse(JSON.stringify(STORE[k]));
+        return out;
+      },
+      set: async (o) => Object.assign(STORE, o),
+    },
+    onChanged: { addListener: () => {} },
+  },
+  runtime: { id: "test-extension",
+    onMessage: { addListener: (fn) => (onMsg = fn) },
+    sendMessage: async (msg) => {
+      if (msg.type === "YC_NOTE") {
+        window.__ycCalls.push({ founder: msg.founder, company: msg.company, title: msg.job.title, type: msg.job.type, location: msg.job.location, descStart: msg.job.description.slice(0, 90), descChars: msg.job.description.length });
+        const answer = NOTES[Math.min(window.__ycCalls.length - 1, NOTES.length - 1)];
+        return { model: "stub-draft-model", included: { linkedinChars: 0, resumeChars: 0, notesChars: 0, descriptionChars: msg.job.description.length, highlightCount: 0 }, answers: [{ id: 0, answer, project: "survey pipeline" }] };
+      }
+      if (msg.type === "DRAFT" || msg.type === "ASK_AI") {
+        window.__unexpected = (window.__unexpected || []).concat(msg.type);
+        return { model: "stub", answers: [] };
+      }
+      return {};
+    },
+  },
+};
+window.__runFill = () => new Promise((res) => onMsg({ type: "FILL" }, {}, res));
+</script>
+</head>
+<body>
+<!-- YC Work at a Startup (fake data): the job page without the apply dialog or the props JSON. -->
+<div class="mx-auto w-full max-w-6xl flex-1 px-2 sm:px-6 lg:px-8"><div class="my-3"><div class="text-beige-dark font-sans text-sm"><a class="text-linkColor" href="/companies">Companies</a><span class="mx-1">/</span><a class="text-linkColor" href="/companies/samplelabs">Samplelabs (W25)</a><span class="mx-1">/</span><span>Jobs</span></div></div>
+<div class="my-3 rounded-md border border-gray-300"><div class="flex flex-col md:flex-row md:items-start md:justify-between"><div class="flex"><div class="mr-4 shrink-0"><a href="/companies/samplelabs"><img alt="Samplelabs" class="mt-1 h-16 w-16"></a></div>
+<div class="min-w-0"><h1 class="text-xl font-medium sm:text-2xl">Software Engineer Intern at <a href="/companies/samplelabs" class="hover:underline">Samplelabs</a><span class="ml-2 text-sm text-gray-400">(W25)</span></h1><div class="mt-0.5 text-gray-500"><span>$5K - $6K / monthly</span></div><div class="mt-0.5 text-gray-700">Datasets for training and testing language models. </div>
+<div class="mt-1 flex flex-wrap"><span class="inline-flex items-center gap-1.5 rounded-md border"><svg></svg><span>New York, NY, US / Remote (US)</span></span><span class="inline-flex items-center gap-1.5 rounded-md border"><svg></svg><span>Internship</span></span><span class="inline-flex items-center gap-1.5 rounded-md border"><svg></svg><span>US citizen/visa only</span></span></div></div></div>
+<div class="mt-4 shrink-0 md:mt-0"><div class="flex"><a class="!w-fit hover:cursor-pointer inline-flex items-center" id="apply" onclick="window.__applied = true">Apply</a></div></div></div>
+<div class="mt-3 border-t border-gray-300 pt-4"><span class="text-xl">About the role</span><div class="prose mt-2 max-w-none"><p><strong>About Samplelabs:</strong></p><p>Samplelabs builds labeled datasets that teams use to train and test language models.</p><p><strong>What You'll Do</strong></p><ul><li>Build data capture tools for the web (Next.js) and desktop (Python)</li><li>Write pipelines that check and clean labeled data</li></ul><p><strong>What We're Looking For</strong></p><ul><li>One previous internship in full-stack development</li><li>JavaScript and Python</li></ul></div></div>
+<div class="mt-3 border-t border-gray-300 pt-4"><span class="text-xl">Interview Process</span><div class="prose mt-2 max-w-none"><p>Three steps over about two weeks.</p></div></div></div></div>
+<pre id="out"></pre>
+<!--SCRIPTS-->
+<script>
+setTimeout(async () => {
+  let stats;
+  try { stats = await window.__runFill(); } catch (e) { window.__errors.push("run: " + e.stack); }
+  // The visible-page reader (no JobDetailPage JSON here).
+  const job = await AAF.adapters.yc.jobInfo();
+  document.getElementById("out").textContent = "@@BEGIN\n" + [
+    "STATS " + JSON.stringify(stats),
+    "TOAST " + JSON.stringify((document.getElementById("aaf-done-toast")?.shadowRoot?.querySelector(".box")?.innerText || "").replace(/\n/g, " | ")),
+    "JOB " + JSON.stringify(job),
+    "YC CALLS " + JSON.stringify(window.__ycCalls),
+    ...window.__errors.map((e) => "ERR " + e),
+    ...window.__logs.map((l) => "LOG " + l),
+  ].join("\n") + "\n@@END";
+}, 500);
+</script>
+</body>
+</html>

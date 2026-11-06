@@ -1,0 +1,150 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Software Engineer @ Rivulet</title>
+<style>
+  body { font: 14px sans-serif; }
+  .ashby-application-form-field-entry { margin: 10px 0; position: relative; }
+  .ashby-application-form-input-yesno { display: flex; gap: 4px; position: relative; }
+  .ashby-application-form-input-yesno-option[aria-pressed="true"] { background: #333; color: #fff; }
+  /* Real Ashby: the mirror checkbox is NOT hidden (it has client rects). */
+  ._input_1svni_78 { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .combo-list { position: absolute; background: #fff; border: 1px solid #999; width: 320px; z-index: 5; }
+  .combo-list [role=option] { padding: 4px; }
+</style>
+<script>
+// ---- stub chrome API (test only)
+window.__logs = [];
+window.__errors = [];
+const origLog = console.log;
+console.log = (...a) => {
+  if (a[0] === "[autofill]") window.__logs.push(a.slice(1).map((x) => (typeof x === "string" ? x : x && x.nodeType ? "<" + x.tagName + ">" : JSON.stringify(x))).join(" "));
+  origLog(...a);
+};
+window.addEventListener("error", (e) => window.__errors.push("error: " + e.message + " @ " + (e.filename || "").split("/").pop() + ":" + e.lineno));
+window.addEventListener("unhandledrejection", (e) => window.__errors.push("rejection: " + (e.reason && e.reason.stack || e.reason)));
+const STORE = {
+  profile: {
+    firstName: "Test", lastName: "Applicant", preferredName: "Tess", email: "test@example.com", phone: "6465550100",
+    phoneCountry: "United States of America", country: "United States of America", city: "Springfield", state: "New York",
+    address1: "1 Test Street", zip: "10001",
+    // applicationLocation not set here: the New York values set below (before the chrome stub) apply.
+    linkedin: "https://www.linkedin.com/in/test/", github: "https://github.com/test", website: "https://test.dev",
+    source: "LinkedIn", expectedGraduation: "05/2027",
+    experiences: [{ company: "Examplecorp", title: "Engineering Intern" }],
+    education: [{ school: "Lakeview University", schoolAliases: "LSU Lakeview University | Lakeland State University at Lakeview", schoolSearch: "Lakeview",
+      degreeOptions: "Bachelor of Engineering | BEng | B.E. | BE\nBachelor's Degree | Bachelor's | Bachelors | Bachelor Degree\nBachelor of Science | BS | B.S. | BSc\nUndergraduate",
+      field: "Computer Engineering", gpa: "", startYear: "2023", endYear: "2027" }],
+    answers: { workAuth: "Yes", sponsorship: "No", over18: "Yes", previousEmployers: "Examplecorp", travel: "Maximum", restrictions: "None" },
+    eeo: { gender: "Male", hispanic: "No", race: "Black or African American", veteran: "Decline", disability: "Decline" },
+    api: { key: "test-key", model: "stub" },
+  },
+  settings: { useAI: true, learn: true, threshold: 0.75 },
+  learned: [],
+  resumeFile: { name: "resume-test.pdf", type: "application/pdf", dataUrl: "data:application/pdf;base64,JVBERi0xLjQK" },
+};
+let onMsg = null;
+// Location settings have no default in Options: the New York values these tests were written with (settings a fixture
+// sets itself are kept; a blank search took the old default search, and the default list when the list was blank too).
+{ const P = STORE.profile, AL = (P.applicationLocation ||= {}), A = (P.answers ||= {}), blank = !String(AL.search || "").trim();
+  if (blank) AL.search = "New York";
+  if (blank && !String(AL.matches || "").trim()) AL.matches = "New York City, New York, United States | New York, New York, United States | New York, NY, United States | New York, NY | New York City | New York, NY, USA | New York, USA";
+  if (!String(A.officeMetro || "").trim()) A.officeMetro = "New York City | NYC | New York, NY | New York, New York | Manhattan | Brooklyn | Queens | Bronx | Staten Island | Long Island | Jersey City | Hoboken | Newark | Westchester | Stamford"; }
+window.chrome = {
+  storage: {
+    local: {
+      get: async (keys) => {
+        const ks = typeof keys === "string" ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys || {});
+        const out = {};
+        for (const k of ks) if (STORE[k] !== undefined) out[k] = JSON.parse(JSON.stringify(STORE[k]));
+        return out;
+      },
+      set: async (o) => Object.assign(STORE, o),
+    },
+    onChanged: { addListener: () => {} },
+  },
+  runtime: { id: "test-extension",
+    onMessage: { addListener: (fn) => (onMsg = fn) },
+    sendMessage: async (msg) => {
+      if (msg.type === "DRAFT") {
+        window.__draft = msg;
+        return { model: "stub-draft-model", included: { linkedinChars: 0, resumeChars: 0, notesChars: 0, descriptionChars: (msg.job.description || "").length }, answers: msg.questions.map((q) => (/blockchain/i.test(q.question) ? { id: q.id, answer: null, reason: "No blockchain experience in the materials." } : { id: q.id, answer: "I enjoy building tools — mostly data ones, and this role would let me build more of them for real users." })) };
+      }
+      if (msg.type === "ASK_AI") {
+        window.__aiPayload = msg.questions;
+        return { model: "stub-model", answers: msg.questions.map((q) => ({ id: q.id, answer: q.type === "textarea" ? "I enjoy building tools." : null, confidence: 0.9 })) };
+      }
+      return {};
+    },
+  },
+};
+window.__runFill = () => new Promise((res) => onMsg({ type: "FILL" }, {}, res));
+</script>
+</head>
+<body>
+<h1>Software Engineer</h1>
+<!-- Rivulet-like Ashby page (fake data). The work-authorization question is the real markup (pasted from Rivulet,
+     with our outline removed). After the resume upload, a simulated parse prefills Name / Email at 3 s; at 6 s a
+     late step resets the FIRST Yes / No question's stored answer (the mirror checkbox) while its button keeps
+     showing "Yes" (aria-pressed stays true): the suspected Vellum / Rivulet failure ("Missing entry for required
+     field" on the first Yes / No after the upload). Plus the commuting / relocation office question. -->
+<div class="_jobPostingForm_5yu8i_402 ashby-application-form-container  _container_f7cvd_28">
+<div class="_section_5yu8i_86 ashby-application-form-section-container">
+  <div class="_fieldEntry_1e3gg_28 ashby-application-form-field-entry" data-field-path="_systemfield_resume"><label class="_heading_f7cvd_52 _required_f7cvd_91 _label_1e3gg_42 ashby-application-form-question-title" for="_systemfield_resume">Resume</label><div role="presentation" class="_container_10xk4_70  ashby-application-form-input-file"><input type="file" tabindex="-1" id="_systemfield_resume" required="" style="border: 0px; clip: rect(0px, 0px, 0px, 0px); clip-path: inset(50%); height: 1px; margin: 0px -1px -1px 0px; overflow: hidden; padding: 0px; position: absolute; width: 1px; white-space: nowrap;"><div class="_instructions_10xk4_33 ashby-application-form-input-file-dropzone"><button class="_button_zyh3g_28 _secondary_zyh3g_115 _button_10xk4_106 ashby-application-form-input-file-dropzone-upload" onclick="window.__nav = (window.__nav || []).concat('Upload File')"><span>Upload File</span></button><p class="_dragInstructions_10xk4_28 ashby-application-form-input-file-dropzone-instructions">or drag and drop here</p></div></div></div>
+  <div class="_fieldEntry_1e3gg_28 ashby-application-form-field-entry" data-field-path="_systemfield_name"><label class="_heading_f7cvd_52 _required_f7cvd_91 _label_1e3gg_42 ashby-application-form-question-title" for="_systemfield_name">Name</label><div><input placeholder="Type here..." name="_systemfield_name" required="" id="_systemfield_name" type="text" class="ashby-application-form-input-text" value=""></div></div>
+  <div class="_fieldEntry_1e3gg_28 ashby-application-form-field-entry" data-field-path="_systemfield_email"><label class="_heading_f7cvd_52 _required_f7cvd_91 _label_1e3gg_42 ashby-application-form-question-title" for="_systemfield_email">Email</label><div><input placeholder="hello@example.com..." name="_systemfield_email" required="" id="_systemfield_email" type="email" class="ashby-application-form-input-text" value=""></div></div>
+  <div class="_fieldEntry_1e3gg_28 ashby-application-form-field-entry" data-field-path="6bd32fc4-e7af-4757-8e0b-8383f33eb53b" data-field-entry-id="6ba7a6a7-b724-4306-993b-563107b8fdaa_6bd32fc4-e7af-4757-8e0b-8383f33eb53b"><label class="_heading_f7cvd_52 _required_f7cvd_91 _label_1e3gg_42 ashby-application-form-question-title" for="6bd32fc4-e7af-4757-8e0b-8383f33eb53b">Are you legally authorized to work in the USA?</label><div class="_container_1svni_28 _yesno_1e3gg_148  ashby-application-form-input-yesno"><button class="_container_pjyt6_1 _option_1svni_32  ashby-application-form-input-yesno-option" aria-pressed="false" data-option="yes">Yes</button><button class="_container_pjyt6_1 _option_1svni_32  ashby-application-form-input-yesno-option" aria-pressed="false" data-option="no">No</button><input type="checkbox" class="_input_1svni_78" tabindex="-1" name="6bd32fc4-e7af-4757-8e0b-8383f33eb53b"></div></div>
+  <div class="_fieldEntry_1e3gg_28 ashby-application-form-field-entry" data-field-path="7c2e0002-sponsor" data-field-entry-id="6ba7a6a7-b724-4306-993b-563107b8fdaa_7c2e0002-sponsor"><label class="_heading_f7cvd_52 _required_f7cvd_91 _label_1e3gg_42 ashby-application-form-question-title" for="7c2e0002-sponsor">Will you now or in the future require visa sponsorship?</label><div class="_container_1svni_28 _yesno_1e3gg_148  ashby-application-form-input-yesno"><button class="_container_pjyt6_1 _option_1svni_32  ashby-application-form-input-yesno-option" aria-pressed="false" data-option="yes">Yes</button><button class="_container_pjyt6_1 _option_1svni_32  ashby-application-form-input-yesno-option" aria-pressed="false" data-option="no">No</button><input type="checkbox" class="_input_1svni_78" tabindex="-1" name="7c2e0002-sponsor"></div></div>
+  <div class="_fieldEntry_1e3gg_28 ashby-application-form-field-entry" data-field-path="7c2e0004-office" data-field-entry-id="6ba7a6a7-b724-4306-993b-563107b8fdaa_7c2e0004-office"><label class="_heading_f7cvd_52 _required_f7cvd_91 _label_1e3gg_42 ashby-application-form-question-title" for="7c2e0004-office">Are you open to commuting to our NYC or San Francisco office, or willing to relocate to either location?</label><div class="_container_1svni_28 _yesno_1e3gg_148  ashby-application-form-input-yesno"><button class="_container_pjyt6_1 _option_1svni_32  ashby-application-form-input-yesno-option" aria-pressed="false" data-option="yes">Yes</button><button class="_container_pjyt6_1 _option_1svni_32  ashby-application-form-input-yesno-option" aria-pressed="false" data-option="no">No</button><input type="checkbox" class="_input_1svni_78" tabindex="-1" name="7c2e0004-office"></div></div>
+</div>
+</div>
+<button id="submit" type="submit">Submit Application</button>
+<pre id="out"></pre>
+<script>
+const setVal = (el, v) => Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(el, v);
+// Yes / No: a click sets aria-pressed (the button's own state) and the mirror checkbox (the stored answer).
+document.querySelectorAll(".ashby-application-form-input-yesno").forEach((g) =>
+  g.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
+    g.querySelectorAll("button").forEach((x) => { x.setAttribute("aria-pressed", String(x === b)); x.classList.toggle("_active_1svni_57", x === b); });
+    g.querySelector("input[type=checkbox]").checked = b.dataset.option === "yes";
+  })));
+const resume = document.getElementById("_systemfield_resume");
+resume.addEventListener("change", () => {
+  const box = resume.parentElement;
+  box.querySelector(".ashby-application-form-input-file-dropzone").outerHTML =
+    `<div class="_file_10xk4_76 ashby-application-form-input-file-item"><p class="_name_10xk4_41 ashby-application-form-input-file-item-name"><span>${resume.files[0]?.name || ""}</span></p></div>`;
+  // The parse: prefills at 3 s; a late step at 6 s resets the first Yes / No's stored answer only.
+  setTimeout(() => {
+    setVal(document.getElementById("_systemfield_name"), "Test Applicant");
+    setVal(document.getElementById("_systemfield_email"), "test@example.com");
+    window.__parsed = true;
+  }, 3000);
+  setTimeout(() => {
+    document.querySelector('[name="6bd32fc4-e7af-4757-8e0b-8383f33eb53b"]').checked = false;
+    window.__lateReset = true;
+  }, 6000);
+});
+</script>
+<!--SCRIPTS-->
+<script>
+setTimeout(async () => {
+  let stats;
+  try { stats = await window.__runFill(); } catch (e) { window.__errors.push("run: " + e.stack); }
+  // Give the late reset (6 s after the upload) and the post-fill re-check time to happen.
+  await new Promise((r) => setTimeout(r, 12000));
+  const fields = [...document.querySelectorAll(".ashby-application-form-input-yesno")].map((g) => {
+    const lab = g.closest("[data-field-path]").querySelector("label").textContent.trim();
+    return lab.slice(0, 50) + " = pressed:" + ([...g.querySelectorAll("button[aria-pressed=true]")].map((b) => b.textContent).join(",") || "-") + ", mirror " + g.querySelector("input").checked + " mark=" + (g.closest("[data-wdaf]")?.dataset.wdaf || "-");
+  });
+  document.getElementById("out").textContent = "@@BEGIN\n" + [
+    "STATS " + JSON.stringify(stats), "PARSED " + !!window.__parsed + ", LATE RESET " + !!window.__lateReset,
+    "AI " + JSON.stringify((window.__aiPayload || []).map((q) => q.question)),
+    ...window.__errors.map((e) => "ERR " + e),
+    ...window.__logs.map((l) => "LOG " + l),
+    ...fields.map((f) => "FIELD " + f),
+  ].join("\n") + "\n@@END";
+}, 500);
+</script>
+</body>
+</html>

@@ -1,0 +1,142 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Job Application for Data Engineer Intern at Globex</title>
+<style>
+  body { font: 14px sans-serif; }
+  .field { margin: 10px 0; }
+  #location_autocomplete-items-popup { list-style: none; border: 1px solid #999; width: 300px; padding: 0; }
+  #location_autocomplete-items-popup li { padding: 4px; }
+</style>
+<script>
+// ---- stub chrome API (test only)
+window.__logs = [];
+window.__errors = [];
+const origLog = console.log;
+console.log = (...a) => {
+  if (a[0] === "[autofill]") window.__logs.push(a.slice(1).map((x) => (typeof x === "string" ? x : x && x.nodeType ? "<" + x.tagName + ">" : JSON.stringify(x))).join(" "));
+  origLog(...a);
+};
+window.addEventListener("error", (e) => window.__errors.push("error: " + e.message + " @ " + (e.filename || "").split("/").pop() + ":" + e.lineno));
+window.addEventListener("unhandledrejection", (e) => window.__errors.push("rejection: " + (e.reason && e.reason.stack || e.reason)));
+const STORE = {
+  profile: {
+    firstName: "Test", lastName: "Applicant", preferredName: "Tess", email: "test@example.com", phone: "6465550100",
+    city: "Springfield", state: "New York", country: "United States of America",
+    applicationLocation: { search: "New York", matches: "New York, New York, United States | New York, NY, United States | New York, NY | New York City" },
+    linkedin: "https://www.linkedin.com/in/test/", github: "https://github.com/test", source: "LinkedIn",
+    experiences: [{ company: "Northwind" }],
+    education: [{ school: "Lakeview University", schoolAliases: "LSU Lakeview University",
+      degreeOptions: "Bachelor of Engineering | BEng | B.E. | BE\nBachelor's Degree | Bachelor's | Bachelors | Bachelor Degree\nBachelor of Science | BS | B.S. | BSc\nUndergraduate",
+      field: "Computer Engineering", startYear: "2023", endYear: "2027" }],
+    answers: { workAuth: "Yes", sponsorship: "No", previousEmployers: "Northwind" },
+    eeo: { gender: "Male", hispanic: "No", veteran: "Decline", disability: "Decline" },
+    api: { key: "" },
+  },
+  settings: { useAI: true, learn: true, threshold: 0.75 },
+  learned: [],
+  resumeFile: { name: "resume-test.pdf", type: "application/pdf", dataUrl: "data:application/pdf;base64,JVBERi0xLjQK" },
+};
+let onMsg = null;
+// Location settings have no default in Options: the New York values these tests were written with (settings a fixture
+// sets itself are kept; a blank search took the old default search, and the default list when the list was blank too).
+{ const P = STORE.profile, AL = (P.applicationLocation ||= {}), A = (P.answers ||= {}), blank = !String(AL.search || "").trim();
+  if (blank) AL.search = "New York";
+  if (blank && !String(AL.matches || "").trim()) AL.matches = "New York City, New York, United States | New York, New York, United States | New York, NY, United States | New York, NY | New York City | New York, NY, USA | New York, USA";
+  if (!String(A.officeMetro || "").trim()) A.officeMetro = "New York City | NYC | New York, NY | New York, New York | Manhattan | Brooklyn | Queens | Bronx | Staten Island | Long Island | Jersey City | Hoboken | Newark | Westchester | Stamford"; }
+window.chrome = {
+  storage: {
+    local: {
+      get: async (keys) => {
+        const ks = typeof keys === "string" ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys || {});
+        const out = {};
+        for (const k of ks) if (STORE[k] !== undefined) out[k] = JSON.parse(JSON.stringify(STORE[k]));
+        return out;
+      },
+      set: async (o) => Object.assign(STORE, o),
+    },
+    onChanged: { addListener: () => {} },
+  },
+  runtime: { id: "test-extension", onMessage: { addListener: (fn) => (onMsg = fn) }, sendMessage: async () => ({ model: "stub", answers: [] }) },
+};
+window.__runFill = () => new Promise((res) => onMsg({ type: "FILL" }, {}, res));
+</script>
+</head>
+<body>
+<h2>Apply for this Job</h2>
+<form id="application_form" action="https://boards.greenhouse.io/globex/jobs/1/applications" method="post">
+  <div id="main_fields">
+    <div class="field"><label for="first_name">First Name <span class="asterisk">*</span></label><input type="text" id="first_name" name="job_application[first_name]"></div>
+    <div class="field"><label for="last_name">Last Name <span class="asterisk">*</span></label><input type="text" id="last_name" name="job_application[last_name]"></div>
+    <div class="field"><label for="email">Email <span class="asterisk">*</span></label><input type="text" id="email" name="job_application[email]"></div>
+    <div class="field"><label for="phone">Phone</label><input type="text" id="phone" name="job_application[phone]"></div>
+    <div class="field"><label for="job_application_location">Location (City)</label>
+      <input type="text" id="job_application_location" name="job_application[location]" class="location-autocomplete"><ul id="location_autocomplete-items-popup"></ul></div>
+    <div id="resume_fieldset" class="field"><label>Resume/CV <span class="asterisk">*</span></label>
+      <button type="button" data-source="attach">Attach</button><input type="file" id="resume_file" name="file" style="display:none"><span class="filename"></span></div>
+    <div id="cover_letter_fieldset" class="field"><label>Cover Letter</label><button type="button" data-source="attach">Attach</button><input type="file" id="cover_letter_file" name="file" style="display:none"></div>
+  </div>
+  <div id="custom_fields">
+    <div class="field"><label for="job_application_answers_attributes_0_text_value">LinkedIn Profile</label><input type="text" id="job_application_answers_attributes_0_text_value" name="job_application[answers_attributes][0][text_value]"></div>
+    <div class="field"><label>Are you legally authorized to work in the United States? <span class="asterisk">*</span><br>
+      <select id="job_application_answers_attributes_1_boolean_value" name="job_application[answers_attributes][1][boolean_value]"><option value="">--</option><option value="1">Yes</option><option value="0">No</option></select></label></div>
+    <div class="field"><label for="job_application_answers_attributes_2_answer_selected_options_attributes_2_question_option_id">How did you hear about us?</label>
+      <select id="job_application_answers_attributes_2_answer_selected_options_attributes_2_question_option_id"><option value="">Please select</option><option value="11">Job board</option><option value="12">LinkedIn</option><option value="13">Friend</option></select></div>
+  </div>
+  <div id="education_section"><h3>Education</h3>
+    <div class="field"><label for="education_school_name_0">School</label><select id="education_school_name_0"><option value="">Select a School</option><option value="1">Lakeview University (LSU)</option><option value="2">Boston University</option><option value="99">Other</option></select></div>
+    <div class="field"><label for="education_degree_0">Degree</label><select id="education_degree_0"><option value="">Select a Degree</option><option value="a">Associate's Degree</option><option value="b">Bachelor's Degree</option><option value="m">Master's Degree</option></select></div>
+    <div class="field"><label for="education_discipline_0">Discipline</label><select id="education_discipline_0"><option value="">Select a Discipline</option><option value="cs">Computer Science</option><option value="ce">Computer Engineering</option></select></div>
+    <div class="field"><label>Start Date</label><input type="text" name="job_application[educations][][start_date][month]" placeholder="MM"><input type="text" name="job_application[educations][][start_date][year]" placeholder="YYYY"></div>
+    <div class="field"><label>End Date</label><input type="text" name="job_application[educations][][end_date][month]" placeholder="MM"><input type="text" name="job_application[educations][][end_date][year]" placeholder="YYYY"></div>
+  </div>
+  <div id="eeoc_fields"><h3>U.S. Equal Employment Opportunity Information</h3>
+    <div class="field"><label for="job_application_gender">Gender</label><select id="job_application_gender"><option value="">Please select</option><option value="1">Male</option><option value="2">Female</option><option value="3">Decline To Self Identify</option></select></div>
+    <div class="field"><label for="job_application_hispanic_ethnicity">Are you Hispanic/Latino?</label><select id="job_application_hispanic_ethnicity"><option value="">Please select</option><option value="Yes">Yes</option><option value="No">No</option><option value="Decline">Decline To Self Identify</option></select></div>
+    <div class="field"><label for="job_application_veteran_status">Veteran Status</label><select id="job_application_veteran_status"><option value="">Please select</option><option value="1">I am a veteran</option><option value="2">I am not a protected veteran</option><option value="3">I don't wish to answer</option></select></div>
+    <div class="field"><label for="job_application_disability_status">Disability Status</label><select id="job_application_disability_status"><option value="">Please select</option><option value="1">Yes, I have a disability</option><option value="2">No, I don't have a disability</option><option value="3">I don't wish to answer</option></select></div>
+  </div>
+  <input type="button" id="submit_app" value="Submit Application" onclick="window.__nav = (window.__nav || []).concat('Submit')">
+</form>
+<pre id="out"></pre>
+<script>
+// Location autocomplete look-alike: typing shows matching suggestions after 300 ms; clicking one fills it.
+const loc = document.getElementById("job_application_location");
+const pop = document.getElementById("location_autocomplete-items-popup");
+const places = ["Springfield, NY, United States", "Springfeld, MD, United States", "New York Mills, MN, United States", "New York, NY, United States", "West New York, NJ, United States"];
+loc.addEventListener("input", () => setTimeout(() => {
+  pop.innerHTML = "";
+  for (const p of places.filter((x) => loc.value && x.toLowerCase().startsWith(loc.value.toLowerCase().split(",")[0].slice(0, 6)))) {
+    const li = document.createElement("li"); li.textContent = p;
+    li.addEventListener("click", () => { loc.value = p; pop.innerHTML = ""; });
+    pop.appendChild(li);
+  }
+}, 300));
+document.getElementById("resume_file").addEventListener("change", (e) => (document.querySelector("#resume_fieldset .filename").textContent = e.target.files[0]?.name || ""));
+</script>
+<!--SCRIPTS-->
+<script>
+setTimeout(async () => {
+  let stats;
+  try { stats = await window.__runFill(); } catch (e) { window.__errors.push("run: " + e.stack); }
+  const fields = [...document.querySelectorAll(".field")].map((w) => {
+    const lab = (w.querySelector("label")?.childNodes[0]?.textContent || "").trim();
+    const vals = [...w.querySelectorAll("input:not([type=file]):not([type=button]), select")].map((c) => (c.tagName === "SELECT" ? c.selectedOptions[0]?.text : c.value));
+    const file = w.querySelector("input[type=file]");
+    const marked = w.closest("[data-wdaf]") || w.querySelector("[data-wdaf]");
+    return lab.slice(0, 50) + " = " + JSON.stringify(file ? "file:" + (file.files[0]?.name || "") : vals.join(" / ")) + " mark=" + ((marked && marked.dataset.wdaf) || "-");
+  });
+  document.getElementById("out").textContent = "@@BEGIN\n" + [
+    "STATS " + JSON.stringify(stats), "TOAST " + JSON.stringify((document.getElementById("aaf-done-toast")?.shadowRoot?.querySelector(".box")?.innerText || "").replace(/\n/g, " | ")),
+    "NAV " + JSON.stringify(window.__nav || []),
+    "GUARD " + JSON.stringify([["submit_app", AAF.click(document.getElementById("submit_app"))]]),
+    "NAV-AFTER-GUARD " + JSON.stringify(window.__nav || []),
+    ...window.__errors.map((e) => "ERR " + e),
+    ...window.__logs.map((l) => "LOG " + l),
+    ...fields.map((f) => "FIELD " + f),
+  ].join("\n") + "\n@@END";
+}, 500);
+</script>
+</body>
+</html>

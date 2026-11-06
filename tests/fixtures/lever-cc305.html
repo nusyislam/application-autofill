@@ -1,0 +1,277 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Acme - Software Engineer Intern</title>
+<style>
+  body { font: 14px sans-serif; }
+  .application-question { list-style: none; margin: 10px 0; position: relative; }
+  .application-label { font-weight: 600; }
+  .required { color: #c00; margin-left: 2px; }
+  .visible-resume-upload input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; }
+  .dropdown-results { position: absolute; background: #fff; border: 1px solid #999; width: 320px; z-index: 5; }
+  .dropdown-location { padding: 4px; }
+</style>
+<script>
+// ---- stub chrome API (test only)
+window.__logs = [];
+window.__errors = [];
+const origLog = console.log;
+console.log = (...a) => {
+  if (a[0] === "[autofill]") window.__logs.push(a.slice(1).map((x) => (typeof x === "string" ? x : x && x.nodeType ? "<" + x.tagName + ">" : JSON.stringify(x))).join(" "));
+  origLog(...a);
+};
+window.addEventListener("error", (e) => window.__errors.push("error: " + e.message + " @ " + (e.filename || "").split("/").pop() + ":" + e.lineno));
+window.addEventListener("unhandledrejection", (e) => window.__errors.push("rejection: " + (e.reason && e.reason.stack || e.reason)));
+const STORE = {
+  profile: {
+    firstName: "Test", lastName: "Applicant", preferredName: "Tess", email: "test@example.com", phone: "6465550100",
+    phoneCountry: "United States of America", country: "United States of America", city: "Springfield", state: "New York",
+    address1: "1 Test Street", zip: "10001",
+    // applicationLocation not set here: the New York values set below (before the chrome stub) apply.
+    linkedin: "https://www.linkedin.com/in/test/", github: "https://github.com/test", website: "https://test.dev",
+    source: "LinkedIn", expectedGraduation: "05/2027",
+    experiences: [{ company: "Examplecorp", title: "Engineering Intern" }, { company: "Samplesoft", title: "Software Intern" }],
+    education: [{ school: "Lakeview University", schoolAliases: "LSU Lakeview University | Lakeland State University at Lakeview", schoolSearch: "Lakeview",
+      degreeOptions: "Bachelor of Engineering | BEng | B.E. | BE\nBachelor's Degree | Bachelor's | Bachelors | Bachelor Degree\nBachelor of Science | BS | B.S. | BSc\nUndergraduate",
+      field: "Computer Engineering", gpa: "", startYear: "2023", endYear: "2027" }],
+    answers: { workAuth: "Yes", sponsorship: "No", over18: "Yes", previousEmployers: "Examplecorp", travel: "Maximum", restrictions: "None", clearanceEligible: "Yes" },
+    eeo: { gender: "Male", hispanic: "No", race: "White", veteran: "Decline", disability: "No, I do not have a disability and have not had one in the past" },
+    languages: [{ name: "English", aliases: "English" }, { name: "Italian", aliases: "Italiano" }],
+    hearText: "LinkedIn",
+    api: { key: "test-key", model: "stub" },
+  },
+  settings: { useAI: true, learn: true, threshold: 0.75 },
+  learned: [],
+  resumeFile: { name: "resume-test.pdf", type: "application/pdf", dataUrl: "data:application/pdf;base64,JVBERi0xLjQK" },
+};
+let onMsg = null;
+// Location settings have no default in Options: the New York values these tests were written with (settings a fixture
+// sets itself are kept; a blank search took the old default search, and the default list when the list was blank too).
+{ const P = STORE.profile, AL = (P.applicationLocation ||= {}), A = (P.answers ||= {}), blank = !String(AL.search || "").trim();
+  if (blank) AL.search = "New York";
+  if (blank && !String(AL.matches || "").trim()) AL.matches = "New York City, New York, United States | New York, New York, United States | New York, NY, United States | New York, NY | New York City | New York, NY, USA | New York, USA";
+  if (!String(A.officeMetro || "").trim()) A.officeMetro = "New York City | NYC | New York, NY | New York, New York | Manhattan | Brooklyn | Queens | Bronx | Staten Island | Long Island | Jersey City | Hoboken | Newark | Westchester | Stamford"; }
+window.chrome = {
+  storage: {
+    local: {
+      get: async (keys) => {
+        const ks = typeof keys === "string" ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys || {});
+        const out = {};
+        for (const k of ks) if (STORE[k] !== undefined) out[k] = JSON.parse(JSON.stringify(STORE[k]));
+        return out;
+      },
+      set: async (o) => Object.assign(STORE, o),
+    },
+    onChanged: { addListener: () => {} },
+  },
+  runtime: { id: "test-extension",
+    onMessage: { addListener: (fn) => (onMsg = fn) },
+    sendMessage: async (msg) => {
+      if (msg.type === "DRAFT") {
+        window.__draft = msg;
+        return { model: "stub-draft-model", included: { linkedinChars: 0, resumeChars: 0, notesChars: 0, descriptionChars: (msg.job.description || "").length }, answers: msg.questions.map((q) => ({ id: q.id, answer: "I like building data tools, and this team builds them." })) };
+      }
+      if (msg.type === "ASK_AI") {
+        window.__aiPayload = msg.questions;
+        return { model: "stub-model", answers: msg.questions.map((q) => ({ id: q.id, answer: null, confidence: 0.9 })) };
+      }
+      return {};
+    },
+  },
+};
+window.__runFill = () => new Promise((res) => onMsg({ type: "FILL" }, {}, res));
+</script>
+</head>
+<body>
+<!-- (lever-cc305: Palisade-like cases added to lever-apply) Built from Lever's known /apply markup (fake data); not yet compared with a real posting. -->
+<div class="content-wrapper posting-page">
+  <div class="posting-header application">
+    <div class="posting-headline"><h2>Software Engineer Intern</h2>
+      <div class="posting-categories"><div class="sort-by-time posting-category medium-category-label width-full capitalize-labels location">New York, NY</div><div class="posting-category medium-category-label department">Engineering</div><div class="posting-category medium-category-label workplaceTypes">Hybrid</div></div></div>
+  </div>
+  <div class="section-wrapper page-full-width">
+  <form id="application-form" method="POST" enctype="multipart/form-data" action="https://jobs.lever.co/acme/11111111-2222-3333-4444-555555555555/apply" onsubmit="event.preventDefault(); window.__nav = (window.__nav || []).concat('form submit')">
+    <div class="section application-form page-centered">
+      <h4>Submit your application</h4>
+      <ul>
+        <li class="application-question resume">
+          <div class="application-label">Resume/CV<span class="required">✱</span></div>
+          <div class="application-field">
+            <a class="postings-btn template-btn-utility visible-resume-upload"><input class="application-file-input" id="resume-upload-input" type="file" name="resume" data-qa="input-resume"><span class="default-label">ATTACH RESUME/CV</span><span class="filename"></span></a>
+            <span class="resume-upload-success" style="display:none">Success!</span>
+          </div>
+        </li>
+        <li class="application-question"><label><div class="application-label">Full name<span class="required">✱</span></div><div class="application-field"><input type="text" name="name" required data-qa="name-input"></div></label></li>
+        <li class="application-question"><label><div class="application-label">Email<span class="required">✱</span></div><div class="application-field"><input type="email" name="email" required data-qa="email-input"></div></label></li>
+        <li class="application-question"><label><div class="application-label">Phone<span class="required">✱</span></div><div class="application-field"><input type="text" name="phone" data-qa="phone-input"></div></label></li>
+        <li class="application-question"><label><div class="application-label">Current location<span class="required">✱</span></div><div class="application-field">
+          <input type="text" name="location" id="location-input" class="location-input" data-qa="location-input" autocomplete="off"><input type="hidden" name="selectedLocation" id="selected-location">
+          <div class="dropdown-container location-dropdown"><div class="dropdown-results"></div><div class="dropdown-no-results" style="display:none">No location found. Try entering a different location</div><div class="dropdown-loading-results" style="display:none">Loading</div></div></div></label></li>
+        <li class="application-question"><label><div class="application-label">Current company</div><div class="application-field"><input type="text" name="org" data-qa="org-input"></div></label></li>
+        <li class="application-question custom-question"><label><div class="application-label full-width text">Which location are you currently based in?<span class="required">✱</span></div>
+          <div class="application-field full-width"><select name="cards[bbbb][field0]"><option value="">Select...</option><option>Singapore</option><option>New York, US</option><option>London, UK</option></select></div></label></li>
+      </ul>
+    </div>
+    <div class="section application-form page-centered">
+      <h4>Links</h4>
+      <ul>
+        <li class="application-question"><label><div class="application-label">LinkedIn URL</div><div class="application-field"><input type="text" name="urls[LinkedIn]"></div></label></li>
+        <li class="application-question"><label><div class="application-label">GitHub URL</div><div class="application-field"><input type="text" name="urls[GitHub]"></div></label></li>
+        <li class="application-question"><label><div class="application-label">Portfolio URL</div><div class="application-field"><input type="text" name="urls[Portfolio]"></div></label></li>
+        <li class="application-question"><label><div class="application-label">Other website</div><div class="application-field"><input type="text" name="urls[Other]"></div></label></li>
+      </ul>
+    </div>
+    <div class="section application-form page-centered">
+      <h4>Questions</h4>
+      <input type="hidden" name="cards[aaaa][baseTemplate]" value="{}">
+      <ul>
+        <li class="application-question custom-question"><div class="application-label full-width text">Are you legally authorized to work in the United States?<span class="required">✱</span></div>
+          <div class="application-field full-width"><ul data-qa="multiple-choice">
+            <li><label><input type="radio" name="cards[aaaa][field0]" value="Yes" required><span class="application-answer-alternative">Yes</span></label></li>
+            <li><label><input type="radio" name="cards[aaaa][field0]" value="No"><span class="application-answer-alternative">No</span></label></li></ul></div></li>
+        <li class="application-question custom-question"><label><div class="application-label full-width text">Will you now or in the future require sponsorship for employment visa status?<span class="required">✱</span></div>
+          <div class="application-field full-width"><select name="cards[aaaa][field1]" required><option value="">Select...</option><option value="Yes">Yes</option><option value="No">No</option></select></div></label></li>
+        <li class="application-question custom-question"><div class="application-label full-width text">Are you able to work from our New York office 3 days a week?<span class="required">✱</span></div>
+          <div class="application-field full-width"><ul data-qa="multiple-choice">
+            <li><label><input type="radio" name="cards[aaaa][field2]" value="Yes"><span class="application-answer-alternative">Yes</span></label></li>
+            <li><label><input type="radio" name="cards[aaaa][field2]" value="No"><span class="application-answer-alternative">No</span></label></li></ul></div></li>
+        <li class="application-question custom-question"><div class="application-label full-width text">How did you hear about this job?</div>
+          <div class="application-field full-width"><ul data-qa="checkboxes">
+            <li><label><input type="checkbox" name="cards[aaaa][field3]" value="Indeed"><span class="application-answer-alternative">Indeed</span></label></li>
+            <li><label><input type="checkbox" name="cards[aaaa][field3]" value="LinkedIn"><span class="application-answer-alternative">LinkedIn</span></label></li>
+            <li><label><input type="checkbox" name="cards[aaaa][field3]" value="Referral"><span class="application-answer-alternative">Referral</span></label></li></ul></div></li>
+        <li class="application-question custom-question"><div class="application-label full-width text">Have you ever been employed by a U.S. government agency or the Department of Defense?<span class="required">✱</span></div>
+          <div class="application-field full-width"><ul data-qa="multiple-choice">
+            <li><label><input type="radio" name="cards[aaaa][field4]" value="Yes"><span class="application-answer-alternative">Yes</span></label></li>
+            <li><label><input type="radio" name="cards[aaaa][field4]" value="No"><span class="application-answer-alternative">No</span></label></li></ul></div></li>
+        <li class="application-question custom-question"><div class="application-label full-width text">Have you ever worked for Samplesoft or any of its subsidiaries?<span class="required">✱</span></div>
+          <div class="application-field full-width"><ul data-qa="multiple-choice">
+            <li><label><input type="radio" name="cards[aaaa][field5]" value="Yes"><span class="application-answer-alternative">Yes</span></label></li>
+            <li><label><input type="radio" name="cards[aaaa][field5]" value="No"><span class="application-answer-alternative">No</span></label></li></ul></div></li>
+        <li class="application-question custom-question"><label><div class="application-label full-width text">What percentage of travel are you willing to do?</div>
+          <div class="application-field full-width"><select name="cards[aaaa][field6]"><option value="">Select...</option><option>None</option><option>Up to 25%</option><option>Up to 50%</option></select></div></label></li>
+        <li class="application-question custom-question"><label><div class="application-label full-width text">School<span class="required">✱</span></div><div class="application-field full-width"><input type="text" name="cards[aaaa][field7]"></div></label></li>
+        <li class="application-question custom-question"><label><div class="application-label full-width text">Degree</div>
+          <div class="application-field full-width"><select name="cards[aaaa][field8]"><option value="">Select...</option><option>Associate's Degree</option><option>Bachelor's Degree</option><option>Master's Degree</option></select></div></label></li>
+        <li class="application-question custom-question"><label><div class="application-label full-width text">Expected graduation term<span class="required">✱</span></div>
+          <div class="application-field full-width"><select name="cards[aaaa][field9]"><option value="">Select...</option><option>Fall 2026</option><option>Spring 2027</option><option>Summer 2027</option><option>Fall 2027</option></select></div></label></li>
+        <li class="application-question custom-question"><label><div class="application-label full-width text">Why do you want to work at Acme?<span class="required">✱</span></div><div class="application-field full-width"><textarea name="cards[aaaa][field10]" class="card-field-input"></textarea></div></label></li>
+        <li class="application-question custom-question"><div class="application-label full-width text">Language Skill(s) (Check all that apply)</div>
+          <div class="application-field full-width"><ul data-qa="checkboxes">
+            <li><label><input type="checkbox" name="cards[bbbb][field0]" value="English (ENG)"><span class="application-answer-alternative">English (ENG)</span></label></li>
+            <li><label><input type="checkbox" name="cards[bbbb][field0]" value="Hindi (HIN)"><span class="application-answer-alternative">Hindi (HIN)</span></label></li>
+            <li><label><input type="checkbox" name="cards[bbbb][field0]" value="Italian (BEN)"><span class="application-answer-alternative">Italian (BEN)</span></label></li>
+            <li><label><input type="checkbox" name="cards[bbbb][field0]" value="Spanish (SPA)"><span class="application-answer-alternative">Spanish (SPA)</span></label></li></ul></div></li>
+        <li class="application-question custom-question"><div class="application-label full-width text">Are you eligible to obtain a U.S. security clearance?<span class="required">✱</span></div>
+          <div class="application-field full-width"><ul data-qa="multiple-choice">
+            <li><label><input type="radio" name="cards[bbbb][field1]" value="Yes"><span class="application-answer-alternative">Yes</span></label></li>
+            <li><label><input type="radio" name="cards[bbbb][field1]" value="No"><span class="application-answer-alternative">No</span></label></li></ul></div></li>
+        <li class="application-question custom-question"><label><div class="application-label full-width text">How did you learn about Palisade?</div><div class="application-field full-width"><input type="text" name="cards[bbbb][field2]"></div></label></li>
+        <li class="application-question custom-question"><div class="application-label full-width text">Please tell us how you heard about this opportunity<span class="required">✱</span></div>
+          <div class="application-field full-width"><ul data-qa="multiple-choice">
+            <li><label><input type="radio" name="cards[bbbb][field3]" value="Job Board"><span class="application-answer-alternative">Job Board</span></label></li>
+            <li><label><input type="radio" name="cards[bbbb][field3]" value="LinkedIn"><span class="application-answer-alternative">LinkedIn</span></label></li>
+            <li><label><input type="radio" name="cards[bbbb][field3]" value="Referral"><span class="application-answer-alternative">Referral</span></label></li></ul></div></li>
+        <li class="application-question custom-question"><label><div class="application-label full-width text">Which university are you currently attending?<span class="required">✱</span></div><div class="application-field full-width"><input type="text" name="cards[bbbb][field4]"></div></label></li>
+        <li class="application-question custom-question"><label><div class="application-label full-width text">Intended graduation year<span class="required">✱</span></div>
+          <div class="application-field full-width"><select name="cards[bbbb][field5]"><option value="">Select...</option><option>2025</option><option>2026</option><option>2027</option><option>2028</option></select></div></label></li>
+        <li class="application-question custom-question"><div class="application-label full-width text">Confirmation of Information Provided<span class="required">✱</span></div>
+          <div class="application-field full-width"><ul data-qa="checkboxes"><li><label><input type="checkbox" name="cards[aaaa][field11]" value="Confirmed"><span class="application-answer-alternative">I hereby confirm that the information I have provided is accurate and complete.</span></label></li></ul></div></li>
+        <li class="application-question custom-question"><div class="application-label full-width text">Stay in touch</div>
+          <div class="application-field full-width"><ul data-qa="checkboxes"><li><label><input type="checkbox" name="cards[aaaa][field12]" value="Yes"><span class="application-answer-alternative">I agree to receive job alerts and marketing emails from Acme</span></label></li></ul></div></li>
+      </ul>
+    </div>
+    <div class="section application-form page-centered">
+      <h4>Additional information</h4>
+      <div class="application-additional"><textarea class="card-field-input" name="comments" placeholder="Add a cover letter or anything else you want to share."></textarea></div>
+    </div>
+    <div class="section application-form page-centered" id="eeo-section">
+      <h4>U.S. Equal Employment Opportunity information</h4>
+      <ul>
+        <li class="application-question"><label><div class="application-label">Gender</div><div class="application-field"><select name="eeo[gender]"><option value="">Select ...</option><option>Male</option><option>Female</option><option>Decline to self-identify</option></select></div></label></li>
+        <li class="application-question"><label><div class="application-label">Race</div><div class="application-field"><select name="eeo[race]"><option value="">Select ...</option><option>Hispanic or Latino</option><option>Asian (Not Hispanic or Latino)</option><option>White (Not Hispanic or Latino)</option><option>Decline to self-identify</option></select></div></label></li>
+        <li class="application-question"><label><div class="application-label">Veteran status</div><div class="application-field"><select name="eeo[veteran]"><option value="">Select ...</option><option>I am a veteran</option><option>I am not a veteran</option><option>Decline to self-identify</option></select></div></label></li>
+        <li class="application-question"><label><div class="application-label">Disability status</div><div class="application-field"><select name="eeo[disability]"><option value="">Select ...</option><option>Yes, I have a disability, or have had one in the past</option><option>No, I do not have a disability and have not had one in the past</option><option>I do not want to answer</option></select></div></label></li>
+        <!-- Form CC-305 signature block (Lever): the Date once got the disability answer through its name eeo[disabilitySignatureDate]. -->
+        <li class="application-question"><label><div class="application-label">Your Name</div><div class="application-field"><input type="text" name="eeo[disabilitySignature]"></div></label></li>
+        <li class="application-question"><label><div class="application-label">Date</div><div class="application-field"><input type="text" name="eeo[disabilitySignatureDate]" placeholder="MM/DD/YYYY"></div></label></li>
+      </ul>
+    </div>
+    <div class="section page-centered last-section-dark"><button type="submit" class="postings-btn template-btn-submit hex-color" id="btn-submit" onclick="window.__nav = (window.__nav || []).concat('Submit')">Submit application</button></div>
+  </form>
+  </div>
+</div>
+<pre id="out"></pre>
+
+<script>
+// ---- Lever look-alikes (test only).
+// Location: typing shows `.dropdown-results` with `.dropdown-location` rows after 400 ms; clicking a
+// row sets the input and the hidden selectedLocation.
+const loc = document.getElementById("location-input");
+const box = document.querySelector(".location-dropdown .dropdown-results");
+const PLACES = ["New York, NY, USA", "New York Mills, MN, USA", "Springfield, NY, USA"];
+let lt = null;
+loc.addEventListener("input", () => {
+  clearTimeout(lt);
+  box.innerHTML = "";
+  lt = setTimeout(() => {
+    if (!loc.value) return;
+    box.innerHTML = PLACES.filter((p) => p.toLowerCase().includes(loc.value.toLowerCase())).map((p) => `<div class="dropdown-location">${p}</div>`).join("");
+    box.querySelectorAll(".dropdown-location").forEach((d) => d.addEventListener("click", () => {
+      loc.value = d.textContent;
+      document.getElementById("selected-location").value = JSON.stringify({ name: d.textContent });
+      box.innerHTML = "";
+    }));
+  }, 400);
+});
+// Resume: the truncated file name and "Success!" appear, then (like Lever's resume parse) 1.5 s later
+// name / email / phone / company / location / LinkedIn are prefilled: name, email, phone, company and
+// location ("New York, NY, USA") match the profile in other formats (kept); LinkedIn doesn't (replaced).
+const resume = document.getElementById("resume-upload-input");
+resume.addEventListener("change", () => {
+  // Like Lever: the file name inside the button, uppercased and truncated, plus "Success!".
+  document.querySelector(".filename").textContent = (resume.files[0]?.name || "").slice(0, 10).toUpperCase() + "…";
+  document.querySelector(".resume-upload-success").style.display = "";
+  setTimeout(() => {
+    const set = (n, v) => (document.querySelector(`[name="${n}"]`).value = v);
+    set("name", "Test Applicant");
+    set("email", "TEST@example.com");
+    set("phone", "+1 (646) 555-0100");
+    set("org", "Examplecorp Inc.");
+    set("location", "New York, NY, USA");
+    set("urls[LinkedIn]", "https://linkedin.com/in/someone-else");
+  }, 1500); // later than the 700 ms settle wait, like the real parse
+});
+</script>
+<!--SCRIPTS-->
+<script>
+setTimeout(async () => {
+  let stats;
+  try { stats = await window.__runFill(); } catch (e) { window.__errors.push("run: " + e.stack); }
+  const val = (w) => {
+    const f = w.querySelector("input[type=file]"); if (f) return "file:" + (f.files[0]?.name || "");
+    if (w.querySelector("input[type=radio], input[type=checkbox]")) return "checked:" + [...w.querySelectorAll("input:checked")].map((i) => i.value).join(",");
+    const s = w.querySelector("select"); if (s) return s.selectedIndex > 0 ? s.selectedOptions[0].text : "";
+    const c = w.querySelector("input:not([type=hidden]), textarea"); return c ? c.value : "";
+  };
+  const fields = [...document.querySelectorAll(".application-question, .application-additional")].map((w) => {
+    const lab = (w.querySelector(".application-label")?.textContent || w.querySelector("textarea")?.placeholder || "").replace("✱", "").trim();
+    return lab.slice(0, 50) + " = " + JSON.stringify(val(w)) + " mark=" + (w.dataset.wdaf || w.querySelector("[data-wdaf]")?.dataset.wdaf || w.closest("[data-wdaf]")?.dataset.wdaf || "-");
+  });
+  document.getElementById("out").textContent = "@@BEGIN\n" + [
+    "STATS " + JSON.stringify(stats), "TOAST " + JSON.stringify((document.getElementById("aaf-done-toast")?.shadowRoot?.querySelector(".box")?.innerText || "").replace(/\n/g, " | ")),
+    "NAV " + JSON.stringify(window.__nav || []),
+    "GUARD " + JSON.stringify(["btn-submit"].map((id) => [id, AAF.click(document.getElementById(id))])),
+    "NAV-AFTER-GUARD " + JSON.stringify(window.__nav || []),
+    "SELECTED-LOCATION " + document.getElementById("selected-location").value,
+    "AI " + JSON.stringify((window.__aiPayload || []).map((q) => [q.question, q.type, q.options])),
+    "DRAFT " + JSON.stringify(window.__draft ? { questions: window.__draft.questions.map((q) => q.question), job: window.__draft.job } : null),
+    ...window.__errors.map((e) => "ERR " + e),
+    ...window.__logs.map((l) => "LOG " + l),
+    ...fields.map((f) => "FIELD " + f),
+  ].join("\n") + "\n@@END";
+}, 500);
+</script>
+</body>
+</html>

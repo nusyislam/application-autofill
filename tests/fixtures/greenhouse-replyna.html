@@ -1,0 +1,117 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Job Application for Summer Analyst at Acme</title>
+<style>
+  body { font: 14px sans-serif; }
+  .field-wrapper { margin: 10px 0; }
+</style>
+<script>
+// ---- stub chrome API (test only)
+window.__logs = [];
+window.__errors = [];
+const origLog = console.log;
+console.log = (...a) => {
+  if (a[0] === "[autofill]") window.__logs.push(a.slice(1).map((x) => (typeof x === "string" ? x : x && x.nodeType ? "<" + x.tagName + ">" : JSON.stringify(x))).join(" "));
+  origLog(...a);
+};
+window.addEventListener("error", (e) => window.__errors.push("error: " + e.message + " @ " + (e.filename || "").split("/").pop() + ":" + e.lineno));
+window.addEventListener("unhandledrejection", (e) => window.__errors.push("rejection: " + (e.reason && e.reason.stack || e.reason)));
+const STORE = {
+  profile: {
+    firstName: "Test", lastName: "Applicant", email: "test@example.com", phone: "6465550100",
+    city: "Springfield", state: "New York", country: "United States of America",
+    expectedGraduation: "05/2027", education: [],
+    experiences: [
+      { company: "Contoso", title: "Software Engineer Intern", current: true, startMonth: "6", startYear: "2026", endMonth: "", endYear: "" },
+      { company: "Northwind", title: "AI Engineer Intern", current: false, startMonth: "6", startYear: "2025", endMonth: "8", endYear: "2025" },
+    ],
+    answers: { workAuth: "Yes", sponsorship: "No", over18: "Yes", restrictions: "None", restrictiveAgreements: "" },
+    eeo: {}, api: { key: "test-key", model: "stub" },
+  },
+  settings: { useAI: true, learn: true, threshold: 0.75 },
+  learned: [],
+};
+let onMsg = null;
+// Location settings have no default in Options: the New York values these tests were written with (settings a fixture
+// sets itself are kept; a blank search took the old default search, and the default list when the list was blank too).
+{ const P = STORE.profile, AL = (P.applicationLocation ||= {}), A = (P.answers ||= {}), blank = !String(AL.search || "").trim();
+  if (blank) AL.search = "New York";
+  if (blank && !String(AL.matches || "").trim()) AL.matches = "New York City, New York, United States | New York, New York, United States | New York, NY, United States | New York, NY | New York City | New York, NY, USA | New York, USA";
+  if (!String(A.officeMetro || "").trim()) A.officeMetro = "New York City | NYC | New York, NY | New York, New York | Manhattan | Brooklyn | Queens | Bronx | Staten Island | Long Island | Jersey City | Hoboken | Newark | Westchester | Stamford"; }
+window.chrome = {
+  storage: {
+    local: {
+      get: async (keys) => {
+        const ks = typeof keys === "string" ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys || {});
+        const out = {};
+        for (const k of ks) if (STORE[k] !== undefined) out[k] = JSON.parse(JSON.stringify(STORE[k]));
+        return out;
+      },
+      set: async (o) => Object.assign(STORE, o),
+    },
+    onChanged: { addListener: () => {} },
+  },
+  runtime: { id: "test-extension",
+    onMessage: { addListener: (fn) => (onMsg = fn) },
+    sendMessage: async (msg) => {
+      if (msg.type === "ASK_AI") {
+        window.__aiPayload = msg.questions;
+        return { model: "stub-model", answers: msg.questions.map((q) => ({ id: q.id, answer: null, confidence: 0 })) };
+      }
+      return {};
+    },
+  },
+};
+window.__runFill = () => new Promise((res) => onMsg({ type: "FILL" }, {}, res));
+</script>
+</head>
+<body>
+<h1>Software Engineer Intern</h1>
+<div class="job__location">New York, NY</div>
+<form id="application-form" class="application--form">
+</form>
+<pre id="out"></pre>
+<script>
+// [label, options, description]
+// [label, options (null = a text box)]. The Steadfast wordings: a conditional question for minors, and restrictive
+// agreements to explain; each as a text box and as radios with an N/A option; plus the plain 18+ question.
+const Q = [
+  ["If you are under 18 years of age, can you furnish a work permit if required? If you are 18 years of age or older, please reply N/A.", null],
+  ["If you are under 18 years of age, can you furnish a work permit if required? If you are 18 years of age or older, please select N/A.", ["Yes", "No", "N/A"]],
+  ["If you are subject to a non-disclosure agreement, non-solicitation agreement, or non-compete agreement with a current or former employer, please explain. If not, please reply N/A.", null],
+  ["Are you subject to any non-disclosure or confidentiality agreement with a current or former employer? If not, select N/A.", ["Yes", "No", "N/A"]],
+  ["Are you bound by a non-compete agreement? If not, please enter None.", null],
+  ["Are you 18 years of age or older?", ["Yes", "No"]],
+];
+const form = document.getElementById("application-form");
+Q.forEach(([label, opts], i) => {
+  const fs = document.createElement("fieldset");
+  fs.className = "field-wrapper";
+  fs.innerHTML = `<legend>${label}</legend>` + (opts ? opts.map((o) => `<label><input type="radio" name="q${i}" value="${o}"> ${o}</label>`).join(" ") : `<input type="text" name="q${i}" aria-label="${label.replace(/"/g, "&quot;")}">`);
+  form.appendChild(fs);
+});
+</script>
+<!--SCRIPTS-->
+<script>
+setTimeout(async () => {
+  let stats;
+  try { stats = await window.__runFill(); } catch (e) { window.__errors.push("run: " + e.stack); }
+  const fields = [...document.querySelectorAll(".field-wrapper")].map((w) => {
+    const lab = w.querySelector("legend").textContent.trim();
+    const marked = w.closest("[data-wdaf]") || w.querySelector("[data-wdaf]");
+    const v = w.querySelector("input[type=text]") ? w.querySelector("input[type=text]").value : w.querySelector("input:checked")?.value || "";
+    return lab.slice(0, 60) + " = " + JSON.stringify(v) + " mark=" + ((marked && marked.dataset.wdaf) || "-");
+  });
+  document.getElementById("out").textContent = "@@BEGIN\n" + [
+    "STATS " + JSON.stringify(stats), "TOAST " + JSON.stringify((document.getElementById("aaf-done-toast")?.shadowRoot?.querySelector(".box")?.innerText || "").replace(/\n/g, " | ")),
+    "AI " + JSON.stringify((window.__aiPayload || []).map((q) => q.question)),
+    ...window.__errors.map((e) => "ERR " + e),
+    ...window.__logs.map((l) => "LOG " + l),
+    ...fields.map((f) => "FIELD " + f),
+  ].join("\n") + "\n@@END";
+}, 500);
+</script>
+</body>
+</html>

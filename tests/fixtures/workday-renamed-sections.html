@@ -1,0 +1,205 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Careers</title>
+<style>
+  body { font: 14px sans-serif; }
+  [role=listbox] { position: absolute; background: #fff; border: 1px solid #999; width: 320px; max-height: 200px; overflow: auto; z-index: 5; }
+  [role=option] { padding: 4px; min-height: 20px; }
+  .ff { margin: 10px 0; }
+  section { border: 1px solid #ccc; margin: 12px 0; padding: 8px; }
+  .panel { border-top: 1px dashed #ccc; margin-top: 6px; }
+</style>
+<script>
+window.__logs = [];
+window.__errors = [];
+const origLog = console.log;
+console.log = (...a) => {
+  if (a[0] === "[autofill]") window.__logs.push(a.slice(1).map((x) => (typeof x === "string" ? x : x && x.nodeType ? "<" + x.tagName + ">" : JSON.stringify(x))).join(" "));
+  origLog(...a);
+};
+window.addEventListener("error", (e) => window.__errors.push("error: " + e.message + " @ " + (e.filename || "").split("/").pop() + ":" + e.lineno));
+window.addEventListener("unhandledrejection", (e) => window.__errors.push("rejection: " + (e.reason && e.reason.stack || e.reason)));
+const STORE = {
+  profile: {
+    firstName: "Test", lastName: "Applicant",
+    linkedin: "https://www.linkedin.com/in/test/", github: "https://github.com/test",
+    skills: "Python, Nonexistent Skill",
+    experiences: [
+      { title: "AI Engineer Intern", company: "Examplecorp", location: "Riverton, NJ", current: false, startMonth: "6", startYear: "2026", endMonth: "8", endYear: "2026", description: "Built a data pipeline." },
+      { title: "Software Engineer Intern", company: "Examplecorp", location: "", current: false, startMonth: "6", startYear: "2024", endMonth: "10", endYear: "2024", description: "" },
+    ],
+    education: [{ school: "Lakeview University", schoolAliases: "LSU Lakeview University", degreeOptions: "Bachelor of Engineering | BEng\nBachelor's Degree", field: "", gpa: "" }],
+    languages: [{ name: "English", aliases: "English", fluent: true, overall: "Native or Bilingual | Native | Fluent" }],
+    answers: {}, eeo: {}, api: { key: "" },
+  },
+  settings: { useAI: true, learn: true, threshold: 0.75 },
+  learned: [],
+};
+let onMsg = null;
+// Location settings have no default in Options: the New York values these tests were written with (settings a fixture
+// sets itself are kept; a blank search took the old default search, and the default list when the list was blank too).
+{ const P = STORE.profile, AL = (P.applicationLocation ||= {}), A = (P.answers ||= {}), blank = !String(AL.search || "").trim();
+  if (blank) AL.search = "New York";
+  if (blank && !String(AL.matches || "").trim()) AL.matches = "New York City, New York, United States | New York, New York, United States | New York, NY, United States | New York, NY | New York City | New York, NY, USA | New York, USA";
+  if (!String(A.officeMetro || "").trim()) A.officeMetro = "New York City | NYC | New York, NY | New York, New York | Manhattan | Brooklyn | Queens | Bronx | Staten Island | Long Island | Jersey City | Hoboken | Newark | Westchester | Stamford"; }
+window.chrome = {
+  storage: {
+    local: {
+      get: async (keys) => {
+        const ks = typeof keys === "string" ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys || {});
+        const out = {};
+        for (const k of ks) if (STORE[k] !== undefined) out[k] = JSON.parse(JSON.stringify(STORE[k]));
+        return out;
+      },
+      set: async (o) => Object.assign(STORE, o),
+    },
+    onChanged: { addListener: () => {} },
+  },
+  runtime: { id: "test-extension", onMessage: { addListener: (fn) => (onMsg = fn) }, sendMessage: async () => ({ model: "stub", answers: [] }) },
+};
+window.__runFill = () => new Promise((res) => onMsg({ type: "FILL" }, {}, res));
+</script>
+</head>
+<body>
+<!-- DataPilot-like My Experience (fake data): every repeatable section is renamed, the experience
+     section has its first panel already rendered (empty), and there's a section nothing knows. -->
+<h2>My Experience</h2>
+<section id="sec-work"><h3>Professional Experience</h3><div class="panels"></div><button type="button" data-tpl="work">Add Another</button></section>
+<section id="sec-edu"><h3>Academic Background</h3><div class="panels"></div><button type="button" data-tpl="edu">Add Another</button></section>
+<section id="sec-cert"><h3>Licenses &amp; Certifications</h3><div class="panels"></div><button type="button" data-tpl="cert">Add</button></section>
+<section id="sec-vol"><h3>Volunteer Work</h3><div class="panels"></div><button type="button" data-tpl="vol">Add</button></section>
+<section id="sec-lang"><h3>Language Skills</h3><div class="panels"></div><button type="button" data-tpl="lang">Add</button></section>
+<div class="ff" data-automation-id="formField-skills"><label>Type to Add Skills</label>
+  <div data-automation-id="multiselectInputContainer"><input type="text" data-items="Python|Python Programming"></div></div>
+<section id="sec-web"><h3>Online Presence</h3><div class="panels"></div><button type="button" data-tpl="web">Add Another</button></section>
+<pre id="out"></pre>
+
+<template id="work"><div class="panel"><h4>Professional Experience <span class="n"></span></h4>
+  <div class="ff" data-automation-id="formField-jobTitle"><label>Job Title<abbr>*</abbr></label><input type="text"></div>
+  <div class="ff" data-automation-id="formField-companyName"><label>Company<abbr>*</abbr></label><input type="text"></div>
+  <div class="ff" data-automation-id="formField-location"><label>Location</label><input type="text"></div>
+  <div class="ff" data-automation-id="formField-currentlyWorkHere"><label>I currently work here</label><input type="checkbox"></div>
+  <div class="ff" data-automation-id="formField-startDate"><label>From<abbr>*</abbr></label><input data-automation-id="dateSectionMonth-input"> <input data-automation-id="dateSectionYear-input"></div>
+  <div class="ff" data-automation-id="formField-endDate"><label>To</label><input data-automation-id="dateSectionMonth-input"> <input data-automation-id="dateSectionYear-input"></div>
+  <div class="ff" data-automation-id="formField-roleDescription"><label>Role Description</label><textarea></textarea></div>
+</div></template>
+<template id="edu"><div class="panel"><h4>Academic Background <span class="n"></span></h4>
+  <div class="ff" data-automation-id="formField-school"><label>School or University<abbr>*</abbr></label>
+    <div data-automation-id="multiselectInputContainer"><input type="text" data-items="LSU Lakeview University|Boston University"></div></div>
+  <div class="ff" data-automation-id="formField-degree"><label>Degree<abbr>*</abbr></label>
+    <button aria-haspopup="listbox" aria-expanded="false" data-opts="Select One|Bachelor of Science|Bachelor of Engineering">Select One</button></div>
+</div></template>
+<template id="cert"><div class="panel"><h4>Certification <span class="n"></span></h4>
+  <div class="ff" data-automation-id="formField-certification"><label>Certification</label><input type="text"></div>
+  <div class="ff" data-automation-id="formField-issuedDate"><label>Issued Date</label><input data-automation-id="dateSectionMonth-input"> <input data-automation-id="dateSectionYear-input"></div>
+</div></template>
+<template id="vol"><div class="panel"><h4>Volunteer Work <span class="n"></span></h4>
+  <div class="ff" data-automation-id="formField-organization"><label>Organization</label><input type="text"></div>
+  <div class="ff" data-automation-id="formField-volunteerRole"><label>Role</label><input type="text"></div>
+</div></template>
+<template id="lang"><div class="panel"><h4>Language <span class="n"></span></h4>
+  <div class="ff" data-automation-id="formField-language"><label>Language<abbr>*</abbr></label>
+    <button aria-haspopup="listbox" aria-expanded="false" data-opts="Select One|English|Spanish">Select One</button></div>
+  <div class="ff" data-automation-id="formField-fluent"><label for="">I am fluent in this language</label><input type="checkbox"></div>
+  <div class="ff" data-automation-id="formField-overall"><label>Overall</label>
+    <button aria-haspopup="listbox" aria-expanded="false" data-opts="Select One|Basic|Fluent|Native">Select One</button></div>
+</div></template>
+<template id="web"><div class="panel"><h4>Website <span class="n"></span></h4>
+  <div class="ff" data-automation-id="formField-url"><label>URL<abbr>*</abbr></label><input type="text"></div>
+</div></template>
+
+<script>
+// ---- Workday-like widgets (test only), as in workday-resume.html
+let n = 0;
+function wireDropdowns(root) {
+  for (const btn of root.querySelectorAll("button[aria-haspopup=listbox]")) {
+    if (btn.dataset.wired) continue;
+    btn.dataset.wired = "1";
+    const id = "lb" + n++;
+    btn.setAttribute("aria-controls", id);
+    btn.addEventListener("click", () => {
+      let lb = document.getElementById(id);
+      if (btn.getAttribute("aria-expanded") === "true") { lb && lb.remove(); btn.setAttribute("aria-expanded", "false"); return; }
+      lb = document.createElement("div");
+      lb.id = id; lb.setAttribute("role", "listbox");
+      for (const t of btn.dataset.opts.split("|")) {
+        const o = document.createElement("div"); o.setAttribute("role", "option"); o.textContent = t;
+        o.addEventListener("click", () => { btn.textContent = t; lb.remove(); btn.setAttribute("aria-expanded", "false"); });
+        lb.appendChild(o);
+      }
+      btn.after(lb);
+      btn.setAttribute("aria-expanded", "true");
+    });
+  }
+}
+function wireSearch(root) {
+  for (const inp of root.querySelectorAll("[data-automation-id=multiselectInputContainer] input")) {
+    if (inp.dataset.wired) continue;
+    inp.dataset.wired = "1";
+    const field = inp.closest("[data-automation-id^=formField]");
+    inp.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") { document.querySelectorAll("[data-automation-id=activeListContainer]").forEach((x) => x.remove()); return; }
+      if (e.key !== "Enter") return;
+      document.querySelectorAll("[data-automation-id=activeListContainer]").forEach((x) => x.remove());
+      const q = inp.value.toLowerCase();
+      const items = inp.dataset.items.split("|").filter((t) => q && t.toLowerCase().includes(q.split(" ")[0]));
+      const lb = document.createElement("div");
+      lb.setAttribute("data-automation-id", "activeListContainer"); lb.setAttribute("role", "listbox");
+      for (const t of items.length ? items : ["No Items."]) {
+        const row = document.createElement("div"); row.setAttribute("role", "option"); row.setAttribute("data-automation-id", "menuItem");
+        const leaf = document.createElement("div"); leaf.setAttribute("data-automation-id", "promptLeafNode");
+        const po = document.createElement("div"); po.setAttribute("data-automation-id", "promptOption"); po.textContent = t;
+        if (items.length) po.addEventListener("click", () => { const chip = document.createElement("div"); chip.setAttribute("data-automation-id", "selectedItem"); chip.textContent = t; field.appendChild(chip); });
+        leaf.appendChild(po); row.appendChild(leaf); lb.appendChild(row);
+      }
+      field.appendChild(lb);
+    });
+  }
+}
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  for (const b of document.querySelectorAll("button[aria-expanded=true]")) { document.getElementById(b.getAttribute("aria-controls"))?.remove(); b.setAttribute("aria-expanded", "false"); }
+});
+const addPanel = (tpl) => {
+  const sec = document.querySelector(`[data-tpl=${tpl}]`).closest("section");
+  const panel = document.getElementById(tpl).content.firstElementChild.cloneNode(true);
+  panel.querySelector(".n").textContent = sec.querySelectorAll(".panel").length + 1;
+  sec.querySelector(".panels").appendChild(panel);
+  wireDropdowns(panel); wireSearch(panel);
+  return panel;
+};
+for (const btn of document.querySelectorAll("button[data-tpl]")) btn.addEventListener("click", () => addPanel(btn.dataset.tpl));
+wireSearch(document);
+// Like DataPilot: the first Professional Experience panel and the first Online Presence panel are
+// already rendered (empty).
+addPanel("work");
+addPanel("web");
+</script>
+<!--SCRIPTS-->
+<script>
+setTimeout(async () => {
+  let stats;
+  try { stats = await window.__runFill(); } catch (e) { window.__errors.push("run: " + e.stack); }
+  const panels = [...document.querySelectorAll(".panel")].map((p) => `PANEL ${p.closest("section").id} ${p.querySelector("h4").textContent.trim()}: ` +
+    [...p.querySelectorAll(".ff")].map((ff) => {
+      const d = [...ff.querySelectorAll("[data-automation-id^=dateSection]")].map((i) => i.value);
+      if (d.length) return d.join("/");
+      const chips = [...ff.querySelectorAll("[data-automation-id=selectedItem]")].map((x) => x.textContent);
+      if (chips.length) return chips.join(",");
+      const c = ff.querySelector("input[type=text], textarea, button[aria-haspopup], input[type=checkbox]");
+      return !c ? "" : c.tagName === "BUTTON" ? c.textContent : c.type === "checkbox" ? (c.checked ? "[x]" : "[ ]") : c.value;
+    }).join(" | ") + " mark=" + (p.dataset.wdaf || "-"));
+  const skills = [...document.querySelectorAll("[data-automation-id=formField-skills] [data-automation-id=selectedItem]")].map((x) => x.textContent);
+  document.getElementById("out").textContent = "@@BEGIN\n" + [
+    "STATS " + JSON.stringify(stats), "TOAST " + JSON.stringify((document.getElementById("aaf-done-toast")?.shadowRoot?.querySelector(".box")?.innerText || "").replace(/\n/g, " | ")),
+    "SKILLS " + JSON.stringify(skills),
+    ...window.__errors.map((e) => "ERR " + e),
+    ...window.__logs.map((l) => "LOG " + l),
+    ...panels,
+  ].join("\n") + "\n@@END";
+}, 500);
+</script>
+</body>
+</html>

@@ -1,0 +1,153 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Software Engineer @ Lunex</title>
+<style>
+  body { font: 14px sans-serif; }
+  .ashby-application-form-field-entry { margin: 10px 0; position: relative; }
+  .ashby-application-form-input-yesno { display: flex; gap: 4px; position: relative; }
+  .ashby-application-form-input-yesno-option[aria-pressed="true"] { background: #333; color: #fff; }
+  ._input_1svni_78 { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  textarea { width: 400px; height: 60px; }
+</style>
+<script>
+// ---- stub chrome API (test only)
+window.__logs = [];
+window.__errors = [];
+const origLog = console.log;
+console.log = (...a) => {
+  if (a[0] === "[autofill]") window.__logs.push(a.slice(1).map((x) => (typeof x === "string" ? x : x && x.nodeType ? "<" + x.tagName + ">" : JSON.stringify(x))).join(" "));
+  origLog(...a);
+};
+window.addEventListener("error", (e) => window.__errors.push("error: " + e.message + " @ " + (e.filename || "").split("/").pop() + ":" + e.lineno));
+window.addEventListener("unhandledrejection", (e) => window.__errors.push("rejection: " + (e.reason && e.reason.stack || e.reason)));
+const STORE = {
+  profile: {
+    firstName: "Test", lastName: "Applicant", preferredName: "Tess", email: "test@example.com", phone: "6465550100",
+    phoneCountry: "United States of America", country: "United States of America", city: "Springfield", state: "New York",
+    address1: "1 Test Street", zip: "10001",
+    linkedin: "https://www.linkedin.com/in/test/", github: "https://github.com/test", website: "https://test.dev",
+    source: "LinkedIn", expectedGraduation: "05/2027",
+    experiences: [{ company: "Examplecorp", title: "Engineering Intern" }],
+    education: [{ school: "Lakeview University", field: "Computer Engineering", startYear: "2023", endYear: "2027" }],
+    answers: { workAuth: "Yes", sponsorship: "No", over18: "Yes", previousEmployers: "Examplecorp", travel: "Maximum", restrictions: "None" },
+    eeo: { gender: "Male", hispanic: "No", race: "Asian", veteran: "Decline", disability: "Decline" },
+    api: { key: "test-key", model: "stub" },
+  },
+  settings: { useAI: true, learn: true, threshold: 0.75 },
+  learned: [],
+};
+// Draft replies longer than the stated limits, so the trimming shows.
+const LONG = Array.from({ length: 30 }, (_, i) => `I use Claude and Cursor every day for task ${i + 1}.`).join(" ");
+const SENTENCES = "I built a form autofill extension. It reads a saved profile. It handles seven portals.";
+let onMsg = null;
+// Location settings have no default in Options: the New York values these tests were written with (settings a fixture
+// sets itself are kept; a blank search took the old default search, and the default list when the list was blank too).
+{ const P = STORE.profile, AL = (P.applicationLocation ||= {}), A = (P.answers ||= {}), blank = !String(AL.search || "").trim();
+  if (blank) AL.search = "New York";
+  if (blank && !String(AL.matches || "").trim()) AL.matches = "New York City, New York, United States | New York, New York, United States | New York, NY, United States | New York, NY | New York City | New York, NY, USA | New York, USA";
+  if (!String(A.officeMetro || "").trim()) A.officeMetro = "New York City | NYC | New York, NY | New York, New York | Manhattan | Brooklyn | Queens | Bronx | Staten Island | Long Island | Jersey City | Hoboken | Newark | Westchester | Stamford"; }
+window.chrome = {
+  storage: {
+    local: {
+      get: async (keys) => {
+        const ks = typeof keys === "string" ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys || {});
+        const out = {};
+        for (const k of ks) if (STORE[k] !== undefined) out[k] = JSON.parse(JSON.stringify(STORE[k]));
+        return out;
+      },
+      set: async (o) => Object.assign(STORE, o),
+    },
+    onChanged: { addListener: () => {} },
+  },
+  runtime: { id: "test-extension",
+    onMessage: { addListener: (fn) => (onMsg = fn) },
+    sendMessage: async (msg) => {
+      if (msg.type === "DRAFT" && msg.questions.some((q) => q.rewrite)) {
+        // The rewrite round: the one-sentence and 2-4 sentence answers fit now; the 250-word one is still 260 words
+        // (trimmed at a sentence boundary); the 50-character one is still one long sentence (left as is, yellow).
+        window.__rewrites = msg.questions.map((q) => q.rewrite);
+        return { model: "stub-draft-model", answers: msg.questions.map((q) => ({ id: q.id, project: "Form tool",
+          answer: /words/.test(q.lengthLimit) ? Array.from({ length: 26 }, (_, i) => `Each day I use Claude for code review, number ${i + 1}.`).join(" ")
+            : /one sentence/.test(q.lengthLimit) ? "I built a browser extension that fills job applications on seven portals from one saved profile."
+            : /sentences/.test(q.lengthLimit) ? SENTENCES
+            : "Python, because I have used it for every project I have built so far." })) };
+      }
+      if (msg.type === "DRAFT") {
+        window.__draft = msg;
+        return { model: "stub-draft-model", included: { linkedinChars: 0, resumeChars: 0, notesChars: 0, descriptionChars: (msg.job.description || "").length },
+          answers: msg.questions.map((q) => ({ id: q.id, answer: /words/.test(q.lengthLimit || "") ? LONG : /char/.test(q.lengthLimit || "") ? "Python, because I have used it in nearly every project I have built, from the gym tracker to this tool." : q.lengthLimit ? SENTENCES + " " + SENTENCES : SENTENCES, project: "Form tool" })) };
+      }
+      if (msg.type === "ASK_AI") {
+        window.__aiPayload = msg.questions;
+        return { model: "stub-model", answers: msg.questions.map((q) => ({ id: q.id, answer: null, confidence: 0 })) };
+      }
+      return {};
+    },
+  },
+};
+window.__runFill = () => new Promise((res) => onMsg({ type: "FILL" }, {}, res));
+</script>
+</head>
+<body>
+<h1>Software Engineer</h1>
+<!-- Lunex-like Ashby page (fake data; the real markup wasn't pasted). q1 is the real question: "relative to others" was
+     taken for a relatives question ("relationships: left for you"); it is a draft, trimmed to 250 words. q2 states its
+     limit only in the description ("In one sentence."). q3-q9 are essay prompts holding a word another rule triggers on
+     (race, password, addressed, disabilities, related to, close relationships, pay); all are drafted. q10 states a
+     sentence range. q11 is a real relatives question: still yellow, never Claude. -->
+<div class="ashby-application-form-container">
+<div class="ashby-application-form-section-container" id="sec">
+  <div class="ashby-application-form-field-entry" data-field-path="_systemfield_name"><label class="ashby-application-form-question-title _required_x" for="_systemfield_name">Name</label><input class="ashby-application-form-input-text" id="_systemfield_name" name="_systemfield_name" type="text" required></div>
+  <div class="ashby-application-form-field-entry" data-field-path="q1"><label class="ashby-application-form-question-title _required_x" for="q1">Describe your AI stack and how you use it day-to-day. What is your edge with AI relative to others in your field? (250 words max)</label><textarea class="ashby-application-form-input-text" id="q1" name="q1" required></textarea></div>
+  <div class="ashby-application-form-field-entry" data-field-path="q2"><label class="ashby-application-form-question-title _required_x" for="q2">What's the hardest thing you've built?</label><p class="ashby-application-form-question-description">In one sentence.</p><textarea class="ashby-application-form-input-text" id="q2" name="q2" required></textarea></div>
+  <div class="ashby-application-form-field-entry" data-field-path="q3"><label class="ashby-application-form-question-title" for="q3">Tell us about a race condition you debugged.</label><textarea class="ashby-application-form-input-text" id="q3" name="q3"></textarea></div>
+  <div class="ashby-application-form-field-entry" data-field-path="q4"><label class="ashby-application-form-question-title" for="q4">Explain how you would design a password manager for a small team.</label><textarea class="ashby-application-form-input-text" id="q4" name="q4"></textarea></div>
+  <div class="ashby-application-form-field-entry" data-field-path="q5"><label class="ashby-application-form-question-title" for="q5">Describe how you addressed a disagreement with a teammate.</label><textarea class="ashby-application-form-input-text" id="q5" name="q5"></textarea></div>
+  <div class="ashby-application-form-field-entry" data-field-path="q6"><label class="ashby-application-form-question-title" for="q6">Tell us about a project where accessibility for people with disabilities mattered.</label><textarea class="ashby-application-form-input-text" id="q6" name="q6"></textarea></div>
+  <div class="ashby-application-form-field-entry" data-field-path="q7"><label class="ashby-application-form-question-title" for="q7">Describe your experience related to distributed systems.</label><textarea class="ashby-application-form-input-text" id="q7" name="q7"></textarea></div>
+  <div class="ashby-application-form-field-entry" data-field-path="q8"><label class="ashby-application-form-question-title" for="q8">How do you build close relationships with stakeholders?</label><textarea class="ashby-application-form-input-text" id="q8" name="q8"></textarea></div>
+  <div class="ashby-application-form-field-entry" data-field-path="q9"><label class="ashby-application-form-question-title" for="q9">How would you design a pay per use billing API?</label><textarea class="ashby-application-form-input-text" id="q9" name="q9"></textarea></div>
+  <div class="ashby-application-form-field-entry" data-field-path="q10"><label class="ashby-application-form-question-title" for="q10">Why are you interested in Lunex?</label><p class="ashby-application-form-question-description">Please answer in 2-4 sentences.</p><textarea class="ashby-application-form-input-text" id="q10" name="q10"></textarea></div>
+  <div class="ashby-application-form-field-entry" data-field-path="q12"><label class="ashby-application-form-question-title" for="q12">In under 50 characters, what's your favorite programming language?</label><textarea class="ashby-application-form-input-text" id="q12" name="q12"></textarea></div>
+  <div class="ashby-application-form-field-entry" data-field-path="q11"><label class="ashby-application-form-question-title _required_x" for="q11">Do you have relatives employed by Lunex?</label><div class="ashby-application-form-input-yesno"><button class="ashby-application-form-input-yesno-option" aria-pressed="false" data-option="yes">Yes</button><button class="ashby-application-form-input-yesno-option" aria-pressed="false" data-option="no">No</button><input type="checkbox" class="_input_1svni_78" tabindex="-1" name="q11"></div></div>
+</div>
+</div>
+<button id="submit" type="submit">Submit Application</button>
+<pre id="out"></pre>
+<script>
+document.querySelectorAll(".ashby-application-form-input-yesno").forEach((g) =>
+  g.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
+    g.querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+    g.querySelector("input[type=checkbox]").checked = b.dataset.option === "yes";
+  })));
+</script>
+<!--SCRIPTS-->
+<script>
+setTimeout(async () => {
+  let stats;
+  try { stats = await window.__runFill(); } catch (e) { window.__errors.push("run: " + e.stack); }
+  const words = (t) => t.split(/\s+/).filter(Boolean).length;
+  const sentences = (t) => (t.match(/[^.!?]+[.!?]+/g) || []).length;
+  const fields = [...document.querySelectorAll("[data-field-path]")].map((e) => {
+    const lab = e.querySelector("label").textContent.trim();
+    const g = e.querySelector(".ashby-application-form-input-yesno");
+    const c = e.querySelector("input, textarea");
+    const v = g ? ([...g.querySelectorAll("button[aria-pressed=true]")].map((b) => b.textContent).join(",") || "-") : c.tagName === "TEXTAREA" ? (c.value ? `${words(c.value)} words, ${sentences(c.value)} sentences` : '""') : JSON.stringify(c.value);
+    return lab.slice(0, 60) + " = " + v + " mark=" + (e.closest("[data-wdaf]")?.dataset.wdaf || e.querySelector("[data-wdaf]")?.dataset.wdaf || "-");
+  });
+  document.getElementById("out").textContent = "@@BEGIN\n" + [
+    "STATS " + JSON.stringify(stats), "TOAST " + JSON.stringify((document.getElementById("aaf-done-toast")?.shadowRoot?.querySelector(".box")?.innerText || "").replace(/\n/g, " | ")),
+    "AI " + JSON.stringify((window.__aiPayload || []).map((q) => q.question)),
+    "DRAFT " + JSON.stringify((window.__draft?.questions || []).map((q) => [q.question.slice(0, 40), q.lengthLimit || null, q.description || null])),
+    "REWRITE " + JSON.stringify(window.__rewrites || []),
+    ...[...document.querySelectorAll("textarea")].filter((t) => /^q(1|2|10|12)$/.test(t.id)).map((t) => `TEXT ${t.id} ${JSON.stringify(t.value.slice(0, 160))}${t.value.length > 160 ? "..." : ""}`),
+    ...window.__errors.map((e) => "ERR " + e),
+    ...window.__logs.map((l) => "LOG " + l),
+    ...fields.map((f) => "FIELD " + f),
+  ].join("\n") + "\n@@END";
+}, 500);
+</script>
+</body>
+</html>

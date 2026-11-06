@@ -1,0 +1,218 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Job Application for Software Engineer Intern at Acme</title>
+<style>
+  body { font: 14px sans-serif; }
+  .field-wrapper { margin: 10px 0; }
+  .select__control { border: 1px solid #999; min-height: 30px; width: 320px; position: relative; display: flex; flex-wrap: wrap; }
+  .select__menu { position: absolute; background: #fff; border: 1px solid #999; width: 320px; z-index: 5; }
+  .select__option { padding: 4px; }
+  .select__multi-value { display: inline-block; background: #eee; margin: 2px; padding: 0 4px; }
+</style>
+<script>
+// ---- stub chrome API (test only)
+window.__logs = [];
+window.__errors = [];
+const origLog = console.log;
+console.log = (...a) => {
+  if (a[0] === "[autofill]") window.__logs.push(a.slice(1).map((x) => (typeof x === "string" ? x : x && x.nodeType ? "<" + x.tagName + ">" : JSON.stringify(x))).join(" "));
+  origLog(...a);
+};
+window.addEventListener("error", (e) => window.__errors.push("error: " + e.message + " @ " + (e.filename || "").split("/").pop() + ":" + e.lineno));
+window.addEventListener("unhandledrejection", (e) => window.__errors.push("rejection: " + (e.reason && e.reason.stack || e.reason)));
+const STORE = {
+  profile: {
+    firstName: "Test", lastName: "Applicant", email: "test@example.com", phone: "6465550100",
+    expectedGraduation: "05/2027", experiences: [], education: [],
+    answers: { workAuth: "Yes", sponsorship: "No", noticePeriod: "2 weeks" },
+    eeo: {}, api: { key: "test-key", model: "stub" },
+  },
+  settings: { useAI: true, learn: true, threshold: 0.75 },
+  // Learned answers: blocked ones (never reused), an approved general one, company-specific ones (Acme is
+  // this page's company), one pending review, and one a rule now covers.
+  learned: [
+    { q: "What are your salary expectations?", a: "$95,000", type: "text" },
+    { q: "Are you open to relocating for this role?", a: "Yes", type: "text" },
+    { q: "Please upload your transcript", a: "C:\\fakepath\\transcript.pdf", type: "text" },
+    { q: "How many years of experience do you have with Python?", a: "3", type: "text" },
+    { q: "Do you have experience with Kubernetes?", a: "Yes", type: "text" },
+    { q: "Why do you want to work at Acme?", a: "Acme answer", type: "text", company: "acme" },
+    { q: "Why do you want to work at Globex?", a: "Globex answer", type: "text", company: "globex" },
+    { q: "What is your favorite programming language?", a: "Rust", type: "text", pending: true },
+    { q: "Are you legally authorized to work in the United States?", a: "No", type: "radio" },
+    { q: "How did you hear about us?", a: "Indeed", type: "dropdown" },
+    { q: "Where did you hear about this role?", a: "A friend", type: "text", pending: true },
+  ],
+};
+let onMsg = null;
+// Location settings have no default in Options: the New York values these tests were written with (settings a fixture
+// sets itself are kept; a blank search took the old default search, and the default list when the list was blank too).
+{ const P = STORE.profile, AL = (P.applicationLocation ||= {}), A = (P.answers ||= {}), blank = !String(AL.search || "").trim();
+  if (blank) AL.search = "New York";
+  if (blank && !String(AL.matches || "").trim()) AL.matches = "New York City, New York, United States | New York, New York, United States | New York, NY, United States | New York, NY | New York City | New York, NY, USA | New York, USA";
+  if (!String(A.officeMetro || "").trim()) A.officeMetro = "New York City | NYC | New York, NY | New York, New York | Manhattan | Brooklyn | Queens | Bronx | Staten Island | Long Island | Jersey City | Hoboken | Newark | Westchester | Stamford"; }
+window.chrome = {
+  storage: {
+    local: {
+      get: async (keys) => {
+        const ks = typeof keys === "string" ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys || {});
+        const out = {};
+        for (const k of ks) if (STORE[k] !== undefined) out[k] = JSON.parse(JSON.stringify(STORE[k]));
+        return out;
+      },
+      set: async (o) => Object.assign(STORE, o),
+    },
+    onChanged: { addListener: () => {} },
+  },
+  runtime: { id: "test-extension",
+    onMessage: { addListener: (fn) => (onMsg = fn) },
+    sendMessage: async (msg) => {
+      if (msg.type === "ASK_AI") {
+        window.__aiPayload = msg.questions;
+        return { model: "stub-model", answers: msg.questions.map((q) => ({ id: q.id, answer: null, confidence: 0.9 })) };
+      }
+      return {};
+    },
+  },
+};
+window.__runFill = () => new Promise((res) => onMsg({ type: "FILL" }, {}, res));
+</script>
+</head>
+<body>
+<h1>Software Engineer Intern</h1>
+<div class="job__location">New York, NY</div>
+<!-- Learning rules: blocked categories, pending review, company-specific entries, rules over learned answers;
+     notice period, office attendance, notice acknowledgments, an SMS opt-in, highest education. -->
+<form id="application-form" class="application--form">
+  <div class="field-wrapper"><label for="q1">What are your salary expectations?</label><input id="q1" type="text"></div>
+  <div class="field-wrapper"><label for="q2">How many years of experience do you have with Python?</label><input id="q2" type="text"></div>
+  <div class="field-wrapper"><label for="q2b">Do you have experience with Kubernetes?</label><input id="q2b" type="text"></div>
+  <div class="field-wrapper"><label for="q2c">Why do you want to work at Acme?</label><input id="q2c" type="text"></div>
+  <div class="field-wrapper"><label for="q2d">What is your favorite programming language?</label><input id="q2d" type="text"></div>
+  <fieldset class="field-wrapper"><legend>Are you legally authorized to work in the United States?</legend>
+    <label><input type="radio" name="q2e" value="Yes"> Yes</label> <label><input type="radio" name="q2e" value="No"> No</label></fieldset>
+  <fieldset class="field-wrapper"><legend>Do you verify that your responses are true and complete?</legend>
+    <label><input type="radio" name="q2f" value="Yes"> Yes</label> <label><input type="radio" name="q2f" value="No"> No</label></fieldset>
+  <div class="field-wrapper"><label for="q3">What is your notice period?</label><input id="q3" type="text"></div>
+  <div class="field-wrapper"><div class="react-select" data-opts="Immediately|1 week|2 weeks|1 month"><label id="q4-label" for="q4">How much notice do you need to give your current employer?</label></div></div>
+  <fieldset class="field-wrapper"><legend>Are you able to work onsite in our New York office 3 days a week?</legend>
+    <label><input type="radio" name="q5" value="Yes"> Yes</label> <label><input type="radio" name="q5" value="No"> No</label></fieldset>
+  <fieldset class="field-wrapper"><legend>Are you open to hybrid or remote work?</legend>
+    <label><input type="radio" name="q6" value="Yes"> Yes</label> <label><input type="radio" name="q6" value="No"> No</label></fieldset>
+  <div class="field-wrapper"><div class="react-select" data-opts="I do not acknowledge|I acknowledge"><label id="q7-label" for="q7">Candidate Privacy Notice</label></div></div>
+  <div class="field-wrapper"><label><input type="checkbox" id="q8"> I have reviewed the CCPA notice for California applicants</label></div>
+  <div class="field-wrapper"><label><input type="checkbox" id="q9"> Send me SMS job alerts and newsletters</label></div>
+  <div class="field-wrapper"><label for="q13">Where did you hear about this role?</label><input id="q13" type="text"></div>
+  <div class="field-wrapper"><label for="q10">Please upload your transcript</label><input id="q10" type="file"></div>
+  <div class="field-wrapper"><div class="react-select" data-opts="Less Than High School|High School Diploma|Some College|Bachelor's Degree"><label id="q11-label" for="q11">Highest degree or diploma received</label></div></div>
+  <div class="field-wrapper"><div class="react-select" data-opts="High School Diploma|Some College|Bachelor's Degree"><label id="q12-label" for="q12">Highest education level</label></div></div>
+  <button type="submit" id="submit" onclick="event.preventDefault()">Submit Application</button>
+</form>
+<pre id="out"></pre>
+<script>
+// ---- react-select look-alike (test only), single or multi (data-multi): a control mousedown opens
+// the menu once the input has seen focus events; typing filters it (static lists); clicking an
+// option sets the single value or adds a chip (and leaves the menu's list without it); Escape closes.
+let rs = 0;
+function makeSelect(wrap) {
+  const label = wrap.querySelector("label");
+  const id = label.getAttribute("for");
+  const all = wrap.dataset.opts.split("|");
+  const multi = !!wrap.dataset.multi;
+  const chosen = [];
+  const lbId = "react-select-" + ++rs + "-listbox";
+  wrap.insertAdjacentHTML("beforeend",
+    `<div class="select-shell"><div class="select__control"><div class="select__value-container${multi ? " select__value-container--is-multi" : ""}"><div class="select__placeholder">Select...</div>` +
+    `<div class="select__input-container"><input class="select__input" role="combobox" aria-expanded="false" aria-haspopup="true" aria-autocomplete="list" id="${id}" aria-labelledby="${id}-label" type="text"></div></div></div></div>`);
+  const control = wrap.querySelector(".select__control");
+  const vc = wrap.querySelector(".select__value-container");
+  const input = wrap.querySelector("input");
+  let menu = null;
+  const close = () => { menu?.remove(); menu = null; input.setAttribute("aria-expanded", "false"); input.removeAttribute("aria-controls"); };
+  const render = (list) => {
+    if (!menu) {
+      menu = document.createElement("div"); menu.className = "select__menu";
+      control.after(menu);
+      input.setAttribute("aria-expanded", "true"); input.setAttribute("aria-controls", lbId);
+    }
+    menu.innerHTML = `<div class="select__menu-list" role="listbox" id="${lbId}"></div>`;
+    const lb = menu.firstChild;
+    if (!list.length) lb.innerHTML = `<div class="select__menu-notice">No options</div>`;
+    for (const t of list) {
+      const o = document.createElement("div"); o.className = "select__option"; o.setAttribute("role", "option"); o.textContent = t;
+      o.addEventListener("click", () => {
+        vc.querySelector(".select__placeholder")?.remove();
+        if (multi) {
+          chosen.push(t);
+          vc.insertAdjacentHTML("afterbegin", `<div class="select__multi-value"><div class="select__multi-value__label">${t}</div></div>`);
+        } else {
+          vc.querySelector(".select__single-value")?.remove();
+          vc.insertAdjacentHTML("afterbegin", `<div class="select__single-value">${t}</div>`);
+        }
+        input.value = ""; close();
+      });
+      lb.appendChild(o);
+    }
+  };
+  const filtered = () => all.filter((t) => !chosen.includes(t) && (!input.value || t.toLowerCase().includes(input.value.toLowerCase())));
+  let focused = false;
+  input.addEventListener("focusin", () => (focused = true));
+  input.addEventListener("focusout", () => { focused = false; close(); });
+  control.addEventListener("mousedown", () => { if (!focused) return; menu ? close() : render(filtered()); });
+  input.addEventListener("input", () => render(filtered()));
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") close();
+    if (e.key === "ArrowDown" && !menu) render(filtered());
+  });
+}
+document.querySelectorAll(".react-select").forEach(makeSelect);
+// Prefilled react-selects show their value like a pick would.
+document.querySelectorAll(".react-select[data-value]").forEach((w) => {
+  const vc = w.querySelector(".select__value-container");
+  vc.querySelector(".select__placeholder")?.remove();
+  vc.insertAdjacentHTML("afterbegin", `<div class="select__single-value">${w.dataset.value}</div>`);
+});
+</script>
+<!--SCRIPTS-->
+<script>
+setTimeout(async () => {
+  let stats;
+  try { stats = await window.__runFill(); } catch (e) { window.__errors.push("run: " + e.stack); }
+  // Learning: what happens when the user answers these by hand (learn() is called directly; headless
+  // can't make trusted events). The page counts as an application page.
+  const byLabel = (rx) => AAF.adapter.discoverFields().find((f) => rx.test(f.label));
+  for (const [rx, v] of [[/salary/, "$100,000"], [/notice period/, "3 weeks"], [/hybrid or remote/, "Yes"], [/transcript/, "C:\\fakepath\\t.pdf"], [/years of experience/, "4"], [/favorite programming/, "Go"], [/work at Acme/, "Because Acme"], [/hear about this role/, "Reddit"]]) {
+    const f = byLabel(rx);
+    if (f) await AAF.learn(f, v); else window.__errors.push("no field " + rx);
+  }
+  const val = (w) => {
+    const sv = w.querySelector(".select__single-value"); if (sv) return sv.textContent;
+    if (w.querySelector("input[type=radio]")) return w.querySelector("input[type=radio]:checked")?.value || "";
+    const cb = w.querySelector("input[type=checkbox]"); if (cb) return cb.checked ? "checked" : "unchecked";
+    const c = w.querySelector("input:not([role=combobox]):not([type=file])"); return c ? c.value : "";
+  };
+  const fields = [...document.querySelectorAll(".field-wrapper")].map((w) => {
+    const lab = (w.querySelector("legend, label")?.textContent || "").replace(/\*/g, "").trim();
+    const marked = w.closest("[data-wdaf]") || w.querySelector("[data-wdaf]");
+    return lab.slice(0, 50) + " = " + JSON.stringify(val(w)) + " mark=" + ((marked && marked.dataset.wdaf) || "-");
+  });
+  const R = globalThis.AAF_LEARN_RULES;
+  const cats = ["Expected hourly rate", "What is your desired pay range?", "Weeks of notice required by your current employer", "Upload a cover letter", "Are you willing to commute to Jersey City?", "How many days per week can you be in office?", "Are you comfortable with a hybrid schedule?", "Rate your proficiency in Java", "Do you have a valid passport?",
+    "Do you verify that your responses are true and complete?", "Do you have a close relationship with individuals responsible for hiring for this role? I agree to disclose it.", "What is your offer deadline?", "Are you interviewing with other companies?", "Were you referred by a current employee?", "Do you meet the requirements in the job description?", "Do you have 2+ years of experience with Rust?", "Are you currently working towards a degree?", "Highest education received", "Which office is closest to your residence?", "Would you prefer the second cohort or the first cohort option?", "How did you find us?", "Referral source", "Where did you first learn about this opportunity?", "Do you have open source contributions?"]
+    .map((q) => q + " -> " + JSON.stringify(R.categoryOf(q)));
+  document.getElementById("out").textContent = "@@BEGIN\n" + [
+    "STATS " + JSON.stringify(stats), "TOAST " + JSON.stringify((document.getElementById("aaf-done-toast")?.shadowRoot?.querySelector(".box")?.innerText || "").replace(/\n/g, " | ")),
+    "AI " + JSON.stringify((window.__aiPayload || []).map((q) => q.question)),
+    "PAGE COMPANIES " + JSON.stringify(AAF.pageCompanies()),
+    "LEARNED " + JSON.stringify(STORE.learned.map((x) => x.q + " = " + x.a + (x.pending ? " [pending]" : "") + (x.company ? " [" + x.company + "]" : "") + (x.coveredByRule ? " [covered by rule]" : ""))),
+    ...cats.map((c) => "CATEGORY " + c),
+    ...window.__errors.map((e) => "ERR " + e),
+    ...window.__logs.map((l) => "LOG " + l),
+    ...fields.map((f) => "FIELD " + f),
+  ].join("\n") + "\n@@END";
+}, 500);
+</script>
+</body>
+</html>

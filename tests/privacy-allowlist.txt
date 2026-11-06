@@ -1,0 +1,11 @@
+# Lines the privacy check (tests/privacy-check.js) allows although they match tests/private-patterns.txt.
+# One per line: <file> :: <text the allowed line contains>. Keep it to functional code and the license.
+# The company-alias table (shared/profile.js): well-known firms' short names, used to compare company names.
+shared/profile.js :: ["pwc", "pricewaterhousecoopers"
+shared/profile.js :: ["bofa", "boa", "bank of america"]
+shared/profile.js :: A company's known aliases (PwC, EY, BofA, ...)
+CLAUDE.md :: a small alias table (PwC, EY, BofA, ...)
+CLAUDE.md :: `companyAliases`: PwC, EY, BofA, ...
+tests/fixtures/greenhouse-learnfix.html :: AAF.companyAliases("pwc")
+# The license names its author.
+LICENSE :: Copyright (c) 2026 Nusaybah Islam

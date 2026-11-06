@@ -1,0 +1,146 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Careers</title>
+<style>
+  body { font: 14px sans-serif; }
+  [role=listbox] { position: absolute; background: #fff; border: 1px solid #999; width: 320px; max-height: 200px; overflow: auto; z-index: 5; }
+  [role=option] { padding: 4px; min-height: 20px; }
+  .ff { margin: 10px 0; }
+</style>
+<script>
+window.__logs = [];
+window.__errors = [];
+const origLog = console.log;
+console.log = (...a) => {
+  if (a[0] === "[autofill]") window.__logs.push(a.slice(1).map((x) => (typeof x === "string" ? x : x && x.nodeType ? "<" + x.tagName + ">" : JSON.stringify(x))).join(" "));
+  origLog(...a);
+};
+window.addEventListener("error", (e) => window.__errors.push("error: " + e.message + " @ " + (e.filename || "").split("/").pop() + ":" + e.lineno));
+window.addEventListener("unhandledrejection", (e) => window.__errors.push("rejection: " + (e.reason && e.reason.stack || e.reason)));
+const STORE = {
+  profile: {
+    firstName: "Test", lastName: "Applicant",
+    answers: { workAuth: "Yes", sponsorship: "No", over18: "Yes", previousEmployers: "Examplecorp" }, eeo: {},
+    api: { key: "test-key", model: "stub" },
+  },
+  settings: { useAI: true, learn: true, threshold: 0.75 },
+  learned: [],
+};
+let onMsg = null;
+// Location settings have no default in Options: the New York values these tests were written with (settings a fixture
+// sets itself are kept; a blank search took the old default search, and the default list when the list was blank too).
+{ const P = STORE.profile, AL = (P.applicationLocation ||= {}), A = (P.answers ||= {}), blank = !String(AL.search || "").trim();
+  if (blank) AL.search = "New York";
+  if (blank && !String(AL.matches || "").trim()) AL.matches = "New York City, New York, United States | New York, New York, United States | New York, NY, United States | New York, NY | New York City | New York, NY, USA | New York, USA";
+  if (!String(A.officeMetro || "").trim()) A.officeMetro = "New York City | NYC | New York, NY | New York, New York | Manhattan | Brooklyn | Queens | Bronx | Staten Island | Long Island | Jersey City | Hoboken | Newark | Westchester | Stamford"; }
+window.chrome = {
+  storage: {
+    local: {
+      get: async (keys) => {
+        const ks = typeof keys === "string" ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys || {});
+        const out = {};
+        for (const k of ks) if (STORE[k] !== undefined) out[k] = JSON.parse(JSON.stringify(STORE[k]));
+        return out;
+      },
+      set: async (o) => Object.assign(STORE, o),
+    },
+    onChanged: { addListener: () => {} },
+  },
+  runtime: {
+    id: "test-extension",
+    onMessage: { addListener: (fn) => (onMsg = fn) },
+    sendMessage: async (msg) => {
+      if (msg.type === "ASK_AI") {
+        window.__aiPayload = msg.questions;
+        return { model: "stub-model", answers: msg.questions.map((q) => ({ id: q.id, answer: null, confidence: 0.9 })) };
+      }
+      return {};
+    },
+  },
+};
+window.__runFill = () => new Promise((res) => onMsg({ type: "FILL" }, {}, res));
+</script>
+</head>
+<body>
+<div data-automation-id="progressBar"></div>
+<h2>Application Questions</h2>
+<!-- DataPilot-like (fake data): answering "Yes" to the work-permission question reveals "If hired, can
+     you provide proof of eligibility?" right below it; answering that "Yes" reveals a free-text follow-up
+     (no profile rule: Claude, then yellow). Plus a customer / partner question. -->
+<div id="qs">
+  <div class="ff" data-automation-id="formField-q1"><label>Are you legally permitted to work in the country where this job is located?<abbr>*</abbr></label>
+    <button aria-haspopup="listbox" aria-expanded="false" data-opts="Select One|Yes|No" data-reveal="q1a">Select One</button></div>
+  <div class="ff" data-automation-id="formField-q2"><label>Are you a current DataPilot customer or partner?<abbr>*</abbr></label>
+    <button aria-haspopup="listbox" aria-expanded="false" data-opts="Select One|Yes|No">Select One</button></div>
+  <div class="ff" data-automation-id="formField-q3"><label>Will you now or in the future require sponsorship for employment visa status?<abbr>*</abbr></label>
+    <button aria-haspopup="listbox" aria-expanded="false" data-opts="Select One|Yes|No">Select One</button></div>
+</div>
+<template id="q1a"><div class="ff" data-automation-id="formField-q1a"><label>If hired, can you provide proof of eligibility?<abbr>*</abbr></label>
+  <button aria-haspopup="listbox" aria-expanded="false" data-opts="Select One|Yes|No" data-reveal="q1b">Select One</button></div></template>
+<template id="q1b"><div class="ff" data-automation-id="formField-q1b"><label>Which document would you provide as proof of eligibility to work?<abbr>*</abbr></label>
+  <textarea></textarea></div></template>
+<pre id="out"></pre>
+
+<script>
+// ---- Workday-like dropdowns (test only); a "Yes" on a data-reveal question renders its follow-up
+// right below it, 200 ms later (like a re-render).
+let n = 0;
+function wire(root) {
+  for (const btn of root.querySelectorAll("button[aria-haspopup=listbox]")) {
+    if (btn.dataset.wired) continue;
+    btn.dataset.wired = "1";
+    const id = "lb" + n++;
+    btn.setAttribute("aria-controls", id);
+    btn.addEventListener("click", () => {
+      let lb = document.getElementById(id);
+      if (btn.getAttribute("aria-expanded") === "true") { lb && lb.remove(); btn.setAttribute("aria-expanded", "false"); return; }
+      lb = document.createElement("div");
+      lb.id = id; lb.setAttribute("role", "listbox");
+      for (const t of btn.dataset.opts.split("|")) {
+        const o = document.createElement("div"); o.setAttribute("role", "option"); o.textContent = t;
+        o.addEventListener("click", () => {
+          btn.textContent = t; lb.remove(); btn.setAttribute("aria-expanded", "false");
+          const tpl = btn.dataset.reveal;
+          if (tpl && t === "Yes" && !document.querySelector(`[data-automation-id=formField-${tpl}]`)) {
+            setTimeout(() => {
+              const el = document.getElementById(tpl).content.firstElementChild.cloneNode(true);
+              btn.closest(".ff").after(el);
+              wire(el);
+            }, 200);
+          }
+        });
+        lb.appendChild(o);
+      }
+      btn.after(lb);
+      btn.setAttribute("aria-expanded", "true");
+    });
+  }
+}
+wire(document);
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  for (const b of document.querySelectorAll("button[aria-expanded=true]")) { document.getElementById(b.getAttribute("aria-controls"))?.remove(); b.setAttribute("aria-expanded", "false"); }
+});
+</script>
+<!--SCRIPTS-->
+<script>
+setTimeout(async () => {
+  let stats;
+  try { stats = await window.__runFill(); } catch (e) { window.__errors.push("run: " + e.stack); }
+  const fields = [...document.querySelectorAll("[data-automation-id^=formField]")].map((c) => {
+    const b = c.querySelector("button"); const t = c.querySelector("textarea");
+    return c.getAttribute("data-automation-id") + " = " + JSON.stringify(b ? b.textContent : t ? t.value : "") + " mark=" + (c.dataset.wdaf || "-");
+  });
+  document.getElementById("out").textContent = "@@BEGIN\n" + [
+    "STATS " + JSON.stringify(stats), "TOAST " + JSON.stringify((document.getElementById("aaf-done-toast")?.shadowRoot?.querySelector(".box")?.innerText || "").replace(/\n/g, " | ")),
+    "AI " + JSON.stringify((window.__aiPayload || []).map((q) => [q.question, q.type])),
+    ...window.__errors.map((e) => "ERR " + e),
+    ...window.__logs.map((l) => "LOG " + l),
+    ...fields.map((f) => "FIELD " + f),
+  ].join("\n") + "\n@@END";
+}, 500);
+</script>
+</body>
+</html>

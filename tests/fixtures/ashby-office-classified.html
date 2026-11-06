@@ -1,0 +1,136 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Software Engineer @ Flarewave AI</title>
+<style>
+  body { font: 14px sans-serif; }
+  .ashby-application-form-field-entry, [data-field-path] { margin: 10px 0; position: relative; }
+  .ashby-application-form-input-yesno { display: flex; gap: 4px; position: relative; }
+  .ashby-application-form-input-yesno-option[aria-pressed="true"] { background: #333; color: #fff; }
+  ._input_1svni_78 { position: absolute; opacity: 0; width: 1px; height: 1px; }
+</style>
+<script>
+// ---- stub chrome API (test only)
+window.__logs = [];
+window.__errors = [];
+const origLog = console.log;
+console.log = (...a) => {
+  if (a[0] === "[autofill]") window.__logs.push(a.slice(1).map((x) => (typeof x === "string" ? x : x && x.nodeType ? "<" + x.tagName + ">" : JSON.stringify(x))).join(" "));
+  origLog(...a);
+};
+window.addEventListener("error", (e) => window.__errors.push("error: " + e.message + " @ " + (e.filename || "").split("/").pop() + ":" + e.lineno));
+window.addEventListener("unhandledrejection", (e) => window.__errors.push("rejection: " + (e.reason && e.reason.stack || e.reason)));
+const STORE = {
+  profile: {
+    firstName: "Test", lastName: "Applicant", email: "test@example.com", phone: "6465550100",
+    country: "United States of America", city: "Springfield", state: "New York", address1: "1 Test Street", zip: "10001",
+    applicationLocation: { search: "New York", matches: "New York, NY | New York City, New York, United States" },
+    answers: { workAuth: "Yes", sponsorship: "No", over18: "Yes", relocate: "No", restrictions: "None" },
+    eeo: {}, api: { key: "test-key", model: "stub" },
+  },
+  settings: { useAI: true, learn: true, threshold: 0.75 },
+  learned: [],
+};
+let onMsg = null;
+// Location settings have no default in Options: the New York values these tests were written with (settings a fixture
+// sets itself are kept; a blank search took the old default search, and the default list when the list was blank too).
+{ const P = STORE.profile, AL = (P.applicationLocation ||= {}), A = (P.answers ||= {}), blank = !String(AL.search || "").trim();
+  if (blank) AL.search = "New York";
+  if (blank && !String(AL.matches || "").trim()) AL.matches = "New York City, New York, United States | New York, New York, United States | New York, NY, United States | New York, NY | New York City | New York, NY, USA | New York, USA";
+  if (!String(A.officeMetro || "").trim()) A.officeMetro = "New York City | NYC | New York, NY | New York, New York | Manhattan | Brooklyn | Queens | Bronx | Staten Island | Long Island | Jersey City | Hoboken | Newark | Westchester | Stamford"; }
+window.chrome = {
+  storage: {
+    local: {
+      get: async (keys) => {
+        const ks = typeof keys === "string" ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys || {});
+        const out = {};
+        for (const k of ks) if (STORE[k] !== undefined) out[k] = JSON.parse(JSON.stringify(STORE[k]));
+        return out;
+      },
+      set: async (o) => Object.assign(STORE, o),
+    },
+    onChanged: { addListener: () => {} },
+  },
+  runtime: { id: "test-extension",
+    onMessage: { addListener: (fn) => (onMsg = fn) },
+    sendMessage: async (msg) => {
+      // The classifier: office / location questions are "relocation / office" (as on the real page), the rest "other".
+      if (msg.type === "CLASSIFY_ASK") {
+        window.__classify = (window.__classify || []).concat(msg.questions.map((q) => q.question));
+        return { model: "stub-haiku", categories: msg.questions.map((q) => ({ id: q.id, category: /office|based|hq|visit/i.test(q.question) ? "relocation / office" : "other" })) };
+      }
+      if (msg.type === "ASK_AI") {
+        window.__aiPayload = (window.__aiPayload || []).concat(msg.questions.map((q) => q.question));
+        return { model: "stub-model", answers: msg.questions.map((q) => ({ id: q.id, answer: null, confidence: 0.9 })) };
+      }
+      return {};
+    },
+  },
+};
+window.__runFill = () => new Promise((res) => onMsg({ type: "FILL" }, {}, res));
+</script>
+</head>
+<body>
+<!-- Flarewave-like Ashby page (fake data). "Which office location(s) are you interested in?" (radios) was classified
+     "relocation / office" and left yellow: the office-preference pattern didn't allow "(s)". Plus questions no
+     pattern matches, so the classifier routes them and the office rules answer: a list of places (office preference),
+     a Yes / No about coming in (office attendance, from the job location), and a list without your city (yellow). -->
+<h1>Software Engineer</h1>
+<div class="job-sidebar"><div>Location</div><div>New York, NY</div></div>
+<div class="ashby-application-form-container">
+<div class="ashby-application-form-section-container" id="sec">
+  <div class="ashby-application-form-field-entry" data-field-path="_systemfield_name"><label class="ashby-application-form-question-title" for="_systemfield_name">Name</label><input id="_systemfield_name" name="_systemfield_name" type="text" class="ashby-application-form-input-text"></div>
+</div>
+</div>
+<button id="submit" type="submit">Submit Application</button>
+<pre id="out"></pre>
+<script>
+const Q = [
+  ["office", "radio", "Which office location(s) are you interested in?", ["London", "New York, NY", "Remote - US", "San Mateo", "Singapore"]],
+  ["based", "radio", "Where would you want to be based for this role?", ["London", "New York NY", "San Mateo"]],
+  ["hq", "yesno", "Our team gathers at HQ Tuesday through Thursday. Does that work for you?"],
+  ["visit", "radio", "Which site would you be willing to visit each quarter?", ["London", "Singapore"]],
+];
+const sec = document.getElementById("sec");
+for (const [id, kind, label, opts] of Q) {
+  const d = document.createElement("div");
+  d.dataset.fieldPath = id;
+  if (kind === "yesno") {
+    d.className = "ashby-application-form-field-entry";
+    d.innerHTML = `<label class="ashby-application-form-question-title" for="${id}">${label}</label><div class="_container_1svni_28 ashby-application-form-input-yesno"><button class="ashby-application-form-input-yesno-option" aria-pressed="false" data-option="yes">Yes</button><button class="ashby-application-form-input-yesno-option" aria-pressed="false" data-option="no">No</button><input type="checkbox" class="_input_1svni_78" tabindex="-1" name="${id}"></div>`;
+  } else {
+    d.innerHTML = `<fieldset class="ashby-application-form-input-radio-group"><label class="ashby-application-form-question-title" for="${id}">${label}</label>` +
+      opts.map((o, i) => `<div class="ashby-application-form-input-radio-group-option"><span data-disabled="false"><input type="radio" id="${id}-r${i}" name="${id}" class="ashby-application-form-input-radio-group-option-radio"></span><label for="${id}-r${i}" class="ashby-application-form-input-radio-group-option-label">${o}</label></div>`).join("") + `</fieldset>`;
+  }
+  sec.appendChild(d);
+}
+document.querySelectorAll(".ashby-application-form-input-yesno").forEach((g) =>
+  g.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
+    g.querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+    g.querySelector("input[type=checkbox]").checked = b.dataset.option === "yes";
+  })));
+</script>
+<!--SCRIPTS-->
+<script>
+setTimeout(async () => {
+  let stats;
+  try { stats = await window.__runFill(); } catch (e) { window.__errors.push("run: " + e.stack); }
+  const mark = (el) => el.closest("[data-wdaf]")?.dataset.wdaf || el.querySelector?.("[data-wdaf]")?.dataset.wdaf || "-";
+  const out = Q.map(([id, kind, label]) => {
+    const d = document.querySelector(`[data-field-path="${id}"]`);
+    const v = kind === "yesno" ? [...d.querySelectorAll("button[aria-pressed=true]")].map((b) => b.textContent).join(",") || "-" : d.querySelector("input:checked")?.parentElement.nextElementSibling.textContent || "-";
+    return label.slice(0, 60) + " = " + v + " mark=" + mark(d.querySelector("fieldset, .ashby-application-form-input-yesno"));
+  });
+  document.getElementById("out").textContent = "@@BEGIN\n" + [
+    "STATS " + JSON.stringify(stats), "TOAST " + JSON.stringify((document.getElementById("aaf-done-toast")?.shadowRoot?.querySelector(".box")?.innerText || "").replace(/\n/g, " | ")),
+    "CLASSIFIED " + JSON.stringify(window.__classify || []),
+    "AI " + JSON.stringify(window.__aiPayload || []),
+    ...window.__errors.map((e) => "ERR " + e),
+    ...window.__logs.map((l) => "LOG " + l),
+    ...out.map((f) => "FIELD " + f),
+  ].join("\n") + "\n@@END";
+}, 500);
+</script>
+</body>
+</html>

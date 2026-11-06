@@ -1,0 +1,269 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Entry Level Engineer - Embedded Software / Systems - Careers</title>
+<style>
+  body { font: 14px sans-serif; }
+  .iCIMS_TableRow { display: flex; gap: 8px; margin: 3px 0; }
+  .iCIMS_InfoField { width: 320px; }
+  .dropdown-hide, .dropdown-invisible, .iCIMS_NoDisplay, .NoDisplay, .hide { display: none !important; }
+  .iCIMS_508_Label, .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .dropdown-select { display: inline-block; border: 1px solid #999; min-width: 260px; padding: 2px; cursor: pointer; }
+  .dropdown-container { border: 1px solid #666; background: #fff; }
+</style>
+<script>
+window.__logs = [];
+window.__errors = [];
+const origLog = console.log;
+console.log = (...a) => {
+  if (a[0] === "[autofill]") window.__logs.push(a.slice(1).map((x) => (typeof x === "string" ? x : x && x.nodeType ? "<" + x.tagName + ">" : JSON.stringify(x))).join(" "));
+  origLog(...a);
+};
+window.addEventListener("error", (e) => window.__errors.push("error: " + e.message + " @ " + (e.filename || "").split("/").pop() + ":" + e.lineno));
+window.addEventListener("unhandledrejection", (e) => window.__errors.push("rejection: " + (e.reason && e.reason.stack || e.reason)));
+const STORE = {
+  profile: {
+    firstName: "Test", lastName: "Applicant", preferredName: "Tess", email: "test@example.com", phone: "6465550100",
+    address1: "1 Test Street", address2: "", city: "Springfield", state: "New York", zip: "10001", country: "United States of America",
+    // Contoso is current (Growth Engineering Intern since Oct 2026); Northwind ended (Aug 2025, Riverton, NJ).
+    experiences: [
+      { title: "Growth Engineering Intern", company: "Contoso", location: "New York, NY", current: true, startMonth: "10", startYear: "2026", endMonth: "", endYear: "" },
+      { title: "AI Engineer Intern", company: "Northwind", location: "Riverton, NJ", current: false, startMonth: "6", startYear: "2025", endMonth: "8", endYear: "2025" },
+      // No block for this one: the only Add nearby is the attachments one, which is never clicked for it.
+      { title: "Tutor", company: "Examplecorp", location: "Springfield, NY", current: false, startMonth: "1", startYear: "2024", endMonth: "5", endYear: "2024" },
+    ],
+    education: [
+      { school: "Lakeview University", schoolAliases: "LSU Lakeview | Lakeland State University at Lakeview", schoolSearch: "Lakeview",
+        degreeOptions: "Bachelor of Engineering | BEng | B.E. | BE\nBachelor's Degree | Bachelor's | Bachelors | Bachelor Degree\nBachelor of Science | BS | B.S. | BSc\nUndergraduate", field: "Computer Engineering", startYear: "2023", endYear: "2027" },
+    ],
+    expectedGraduation: "05/2027",
+    answers: { workAuth: "Yes", sponsorship: "No", over18: "Yes", previousEmployers: "", restrictions: "None", securitiesLicenses: "" },
+    eeo: {},
+    source: "LinkedIn | Social Media | Job Board", hearText: "LinkedIn",
+    api: { key: "test-key", model: "stub" },
+  },
+  settings: { useAI: true, learn: true, threshold: 0.75 },
+  // The pending entry the Steadfast run learned from the email box (a profile field: never learned, removed by the purge).
+  learned: [{ q: "Email (Please do not use an .edu email address)", a: "test@example.com", type: "text", company: "steadfast", pending: true, updated: 1793500000000 }],
+  resumeFile: { name: "TestApplicantResume.pdf", type: "application/pdf", dataUrl: "data:application/pdf;base64,JVBERi0xLjQK" },
+};
+let onMsg = null;
+// Location settings have no default in Options: the New York values these tests were written with (settings a fixture
+// sets itself are kept; a blank search took the old default search, and the default list when the list was blank too).
+{ const P = STORE.profile, AL = (P.applicationLocation ||= {}), A = (P.answers ||= {}), blank = !String(AL.search || "").trim();
+  if (blank) AL.search = "New York";
+  if (blank && !String(AL.matches || "").trim()) AL.matches = "New York City, New York, United States | New York, New York, United States | New York, NY, United States | New York, NY | New York City | New York, NY, USA | New York, USA";
+  if (!String(A.officeMetro || "").trim()) A.officeMetro = "New York City | NYC | New York, NY | New York, New York | Manhattan | Brooklyn | Queens | Bronx | Staten Island | Long Island | Jersey City | Hoboken | Newark | Westchester | Stamford"; }
+window.chrome = {
+  storage: {
+    local: {
+      get: async (keys) => {
+        const ks = typeof keys === "string" ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys || {});
+        const out = {};
+        for (const k of ks) if (STORE[k] !== undefined) out[k] = JSON.parse(JSON.stringify(STORE[k]));
+        return out;
+      },
+      set: async (o) => Object.assign(STORE, o),
+    },
+    onChanged: { addListener: () => {} },
+  },
+  runtime: {
+    id: "test-extension",
+    onMessage: { addListener: (fn) => (onMsg = fn) },
+    sendMessage: async (msg) => {
+      if (msg.type === "DRAFT") {
+        window.__draft = msg;
+        return { model: "stub-draft-model", included: { linkedinChars: 0, resumeChars: 0, notesChars: 0, descriptionChars: 0 }, answers: msg.questions.map((q) => ({ id: q.id, answer: "A draft." })) };
+      }
+      // The classifier as the real run's cache answered: Degree and Major are "education status".
+      if (msg.type === "CLASSIFY_ASK") {
+        window.__classify = (window.__classify || []).concat(msg.questions.map((q) => q.question));
+        return { model: "stub-haiku", categories: msg.questions.map((q) => ({ id: q.id, category: /^(degree|major)$|^school\b/i.test(q.question) ? "education status" : "other" })) };
+      }
+      if (msg.type === "ASK_AI") {
+        window.__aiPayload = msg.questions;
+        // Canned answers like Claude's: the education level, N/A for the local (CT / MA / RI) high school questions.
+        const ans = (q) => (/school|degree|major|graduat|finra|series|sie\b|securities/i.test(q.question) ? "Yes" : null); // a Claude that answers what it shouldn't
+        return { model: "stub-model", answers: msg.questions.map((q) => ({ id: q.id, answer: ans(q), confidence: ans(q) ? 0.9 : 0 })) };
+      }
+      return {};
+    },
+  },
+};
+window.__runFill = () => new Promise((res) => onMsg({ type: "FILL" }, {}, res));
+</script>
+</head>
+<body>
+<!-- The real Steadfast Education group (pasted markup, widgets rebuilt by the stand-in) on the iCIMS Steadfast look-alike (the real markup wasn't pasted; built from the run's log and HMSY's real markup idioms), fake
+     data. Covers: an Email label with hint text, a resume-parsed work experience block with the Contoso title and start date
+     but no employer (City / State empty, the job's location goes there) and no Add More of its own, Additional
+     Attachment(s) with its Add More right after it (never clicked for an experience), an education block (school list with "Other College/High School", Degree, Major, "Did You Graduate?"
+     prefilled Yes, Graduation Date prefilled Jun / 1 / 2026), and the four FINRA questions. -->
+<form method="post" id="profileForm" name="profileForm" action="#" onsubmit="event.preventDefault()">
+<div class="iCIMS_MainWrapper iCIMS_CandidatePage">
+<div class="container-fluid iCIMS_JobsTable"><div class="row">
+<div class="col-xs-12 title"><div id="iCIMS_Header"><h1 class="iCIMS_Header">Summer Analyst - Steadfast</h1></div></div>
+<div class="col-xs-12 additionalFields"><dl class="iCIMS_JobHeaderGroup">
+<div class="iCIMS_JobHeaderTag"><dt class="iCIMS_JobHeaderField">Location</dt><dd class="iCIMS_JobHeaderData"><span>US-NY-New York</span></dd></div>
+</dl></div></div></div>
+<div class="iCIMS_CenteredPageContent">
+<div role="group"><h2 class="iCIMS_SubHeader iCIMS_SubHeader_Candidate">Enter your information</h2>
+<div class="iCIMS_ProfileFormTable iCIMS_Table">
+<div class="iCIMS_OddRow iCIMS_TableRow iCIMS_FieldRow iCIMS_FieldRow_PersonProfileFields.FirstName ">
+<div class="iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_TableCell"><label tabindex="-1" id="label_PersonProfileFields.FirstName" for="PersonProfileFields.FirstName">First Name</label><span class="Field_Required"><span class="Field_RequiredStar">* </span></span></div>
+<div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_TableCell"><input type="text" id="PersonProfileFields.FirstName" name="PersonProfileFields.FirstName" class="iCIMS_Forms_TextField form-control" maxlength="128" value="Test"></div>
+</div>
+<div class="iCIMS_OddRow iCIMS_TableRow iCIMS_FieldRow iCIMS_FieldRow_PersonProfileFields.LastName ">
+<div class="iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_TableCell"><label tabindex="-1" id="label_PersonProfileFields.LastName" for="PersonProfileFields.LastName">Last Name</label><span class="Field_Required"><span class="Field_RequiredStar">* </span></span></div>
+<div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_TableCell"><input type="text" id="PersonProfileFields.LastName" name="PersonProfileFields.LastName" class="iCIMS_Forms_TextField form-control" maxlength="128" value="Applicant"></div>
+</div>
+<div class="iCIMS_OddRow iCIMS_TableRow iCIMS_FieldRow iCIMS_FieldRow_PersonProfileFields.Email ">
+<div class="iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_TableCell"><label tabindex="-1" id="label_PersonProfileFields.Email" for="PersonProfileFields.Email">Email (Please do not use an .edu email address)</label><span class="Field_Required"><span class="Field_RequiredStar">* </span></span></div>
+<div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_TableCell"><input type="email" id="PersonProfileFields.Email" name="PersonProfileFields.Email" class="iCIMS_Forms_EmailField form-control" maxlength="128" value=""></div>
+</div>
+</div></div>
+<div role="group">
+<h2 class="iCIMS_SubHeader iCIMS_SubHeader_Candidate">Education</h2>
+
+<div class="iCIMS_ProfileFormTable iCIMS_Table">
+<div tabindex="-1" class="iCIMS_CollectionContainer CandProfileFields.Education-1-Container"><fieldset class="iCIMS_CollectionGroup iCIMS_OddRow"><legend><span tabindex="-1" class="iCIMS_LabelText" name="labelText" id="CandProfileFields.Education_-1_label">Education (1)</span></legend><div class="CandProfileFields.Education-1 iCIMS_TableRow"><div class="iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_CollectionLegend iCIMS_TableCell"></div><div class="iCIMS_InfoData iCIMS_TableCell"></div></div><input tabindex="-1" type="hidden" name="portalLabelCandProfileFields.Education-1" id="portalLabelCandProfileFields.Education-1" value="Education (1)"><div data-collection="CandProfileFields.Education" data-index="1" class="CandProfileFields.Education-1 iCIMS_TableRow iCIMS_FieldRow_Inline"><div class=" iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_CollectionField iCIMS_TableCell"><label id="label_-1_CandProfileFields.School" for="-1_CandProfileFields.School"><span class="iCIMS_LabelText" name="labelText">School (If school not found, select "Other College/High School")</span></label><span class="Field_Required"><span class="Field_RequiredStar">* </span><span class="sr-only">required.</span></span></div><div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_CollectionField iCIMS_TableCell"><label class="iCIMS_508_Label" for="-1_CandProfileFields.School">School (If school not found, select "Other College/High School")</label><select id="-1_CandProfileFields.School" name="-1_CandProfileFields.School" data-label="School (If school not found, select &quot;Other College/High School&quot;)" class=" iCIMS_Forms_Global customFieldContainer iCIMS_Forms_ListEditorField iCIMS_Forms_Qnull iCIMS_Forms_RequiredField form-control dropdown-hide" aria-label="School (If school not found, select &quot;Other College/High School&quot;)" bgtparse="true" list="lists.school" type="3081" onchange="pageDirtyFlag=true;if (this.options[this.selectedIndex].value == -1) { return addItemToSelectFieldNLevelList(this); }else{ this.prevIndex = this.selectedIndex; } " i_required="true" icimsdropdown-enabled="1" icimsdropdown-ajax="1" icimsdropdown-search="1" icimsdropdown-selected="" hash="46fbbec6cf6022d399b669d8533e5cf6e419662fe197c89c5fd409f51a745c3c"><option value="" legacy="true"></option></select></div></div><div data-collection="CandProfileFields.Education" data-index="1" class="CandProfileFields.Education-1 iCIMS_TableRow iCIMS_FieldRow_Inline"><div class=" iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_CollectionField iCIMS_TableCell"><label id="label_-1_CandProfileFields.OtherSchool" for="-1_CandProfileFields.OtherSchool"><span class="iCIMS_LabelText" name="labelText">Other College/School</span></label></div><div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_CollectionField iCIMS_TableCell"><input type="text" id="-1_CandProfileFields.OtherSchool" name="-1_CandProfileFields.OtherSchool" class="iCIMS_Forms_Global customFieldContainer iCIMS_Forms_TextField iCIMS_Forms_Qnull form-control" onchange="pageDirtyFlag=true;" bgtparse="true" maxlength="256"></div></div><div data-collection="CandProfileFields.Education" data-index="1" class="CandProfileFields.Education-1 iCIMS_TableRow iCIMS_FieldRow_Inline"><div class=" iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_CollectionField iCIMS_TableCell"><label id="label_-1_CandProfileFields.Degree" for="-1_CandProfileFields.Degree"><span class="iCIMS_LabelText" name="labelText">Degree</span></label></div><div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_CollectionField iCIMS_TableCell"><label class="iCIMS_508_Label" for="-1_CandProfileFields.Degree">Degree</label><select id="-1_CandProfileFields.Degree" name="-1_CandProfileFields.Degree" data-label="Degree" class=" iCIMS_Forms_Global customFieldContainer iCIMS_Forms_ListEditorField iCIMS_Forms_Qnull form-control dropdown-hide" aria-label="Degree" bgtparse="true" list="lists.school.degree" type="3081" onchange="pageDirtyFlag=true;if (this.options[this.selectedIndex].value == -1) { return addItemToSelectFieldNLevelList(this); }else{ this.prevIndex = this.selectedIndex; } " icimsdropdown-enabled="1" icimsdropdown-ajax="1" icimsdropdown-search="0" icimsdropdown-selected="" hash="11d87de9f06378ce3b94dd1a6578f0b129835931c6b58900c4bdc1115c83baf2"><option value="" legacy="true"></option></select></div></div><div data-collection="CandProfileFields.Education" data-index="1" class="CandProfileFields.Education-1 iCIMS_TableRow iCIMS_FieldRow_Inline"><div class=" iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_CollectionField iCIMS_TableCell"><label id="label_-1_CandProfileFields.Major" for="-1_CandProfileFields.Major"><span class="iCIMS_LabelText" name="labelText">Major</span></label></div><div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_CollectionField iCIMS_TableCell"><label class="iCIMS_508_Label" for="-1_CandProfileFields.Major">Major</label><select id="-1_CandProfileFields.Major" name="-1_CandProfileFields.Major" data-label="Major" class=" iCIMS_Forms_Global customFieldContainer iCIMS_Forms_ListEditorField iCIMS_Forms_Qnull form-control dropdown-hide" aria-label="Major" bgtparse="true" list="lists.school.major" type="3081" onchange="pageDirtyFlag=true;if (this.options[this.selectedIndex].value == -1) { return addItemToSelectFieldNLevelList(this); }else{ this.prevIndex = this.selectedIndex; } " icimsdropdown-enabled="1" icimsdropdown-ajax="1" icimsdropdown-search="1" icimsdropdown-selected="" hash="20c06d02248f5c56253586db46fc8043b1312d80139dcb2214174ffff68b98d9"><option value="" legacy="true"></option></select></div></div><div data-collection="CandProfileFields.Education" data-index="1" class="CandProfileFields.Education-1 iCIMS_TableRow iCIMS_FieldRow_Inline"><div class=" iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_CollectionField iCIMS_TableCell"><label id="label_-1_CandProfileFields.IsGraduated" for="-1_CandProfileFields.IsGraduated"><span class="iCIMS_LabelText" name="labelText">Did You Graduate?</span></label></div><div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_CollectionField iCIMS_TableCell"><select id="-1_CandProfileFields.IsGraduated" name="-1_CandProfileFields.IsGraduated" data-label="Did You Graduate?" class=" iCIMS_Forms_Global customFieldContainer iCIMS_Forms_ListEditorField iCIMS_Forms_Qnull form-control" aria-label="Did You Graduate?" bgtparse="true" list="lists.customfields_lists" type="3081" onchange="pageDirtyFlag=true;if (this.options[this.selectedIndex].value == -1) { return addItemToSelectFieldNLevelList(this); }else{ this.prevIndex = this.selectedIndex; } " icimsdropdown-enabled="0" icimsdropdown-ajax="1" icimsdropdown-search="0" icimsdropdown-selected="" hash="f93d394f6ceecced5d5810de6abf7ef761b30521b0d895b4c3411c6b122ee81d"><option value="" legacy="true"></option><option title="Yes" value="20466">Yes</option><option title="No" value="20467">No</option></select></div></div></fieldset><div class="iCIMS_CollectionButtonsRow"><div class="iCIMS_CollectionButtons iCIMS_OddRow CandProfileFields.Education-1 CandProfileFields.Education-1-Button iCIMS_TableRow"><div></div><div class="iCIMS_InfoData iCIMS_TableCell"><a role="button" class="iCIMS_Anchor" href="javascript:void(0)" onclick="pageDirtyFlag=true; showGroup('CandProfileFields.Education', '-1', '-2', 2, 'recruit')" id="CandProfileFields.EducationButton_-1">Add More (Education)</a></div></div></div></div>
+</div>
+</div>
+
+<div role="group"><h2 class="iCIMS_SubHeader iCIMS_SubHeader_Candidate">Securities Registrations</h2>
+<div class="iCIMS_ProfileFormTable iCIMS_Table">
+<div class="iCIMS_OddRow iCIMS_TableRow iCIMS_FieldRow iCIMS_FieldRow_rcf3301 ">
+<div class="iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_TableCell"><label tabindex="-1" id="label_rcf3301" for="rcf3301">Are you currently FINRA registered?</label><span class="Field_Required"><span class="Field_RequiredStar">* </span></span></div>
+<div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_TableCell"><select id="rcf3301" name="rcf3301" class=" iCIMS_Forms_DropDown form-control" icimsdropdown-enabled="0"><option value="">— Make a Selection —</option><option value="Yes">Yes</option><option value="No">No</option></select></div>
+</div>
+<div class="iCIMS_OddRow iCIMS_TableRow iCIMS_FieldRow iCIMS_FieldRow_rcf3302 ">
+<div class="iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_TableCell"><label tabindex="-1" id="label_rcf3302" for="rcf3302">Have you passed the Securities Industry Essentials (SIE) Exam?</label><span class="Field_Required"><span class="Field_RequiredStar">* </span></span></div>
+<div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_TableCell"><select id="rcf3302" name="rcf3302" class=" iCIMS_Forms_DropDown form-control" icimsdropdown-enabled="0"><option value="">— Make a Selection —</option><option value="Yes">Yes</option><option value="No">No</option></select></div>
+</div>
+<div class="iCIMS_OddRow iCIMS_TableRow iCIMS_FieldRow iCIMS_FieldRow_rcf3303 ">
+<div class="iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_TableCell"><label tabindex="-1" id="label_rcf3303" for="rcf3303">Do you currently hold any FINRA Series licenses (e.g., Series 7, 63, 66)?</label><span class="Field_Required"><span class="Field_RequiredStar">* </span></span></div>
+<div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_TableCell"><select id="rcf3303" name="rcf3303" class=" iCIMS_Forms_DropDown form-control" icimsdropdown-enabled="0"><option value="">— Make a Selection —</option><option value="Yes">Yes</option><option value="No">No</option></select></div>
+</div>
+<div class="iCIMS_OddRow iCIMS_TableRow iCIMS_FieldRow iCIMS_FieldRow_rcf3304 ">
+<div class="iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_TableCell"><label tabindex="-1" id="label_rcf3304" for="rcf3304">Please list any FINRA registrations or Series exams you hold</label></div>
+<div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_TableCell"><input type="text" id="rcf3304" name="rcf3304" class="iCIMS_Forms_TextField form-control" maxlength="128" value=""></div>
+</div>
+</div></div>
+<div class="iCIMS_SubmitButtonRow iCIMS_TableRow"><div class="iCIMS_SubmitButtonCell iCIMS_TableCell" id="cp_form_submit_label"><input type="submit" id="cp_form_submit_i" class="iCIMS_PrimaryButton" name="profileButton" value="Submit Profile"></div></div>
+</div>
+</div>
+</form>
+<pre id="out"></pre>
+<script>
+// ---- iCIMS dropdown widget stand-in (behaviour assumed: click the a.dropdown-select to open; rows load by
+// "ajax"; typing in .dropdown-search filters server-side; clicking a row selects it, updates the hidden
+// select + the shown text, closes, and fires change). Markup copied from the real page's template.
+// Steadfast's real Degree and Major lists (tests/fixtures/icims-edu-markup-raw.html); the school list trimmed (the real
+// one is very long and searched server-side: "Lakeview" finds the full name).
+const LISTS = {
+  "-1_CandProfileFields.School": ["2nd Military Medical University","A. C. Patil College of Engineering","Aalto University","Aarhus University","Abilene Christian University","Academy College","Albany College of Pharmacy","Baruch College","Binghamton University","Columbia University","Cornell University","Fordham University","Hofstra University","New York University","Other College/High School","Pace University","Rutgers University","State University of New York at Albany","State University of New York at Buffalo","Lakeland State University at Lakeview","Stony Point College","LSU Maritime College","Syracuse University","University of Rochester","Yale University"],
+  "-1_CandProfileFields.Degree": ["AS", "BA", "BCS", "BS", "HS Diploma/GED", "MBA", "MCS", "MS", "PhD"],
+  "-1_CandProfileFields.Major": ["Aerospace Eng.", "Applied Mathematics", "Applied Physics", "Biochemistry", "Biomedical Eng.", "Business Admin.", "Chemical Eng.", "Chemistry", "Civil Eng.", "Communication Eng.", "Computer Eng.", "Computer Info. Sys.", "Computer Science", "Electrical Eng.", "Electronic Eng.", "English", "Finance/Accounting", "Industrial Eng.", "Information Sys.", "Management", "Management Info.Sys.", "Manufacturing Eng.", "Mathematics", "Mechanical Eng.", "Others"],
+};
+// The page's own handlers named in the onchange attributes.
+window.pageDirtyFlag = false;
+window.addItemToSelectFieldNLevelList = () => true;
+const listFor = (id) => LISTS[id] || LISTS[id.replace(/^-\d+_PersonProfileFields\./, "")] || [];
+const PH = '<span class="dropdown-placeholder">— Make a Selection —</span>';
+function initWidget(sel) {
+  const id = sel.id;
+  const searchable = sel.getAttribute("icimsdropdown-search") === "1";
+  const cur = sel.value ? sel.selectedOptions[0].text : "";
+  sel.insertAdjacentHTML("afterend",
+    `<a id="${id}_icimsDropdown" class="dropdown-select" aria-expanded="false" tabindex="0" role="combobox"><span id="${id}_fakeSelected_icimsDropdown" class="dropdown-text">${cur || PH}</span><div class="dropdown-arrow-container"><i class="dropdown-arrow"></i></div></a>` +
+    `<div id="${id}_icimsDropdown_ctnr" class="dropdown-container dropdown-invisible" aria-owns="${id}_dropdown-results" aria-expanded="false"><input type="text" class="dropdown-search${searchable ? "" : " dropdown-invisible"}" autocomplete="off" placeholder="— Type to Search —" role="combobox"><div aria-live="polite"><ul id="${id}_dropdown-results" class="dropdown-results" role="listbox"></ul><div class="dropdown-loading hide"></div><div style="overflow: hidden; display: block; width:0;height:0;" role="status" id="result-summary_${id}"></div></div></div>`);
+  const a = document.getElementById(id + "_icimsDropdown");
+  const ctnr = document.getElementById(id + "_icimsDropdown_ctnr");
+  const ul = document.getElementById(id + "_dropdown-results");
+  const input = ctnr.querySelector("input");
+  const load = ctnr.querySelector(".dropdown-loading");
+  let timer;
+  const render = (term) => {
+    load.classList.remove("hide");
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      const items = listFor(id).filter((t) => !term || t.toLowerCase().includes(term.toLowerCase())).slice(0, 25);
+      ul.innerHTML = `<li class="dropdown-result result-selectable" role="option" dropdown-index="-1">${PH}</li>` + items.map((t, i) => `<li class="dropdown-result result-selectable" role="option" dropdown-index="${i}" title="${t}">${t}</li>`).join("");
+      load.classList.add("hide");
+    }, 200);
+  };
+  const open = () => { ctnr.classList.remove("dropdown-invisible"); a.setAttribute("aria-expanded", "true"); input.value = ""; render(""); };
+  const close = () => { ctnr.classList.add("dropdown-invisible"); a.setAttribute("aria-expanded", "false"); };
+  a.addEventListener("click", () => (ctnr.classList.contains("dropdown-invisible") ? open() : close()));
+  input.addEventListener("input", () => render(input.value));
+  input.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
+  ul.addEventListener("click", (e) => {
+    const li = e.target.closest("li.result-selectable");
+    if (!li) return;
+    const t = li.getAttribute("dropdown-index") === "-1" ? "" : li.textContent.trim();
+    sel.innerHTML = '<option value="" legacy="true"></option>' + (t ? `<option value="${t}" selected>${t}</option>` : "");
+    document.getElementById(id + "_fakeSelected_icimsDropdown").innerHTML = t || PH;
+    close();
+    sel.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  document.addEventListener("click", (e) => { if (!a.contains(e.target) && !ctnr.contains(e.target)) close(); }, true);
+}
+document.querySelectorAll('select[icimsdropdown-enabled="1"]').forEach(initWidget);
+// "Add More": the next group of the collection (ids -1 -> -2), its own Add link, the old one hidden.
+window.__added = [];
+window.showGroup = (name, from, to, n) => {
+  window.__added.push(name);
+  const old = document.querySelector(`.${CSS.escape(name)}${from}-Container`);
+  const tmp = document.createElement("div");
+  const k = String(-Number(from)), k2 = String(-Number(to));
+  tmp.innerHTML = old.outerHTML
+    .split(`${from}_`).join(`${to}_`).split(`${name}${from}`).join(`${name}${to}`).split(`(${k})`).join(`(${k2})`)
+    .split(`data-index="${k}"`).join(`data-index="${k2}"`)
+    .split(`'${from}', '${to}', ${n}`).join(`'${to}', '-${n + 1}', ${n + 1}`).split(`Button_${from}`).join(`Button_${to}`);
+  const fresh = tmp.firstElementChild;
+  fresh.querySelectorAll(".dropdown-select, .dropdown-container").forEach((x) => x.remove());
+  fresh.querySelectorAll("input:not([type=hidden])").forEach((x) => (x.value = ""));
+  fresh.querySelectorAll("select").forEach((s) => { if (s.getAttribute("icimsdropdown-enabled") === "1") s.innerHTML = '<option value="" legacy="true"></option>'; else s.selectedIndex = 0; });
+  old.querySelector(".iCIMS_CollectionButtonsRow").style.display = "none";
+  old.after(fresh);
+  fresh.querySelectorAll('select[icimsdropdown-enabled="1"]').forEach(initWidget);
+};
+</script>
+<!--SCRIPTS-->
+<script>
+setTimeout(async () => {
+  let stats;
+  try { stats = await window.__runFill(); } catch (e) { window.__errors.push("run: " + e.stack); }
+  const val = (el) => {
+    if (el.tagName !== "SELECT") return el.value;
+    const shown = document.getElementById(el.id + "_fakeSelected_icimsDropdown");
+    if (shown) return shown.querySelector(".dropdown-placeholder") ? "" : shown.textContent.trim();
+    return el.selectedIndex > 0 || (el.value && el.value !== "0") ? el.selectedOptions[0].text : "";
+  };
+  // The securities rule with licenses listed (the page itself uses the default None).
+  const secQs = ["Are you currently FINRA registered?", "Have you passed the Securities Industry Essentials (SIE) Exam?", "Do you currently hold any FINRA Series licenses (e.g., Series 7, 63, 66)?", "Please list any FINRA registrations or Series exams you hold"];
+  const sec = ["SIE", "SIE, Series 7"].map((lic) => "SECURITIES " + lic + ": " + secQs.map((q, i) => {
+    const r = AAF.profileValue({ label: q, nl: AAF.norm(q), nid: "", type: i === 3 ? "text" : "dropdown" }, { ...STORE.profile, answers: { ...STORE.profile.answers, securitiesLicenses: lic } });
+    return typeof r === "symbol" ? "(left for you)" : JSON.stringify(r && r.value !== undefined ? r.value : r);
+  }).join(" | "));
+  const fields = [...document.querySelectorAll("#profileForm select, #profileForm input:not([type=hidden]):not([type=submit]):not(.dropdown-search), #profileForm textarea")]
+    .filter((el) => el.offsetParent || el.getAttribute("icimsdropdown-enabled") === "1" || el.type === "file")
+    .map((el) => (el.id || el.name).slice(0, 48) + " = " + JSON.stringify(val(el)) + " mark=" + (el.closest("[data-wdaf]")?.dataset.wdaf || "-"));
+  document.getElementById("out").textContent = "@@BEGIN\n" + [
+    "STATS " + JSON.stringify(stats), "TOAST " + JSON.stringify((document.getElementById("aaf-done-toast")?.shadowRoot?.querySelector(".box")?.innerText || "").replace(/\n/g, " | ")),
+    "GUARD " + JSON.stringify([["submit", AAF.click(document.getElementById("cp_form_submit_i"))]]),
+    "ADDED " + JSON.stringify(window.__added),
+    "CLASSIFIED " + JSON.stringify(window.__classify || []),
+    "AI " + JSON.stringify((window.__aiPayload || []).map((q) => q.question.slice(0, 70) + (q.options ? " " + JSON.stringify(q.options.slice(0, 6)) : ""))),
+    "DRAFT " + JSON.stringify(window.__draft ? window.__draft.questions.map((q) => q.question.slice(0, 70)) : null),
+    "LEARNED " + JSON.stringify(STORE.learned.map((x) => x.q + " = " + x.a + (x.pending ? " [pending]" : ""))),
+    ...sec,
+    ...window.__errors.map((e) => "ERR " + e),
+    ...window.__logs.map((l) => "LOG " + l),
+    ...fields.map((f) => "FIELD " + f),
+  ].join("\n") + "\n@@END";
+}, 500);
+</script>
+</body>
+</html>

@@ -1,0 +1,246 @@
+{
+  "manifest_version": 3,
+  "name": "Application Autofill",
+  "version": "0.2.0",
+  "description": "Fills job applications (Workday, Greenhouse, Ashby, Lever, Gem, iCIMS; YC planned) from your saved profile. Uses Claude for questions it can't match.",
+  "permissions": [
+    "storage",
+    "unlimitedStorage",
+    "activeTab",
+    "scripting",
+    "notifications"
+  ],
+  "host_permissions": [
+    "https://*.myworkdayjobs.com/*",
+    "https://*.myworkday.com/*",
+    "https://*.myworkdaysite.com/*",
+    "https://boards.greenhouse.io/*",
+    "https://job-boards.greenhouse.io/*",
+    "https://boards.eu.greenhouse.io/*",
+    "https://job-boards.eu.greenhouse.io/*",
+    "https://jobs.ashbyhq.com/*",
+    "https://jobs.lever.co/*",
+    "https://jobs.eu.lever.co/*",
+    "https://jobs.gem.com/*",
+    "https://*.icims.com/*",
+    "https://ats.rippling.com/*",
+    "https://api.anthropic.com/*",
+    "https://www.workatastartup.com/*",
+    "https://workatastartup.com/*",
+    "https://www.ycombinator.com/companies/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.myworkdayjobs.com/*",
+        "https://*.myworkday.com/*",
+        "https://*.myworkdaysite.com/*"
+      ],
+      "js": [
+        "shared/core.js",
+        "shared/dom.js",
+        "shared/matching.js",
+        "shared/highlights.js",
+        "shared/controls.js",
+        "shared/ui.js",
+        "shared/donetoast.js",
+        "shared/profile.js",
+        "shared/learnrules.js",
+        "shared/prefmap.js",
+        "shared/learning.js",
+        "shared/job.js",
+        "adapters/workday.js",
+        "shared/main.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://boards.greenhouse.io/*",
+        "https://job-boards.greenhouse.io/*",
+        "https://boards.eu.greenhouse.io/*",
+        "https://job-boards.eu.greenhouse.io/*"
+      ],
+      "all_frames": true,
+      "js": [
+        "shared/core.js",
+        "shared/dom.js",
+        "shared/matching.js",
+        "shared/highlights.js",
+        "shared/controls.js",
+        "shared/ui.js",
+        "shared/donetoast.js",
+        "shared/profile.js",
+        "shared/learnrules.js",
+        "shared/prefmap.js",
+        "shared/learning.js",
+        "shared/job.js",
+        "shared/form.js",
+        "adapters/greenhouse.js",
+        "shared/main.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://jobs.ashbyhq.com/*"
+      ],
+      "all_frames": true,
+      "js": [
+        "shared/core.js",
+        "shared/dom.js",
+        "shared/matching.js",
+        "shared/highlights.js",
+        "shared/controls.js",
+        "shared/ui.js",
+        "shared/donetoast.js",
+        "shared/profile.js",
+        "shared/learnrules.js",
+        "shared/prefmap.js",
+        "shared/learning.js",
+        "shared/job.js",
+        "shared/form.js",
+        "adapters/ashby.js",
+        "shared/main.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://ats.rippling.com/*"
+      ],
+      "all_frames": true,
+      "js": [
+        "shared/core.js",
+        "shared/dom.js",
+        "shared/matching.js",
+        "shared/highlights.js",
+        "shared/controls.js",
+        "shared/ui.js",
+        "shared/donetoast.js",
+        "shared/profile.js",
+        "shared/learnrules.js",
+        "shared/prefmap.js",
+        "shared/learning.js",
+        "shared/job.js",
+        "shared/form.js",
+        "adapters/rippling.js",
+        "shared/main.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://jobs.lever.co/*",
+        "https://jobs.eu.lever.co/*"
+      ],
+      "all_frames": true,
+      "js": [
+        "shared/core.js",
+        "shared/dom.js",
+        "shared/matching.js",
+        "shared/highlights.js",
+        "shared/controls.js",
+        "shared/ui.js",
+        "shared/donetoast.js",
+        "shared/profile.js",
+        "shared/learnrules.js",
+        "shared/prefmap.js",
+        "shared/learning.js",
+        "shared/job.js",
+        "shared/form.js",
+        "adapters/lever.js",
+        "shared/main.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://jobs.gem.com/*"
+      ],
+      "all_frames": true,
+      "js": [
+        "shared/core.js",
+        "shared/dom.js",
+        "shared/matching.js",
+        "shared/highlights.js",
+        "shared/controls.js",
+        "shared/ui.js",
+        "shared/donetoast.js",
+        "shared/profile.js",
+        "shared/learnrules.js",
+        "shared/prefmap.js",
+        "shared/learning.js",
+        "shared/job.js",
+        "shared/form.js",
+        "adapters/gem.js",
+        "shared/main.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://*.icims.com/*"
+      ],
+      "all_frames": true,
+      "js": [
+        "shared/core.js",
+        "shared/dom.js",
+        "shared/matching.js",
+        "shared/highlights.js",
+        "shared/controls.js",
+        "shared/ui.js",
+        "shared/donetoast.js",
+        "shared/profile.js",
+        "shared/learnrules.js",
+        "shared/prefmap.js",
+        "shared/learning.js",
+        "shared/job.js",
+        "shared/form.js",
+        "adapters/icims.js",
+        "shared/main.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://www.workatastartup.com/*",
+        "https://workatastartup.com/*",
+        "https://www.ycombinator.com/companies/*"
+      ],
+      "js": [
+        "shared/core.js",
+        "shared/dom.js",
+        "shared/matching.js",
+        "shared/highlights.js",
+        "shared/controls.js",
+        "shared/ui.js",
+        "shared/donetoast.js",
+        "shared/profile.js",
+        "shared/learnrules.js",
+        "shared/prefmap.js",
+        "shared/learning.js",
+        "shared/job.js",
+        "adapters/yc.js",
+        "shared/main.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "commands": {
+    "fill-page": {
+      "suggested_key": {
+        "default": "Alt+Shift+F"
+      },
+      "description": "Fill this page"
+    }
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Application Autofill"
+  },
+  "options_page": "options.html"
+}

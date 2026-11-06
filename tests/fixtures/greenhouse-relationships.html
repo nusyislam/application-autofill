@@ -1,0 +1,222 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Job Application for Software Engineer at Sherwood</title>
+<style>
+  body { font: 14px sans-serif; }
+  .field-wrapper { margin: 10px 0; }
+  .select__control { border: 1px solid #999; min-height: 30px; width: 320px; position: relative; display: flex; flex-wrap: wrap; }
+  .select__menu { position: absolute; background: #fff; border: 1px solid #999; width: 320px; z-index: 5; }
+  .select__option { padding: 4px; }
+  .select__multi-value { display: inline-block; background: #eee; margin: 2px; padding: 0 4px; }
+</style>
+<script>
+// ---- stub chrome API (test only)
+window.__logs = [];
+window.__errors = [];
+const origLog = console.log;
+console.log = (...a) => {
+  if (a[0] === "[autofill]") window.__logs.push(a.slice(1).map((x) => (typeof x === "string" ? x : x && x.nodeType ? "<" + x.tagName + ">" : JSON.stringify(x))).join(" "));
+  origLog(...a);
+};
+window.addEventListener("error", (e) => window.__errors.push("error: " + e.message + " @ " + (e.filename || "").split("/").pop() + ":" + e.lineno));
+window.addEventListener("unhandledrejection", (e) => window.__errors.push("rejection: " + (e.reason && e.reason.stack || e.reason)));
+const STORE = {
+  profile: {
+    firstName: "Test", lastName: "Applicant", email: "test@example.com", phone: "6465550100",
+    country: "United States of America", city: "Springfield", state: "New York",
+    expectedGraduation: "05/2027",
+    experiences: [
+      { title: "Engineering Intern", company: "Examplecorp", current: false, startYear: "2026", endYear: "2026" },
+      { title: "Software Intern", company: "Samplesoft", current: false, startYear: "2024", endYear: "2024" },
+    ],
+    education: [{ school: "Lakeview University", schoolAliases: "LSU Lakeview University", schoolSearch: "Lakeview", field: "Computer Engineering", endYear: "2027" }],
+    answers: { workAuth: "Yes", sponsorship: "No", restrictions: "None", armedForces: "No" },
+    eeo: { gender: "Female", lgbtq: "No | Heterosexual | Straight", transgender: "No" }, api: { key: "test-key", model: "stub" },
+  },
+  settings: { useAI: true, learn: true, threshold: 0.75 },
+  learned: [
+    { q: "Do you have any personal or familial relationships with current B&Q Global employees?", a: "No", type: "dropdown", company: "b q global" },
+    { q: "What is your gender identity?", a: "Male", type: "dropdown" },
+  ],
+};
+let onMsg = null;
+// Location settings have no default in Options: the New York values these tests were written with (settings a fixture
+// sets itself are kept; a blank search took the old default search, and the default list when the list was blank too).
+{ const P = STORE.profile, AL = (P.applicationLocation ||= {}), A = (P.answers ||= {}), blank = !String(AL.search || "").trim();
+  if (blank) AL.search = "New York";
+  if (blank && !String(AL.matches || "").trim()) AL.matches = "New York City, New York, United States | New York, New York, United States | New York, NY, United States | New York, NY | New York City | New York, NY, USA | New York, USA";
+  if (!String(A.officeMetro || "").trim()) A.officeMetro = "New York City | NYC | New York, NY | New York, New York | Manhattan | Brooklyn | Queens | Bronx | Staten Island | Long Island | Jersey City | Hoboken | Newark | Westchester | Stamford"; }
+window.chrome = {
+  storage: {
+    local: {
+      get: async (keys) => {
+        const ks = typeof keys === "string" ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys || {});
+        const out = {};
+        for (const k of ks) if (STORE[k] !== undefined) out[k] = JSON.parse(JSON.stringify(STORE[k]));
+        return out;
+      },
+      set: async (o) => Object.assign(STORE, o),
+    },
+    onChanged: { addListener: () => {} },
+  },
+  runtime: { id: "test-extension",
+    onMessage: { addListener: (fn) => (onMsg = fn) },
+    sendMessage: async (msg) => {
+      if (msg.type === "DRAFT") {
+        window.__draftPayload = msg.questions;
+        return { model: "stub-draft-model", included: { linkedinChars: 0, resumeChars: 0, notesChars: 0, descriptionChars: 0 }, answers: msg.questions.map((q) => ({ id: q.id, answer: "A draft." })) };
+      }
+      if (msg.type === "ASK_AI") {
+        window.__aiPayload = msg.questions;
+        return { model: "stub-model", answers: msg.questions.map((q) => ({ id: q.id, answer: null, confidence: 0.9 })) };
+      }
+      return {};
+    },
+  },
+};
+window.__runFill = () => new Promise((res) => onMsg({ type: "FILL" }, {}, res));
+</script>
+</head>
+<body>
+<h1>Software Engineer</h1>
+<div class="job__location">New York, NY</div>
+<!-- Sherwood-like EEO / demographic page (fake data): EEO from Options or yellow (never Claude), military status
+     from the armed-forces setting, relationship questions from a general learned No (an old B&Q Global entry),
+     product usage yellow, a business partner question still No; then learn() on relationship / product questions. -->
+<form id="application-form" class="application--form">
+  <div class="field-wrapper"><div class="react-select" data-opts="Female|Male|Non-binary|I prefer not to say"><label id="question_1-label" for="question_1">What is your gender identity?</label></div></div>
+  <div class="field-wrapper"><div class="react-select" data-opts="Yes|No|I prefer not to say"><label id="question_2-label" for="question_2">Do you identify as LGBTQ+?</label></div></div>
+  <div class="field-wrapper"><div class="react-select" data-opts="Yes|No|I prefer not to say"><label id="question_3-label" for="question_3">Do you identify as transgender?</label></div></div>
+  <div class="field-wrapper"><div class="react-select" data-opts="I am on active duty|I am part of the national guard or on reserve|I have never served in the military|I identify as a protected veteran|I identify as a non-protected veteran|I don't wish to answer"><label id="question_4-label" for="question_4">What is your military status?</label></div></div>
+  <div class="field-wrapper"><div class="react-select" data-opts="She/her|He/him|They/them|I prefer not to say"><label id="question_5-label" for="question_5">What are your pronouns?</label></div></div>
+  <div class="field-wrapper"><div class="react-select" data-opts="Under 25|25-34|35-44|45+|I prefer not to say"><label id="question_6-label" for="question_6">What is your age range?</label></div></div>
+  <div class="field-wrapper"><div class="react-select" data-opts="Yes|No"><label id="question_7-label" for="question_7">Do you have any personal or familial relationships with current Sherwood employees?</label></div></div>
+  <div class="field-wrapper"><div class="react-select" data-opts="Yes|No"><label id="question_8-label" for="question_8">Do you have relatives employed by Sherwood?</label></div></div>
+  <div class="field-wrapper"><div class="react-select" data-opts="Yes|No"><label id="question_9-label" for="question_9">Are you a Sherwood customer?</label></div></div>
+  <div class="field-wrapper"><div class="react-select" data-opts="Yes|No"><label id="question_10-label" for="question_10">Have you used Sherwood before?</label></div></div>
+  <div class="field-wrapper"><div class="react-select" data-opts="Yes|No"><label id="question_11-label" for="question_11">Are you a current Sherwood partner or reseller?</label></div></div>
+  <div class="field-wrapper"><div class="react-select" data-opts="Yes|No|Questioning|I don't wish to answer"><label id="question_13-label" for="question_13">Do you identify as part of the LGBTQ+ community?</label></div></div>
+  <div class="field-wrapper"><label for="question_12" id="question_12-label">Why do you want to work at Sherwood?</label><textarea id="question_12"></textarea></div>
+  <button type="submit" id="submit" onclick="event.preventDefault()">Submit Application</button>
+</form>
+<pre id="out"></pre>
+<script>
+// ---- react-select look-alike (test only), single or multi (data-multi): a control mousedown opens
+// the menu once the input has seen focus events; typing filters it (static lists); clicking an
+// option sets the single value or adds a chip (and leaves the menu's list without it); Escape closes.
+let rs = 0;
+function makeSelect(wrap) {
+  const label = wrap.querySelector("label");
+  const id = label.getAttribute("for");
+  const all = wrap.dataset.opts.split("|");
+  const multi = !!wrap.dataset.multi;
+  const chosen = [];
+  const lbId = "react-select-" + ++rs + "-listbox";
+  wrap.insertAdjacentHTML("beforeend",
+    `<div class="select-shell"><div class="select__control"><div class="select__value-container${multi ? " select__value-container--is-multi" : ""}"><div class="select__placeholder">Select...</div>` +
+    `<div class="select__input-container"><input class="select__input" role="combobox" aria-expanded="false" aria-haspopup="true" aria-autocomplete="list" id="${id}" aria-labelledby="${id}-label" type="text"></div></div></div></div>`);
+  const control = wrap.querySelector(".select__control");
+  const vc = wrap.querySelector(".select__value-container");
+  const input = wrap.querySelector("input");
+  let menu = null;
+  const close = () => { menu?.remove(); menu = null; input.setAttribute("aria-expanded", "false"); input.removeAttribute("aria-controls"); };
+  const render = (list) => {
+    if (!menu) {
+      menu = document.createElement("div"); menu.className = "select__menu";
+      control.after(menu);
+      input.setAttribute("aria-expanded", "true"); input.setAttribute("aria-controls", lbId);
+    }
+    menu.innerHTML = `<div class="select__menu-list" role="listbox" id="${lbId}"></div>`;
+    const lb = menu.firstChild;
+    if (!list.length) lb.innerHTML = `<div class="select__menu-notice">No options</div>`;
+    for (const t of list) {
+      const o = document.createElement("div"); o.className = "select__option"; o.setAttribute("role", "option"); o.textContent = t;
+      o.addEventListener("click", () => {
+        vc.querySelector(".select__placeholder")?.remove();
+        if (multi) {
+          chosen.push(t);
+          vc.insertAdjacentHTML("afterbegin", `<div class="select__multi-value"><div class="select__multi-value__label">${t}</div></div>`);
+        } else {
+          vc.querySelector(".select__single-value")?.remove();
+          vc.insertAdjacentHTML("afterbegin", `<div class="select__single-value">${t}</div>`);
+        }
+        input.value = ""; close();
+      });
+      lb.appendChild(o);
+    }
+  };
+  const filtered = () => (wrap.dataset.async && !input.value ? [] : all).filter((t) => !chosen.includes(t) && (!input.value || t.toLowerCase().includes(input.value.toLowerCase())));
+  let focused = false;
+  input.addEventListener("focusin", () => (focused = true));
+  input.addEventListener("focusout", () => { focused = false; close(); });
+  control.addEventListener("mousedown", () => { if (!focused) return; menu ? close() : render(filtered()); });
+  input.addEventListener("input", () => render(filtered()));
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") close();
+    if (e.key === "ArrowDown" && !menu) render(filtered());
+  });
+}
+document.querySelectorAll(".react-select").forEach(makeSelect);
+// Prefilled react-selects show their value like a pick would.
+document.querySelectorAll(".react-select[data-value]").forEach((w) => {
+  const vc = w.querySelector(".select__value-container");
+  vc.querySelector(".select__placeholder")?.remove();
+  vc.insertAdjacentHTML("afterbegin", `<div class="select__single-value">${w.dataset.value}</div>`);
+});
+</script>
+<!--SCRIPTS-->
+<script>
+setTimeout(async () => {
+  let stats;
+  try { stats = await window.__runFill(); } catch (e) { window.__errors.push("run: " + e.stack); }
+  // LGBTQ+ membership, derived from other settings (profileValue called directly).
+  const member = [];
+  try {
+    const mf = AAF.adapter.discoverFields().find((f) => /part of the lgbtq/.test(f.nl));
+    const show = (r) => r === AAF.NEEDS ? "NEEDS (yellow)" : JSON.stringify(r && r.value !== undefined ? { blue: !!r.review, ...r.value } : r);
+    for (const [eeo, what] of [
+      [{ lgbtq: "Bisexual", transgender: "No" }, "orientation Bisexual"],
+      [{ lgbtq: "Heterosexual", transgender: "Yes" }, "transgender Yes"],
+      [{ lgbtq: "Heterosexual | Straight", transgender: "" }, "straight, transgender blank"],
+      [{ lgbtq: "I prefer not to answer", transgender: "No" }, "orientation prefer-not"],
+      [{ lgbtq: "", transgender: "No" }, "orientation blank"],
+      [{ lgbtq: "Heterosexual", transgender: "No", lgbtqMember: "Prefer not to say" }, "override Prefer not to say"],
+    ]) member.push(`MEMBER ${what} -> ${show(AAF.profileValue(mf, { ...STORE.profile, eeo }))}`);
+  } catch (e) { window.__errors.push("member: " + e.stack); }
+  const val = (w) => {
+    const sv = w.querySelector(".select__single-value"); if (sv) return sv.textContent;
+    const c = w.querySelector("textarea, input:not([role=combobox])"); return c ? c.value : "";
+  };
+  const fields = [...document.querySelectorAll(".field-wrapper")].map((w) => {
+    const lab = (w.querySelector("label")?.textContent || "").replace(/\*/g, "").trim();
+    const marked = w.closest("[data-wdaf]") || w.querySelector("[data-wdaf]");
+    return lab.slice(0, 50) + " = " + JSON.stringify(val(w)) + " mark=" + ((marked && marked.dataset.wdaf) || "-");
+  });
+  // Learning: answer the relatives question No (general), and the customer question Yes (Sherwood only).
+  const learnLines = [];
+  try {
+    const fs = AAF.adapter.discoverFields();
+    const rel = fs.find((f) => /relatives employed/.test(f.nl));
+    const cust = fs.find((f) => /sherwood customer/.test(f.nl));
+    const rel2 = fs.find((f) => /personal or familial/.test(f.nl));
+    await AAF.learn(rel, "No");
+    await AAF.learn(cust, "Yes");
+    await AAF.learn(rel2, "Yes");
+    learnLines.push("LEARNED " + JSON.stringify(STORE.learned.map((x) => x.q + " = " + x.a + (x.company ? " [" + x.company + "]" : "") + (x.pending ? " [pending]" : ""))));
+  } catch (e) { window.__errors.push("learn: " + e.stack); }
+  document.getElementById("out").textContent = "@@BEGIN\n" + [
+    "STATS " + JSON.stringify(stats), "TOAST " + JSON.stringify((document.getElementById("aaf-done-toast")?.shadowRoot?.querySelector(".box")?.innerText || "").replace(/\n/g, " | ")),
+    "AI " + JSON.stringify((window.__aiPayload || []).map((q) => q.question)),
+    "DRAFT " + JSON.stringify((window.__draftPayload || []).map((q) => q.question)),
+    ...member,
+    ...learnLines,
+    ...window.__errors.map((e) => "ERR " + e),
+    ...window.__logs.map((l) => "LOG " + l),
+    ...fields.map((f) => "FIELD " + f),
+  ].join("\n") + "\n@@END";
+}, 500);
+</script>
+</body>
+</html>

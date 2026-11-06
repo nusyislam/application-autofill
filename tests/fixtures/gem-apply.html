@@ -1,0 +1,136 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Software Engineer Intern - Acme</title>
+<style>
+  body { font: 14px sans-serif; }
+  .q { margin: 10px 0; }
+</style>
+<script>
+window.__logs = [];
+window.__errors = [];
+const origLog = console.log;
+console.log = (...a) => {
+  if (a[0] === "[autofill]") window.__logs.push(a.slice(1).map((x) => (typeof x === "string" ? x : x && x.nodeType ? "<" + x.tagName + ">" : JSON.stringify(x))).join(" "));
+  origLog(...a);
+};
+window.addEventListener("error", (e) => window.__errors.push("error: " + e.message + " @ " + (e.filename || "").split("/").pop() + ":" + e.lineno));
+window.addEventListener("unhandledrejection", (e) => window.__errors.push("rejection: " + (e.reason && e.reason.stack || e.reason)));
+const STORE = {
+  profile: {
+    firstName: "Test", lastName: "Applicant", email: "test@example.com", phone: "6465550100",
+    linkedin: "https://www.linkedin.com/in/test/",
+    experiences: [{ company: "Examplecorp", title: "Engineering Intern" }],
+    answers: { workAuth: "Yes", sponsorship: "No", over18: "Yes", previousEmployers: "Examplecorp" },
+    eeo: { gender: "Male" },
+    api: { key: "test-key", model: "stub" },
+  },
+  settings: { useAI: true, learn: true, threshold: 0.75 },
+  learned: [],
+  resumeFile: { name: "resume-test.pdf", type: "application/pdf", dataUrl: "data:application/pdf;base64,JVBERi0xLjQK" },
+};
+let onMsg = null;
+// Location settings have no default in Options: the New York values these tests were written with (settings a fixture
+// sets itself are kept; a blank search took the old default search, and the default list when the list was blank too).
+{ const P = STORE.profile, AL = (P.applicationLocation ||= {}), A = (P.answers ||= {}), blank = !String(AL.search || "").trim();
+  if (blank) AL.search = "New York";
+  if (blank && !String(AL.matches || "").trim()) AL.matches = "New York City, New York, United States | New York, New York, United States | New York, NY, United States | New York, NY | New York City | New York, NY, USA | New York, USA";
+  if (!String(A.officeMetro || "").trim()) A.officeMetro = "New York City | NYC | New York, NY | New York, New York | Manhattan | Brooklyn | Queens | Bronx | Staten Island | Long Island | Jersey City | Hoboken | Newark | Westchester | Stamford"; }
+window.chrome = {
+  storage: {
+    local: {
+      get: async (keys) => {
+        const ks = typeof keys === "string" ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys || {});
+        const out = {};
+        for (const k of ks) if (STORE[k] !== undefined) out[k] = JSON.parse(JSON.stringify(STORE[k]));
+        return out;
+      },
+      set: async (o) => Object.assign(STORE, o),
+    },
+    onChanged: { addListener: () => {} },
+  },
+  runtime: {
+    id: "test-extension",
+    onMessage: { addListener: (fn) => (onMsg = fn) },
+    sendMessage: async (msg) => {
+      if (msg.type === "DRAFT") {
+        window.__draft = msg;
+        return { model: "stub-draft-model", included: { linkedinChars: 0, resumeChars: 0, notesChars: 0, descriptionChars: (msg.job.description || "").length }, answers: msg.questions.map((q) => ({ id: q.id, answer: "I like building tools that people use every day." })) };
+      }
+      if (msg.type === "ASK_AI") {
+        window.__aiPayload = msg.questions;
+        return { model: "stub-model", answers: msg.questions.map((q) => ({ id: q.id, answer: "2026-06-01", confidence: 0.99 })) };
+      }
+      return {};
+    },
+  },
+};
+window.__runFill = () => new Promise((res) => onMsg({ type: "FILL" }, {}, res));
+</script>
+</head>
+<body>
+<!-- Gem-like job page (fake data; Gem's real markup not seen yet): no <form>, the application in
+     separate blocks under the posting, a site search box in the header. -->
+<header><input type="search" placeholder="Search jobs" id="site-search"></header>
+<div class="posting">
+  <div class="posting-header"><h1>Software Engineer Intern</h1>
+    <div class="meta"><span>San Francisco • New York • In office • Full-time</span></div></div>
+  <div class="job-description"><p>Acme builds developer tools. You will work on our data platform in Python.</p></div>
+</div>
+<div class="application">
+  <div class="block personal">
+    <div class="q"><label for="first">First name *</label><input id="first" name="firstName" required></div>
+    <div class="q"><label for="last">Last name *</label><input id="last" name="lastName" required></div>
+    <div class="q"><label for="email">Email *</label><input id="email" type="email" name="email" required></div>
+    <div class="q"><label for="phone">Phone</label><input id="phone" type="tel" name="phone"></div>
+    <div class="q"><label for="li">LinkedIn URL</label><input id="li" name="linkedin"></div>
+  </div>
+  <div class="block resume">
+    <div class="q file-upload"><label for="resume">Resume *</label><input id="resume" type="file" name="resume"><span class="file-name"></span></div>
+  </div>
+  <div class="block questions">
+    <fieldset class="q"><legend>Are you legally authorized to work in the United States? *</legend>
+      <label><input type="radio" name="auth" value="yes"> Yes</label> <label><input type="radio" name="auth" value="no"> No</label></fieldset>
+    <fieldset class="q"><legend>Will you now or in the future require visa sponsorship? *</legend>
+      <label><input type="radio" name="spon" value="yes"> Yes</label> <label><input type="radio" name="spon" value="no"> No</label></fieldset>
+    <fieldset class="q"><legend>Are you able to work from our office 5 days a week? *</legend>
+      <label><input type="radio" name="office" value="yes"> Yes</label> <label><input type="radio" name="office" value="no"> No</label></fieldset>
+    <div class="q"><label for="start">When can you start? *</label><input id="start" name="start" required></div>
+    <div class="q"><label for="why">Why do you want to join Acme? *</label><textarea id="why" name="why" required></textarea></div>
+    <div class="q"><label for="gender">Gender</label><select id="gender" name="gender"><option value="">Select...</option><option>Female</option><option>Male</option><option>Decline to self-identify</option></select></div>
+  </div>
+  <button type="button" id="submit" onclick="window.__nav = (window.__nav || []).concat('Submit')">Submit application</button>
+</div>
+<pre id="out"></pre>
+<script>
+const resume = document.getElementById("resume");
+resume.addEventListener("change", () => (document.querySelector(".file-name").textContent = resume.files[0]?.name || ""));
+</script>
+<!--SCRIPTS-->
+<script>
+setTimeout(async () => {
+  let stats;
+  try { stats = await window.__runFill(); } catch (e) { window.__errors.push("run: " + e.stack); }
+  const fields = [...document.querySelectorAll(".q")].map((q) => {
+    const lab = (q.querySelector("legend, label")?.textContent || "").replace("*", "").trim();
+    const r = q.querySelector("input[type=radio]:checked"); const s = q.querySelector("select"); const f = q.querySelector("input[type=file]");
+    const c = q.querySelector("input:not([type=radio]):not([type=file]), textarea");
+    const val = r ? r.value : s ? (s.selectedIndex > 0 ? s.selectedOptions[0].text : "") : f ? "file:" + (f.files[0]?.name || "") : c ? c.value : "";
+    return lab.slice(0, 50) + " = " + JSON.stringify(val) + " mark=" + (q.dataset.wdaf || q.querySelector("[data-wdaf]")?.dataset.wdaf || q.closest("[data-wdaf]")?.dataset.wdaf || "-");
+  });
+  document.getElementById("out").textContent = "@@BEGIN\n" + [
+    "STATS " + JSON.stringify(stats), "TOAST " + JSON.stringify((document.getElementById("aaf-done-toast")?.shadowRoot?.querySelector(".box")?.innerText || "").replace(/\n/g, " | ")),
+    "NAV " + JSON.stringify(window.__nav || []),
+    "GUARD " + JSON.stringify(["submit"].map((id) => [id, AAF.click(document.getElementById(id))])),
+    "SEARCH-BOX " + JSON.stringify(document.getElementById("site-search").value),
+    "AI " + JSON.stringify((window.__aiPayload || []).map((q) => q.question)),
+    "DRAFT " + JSON.stringify(window.__draft ? { questions: window.__draft.questions.map((q) => q.question), job: window.__draft.job } : null),
+    ...window.__errors.map((e) => "ERR " + e),
+    ...window.__logs.map((l) => "LOG " + l),
+    ...fields.map((f) => "FIELD " + f),
+  ].join("\n") + "\n@@END";
+}, 500);
+</script>
+</body>
+</html>

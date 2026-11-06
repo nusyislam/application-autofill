@@ -1,0 +1,221 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Software Engineer @ Kestrel</title>
+<style>
+  body { font: 14px sans-serif; }
+  .ashby-application-form-field-entry, [data-field-path] { margin: 10px 0; position: relative; }
+  .ashby-application-form-input-yesno { display: flex; gap: 4px; position: relative; }
+  .ashby-application-form-input-yesno-option[aria-pressed="true"] { background: #333; color: #fff; }
+  ._input_1svni_78 { position: absolute; opacity: 0; width: 1px; height: 1px; }
+</style>
+<script>
+// ---- stub chrome API (test only)
+window.__logs = [];
+window.__errors = [];
+const origLog = console.log;
+console.log = (...a) => {
+  if (a[0] === "[autofill]") window.__logs.push(a.slice(1).map((x) => (typeof x === "string" ? x : x && x.nodeType ? "<" + x.tagName + ">" : JSON.stringify(x))).join(" "));
+  origLog(...a);
+};
+window.addEventListener("error", (e) => window.__errors.push("error: " + e.message + " @ " + (e.filename || "").split("/").pop() + ":" + e.lineno));
+window.addEventListener("unhandledrejection", (e) => window.__errors.push("rejection: " + (e.reason && e.reason.stack || e.reason)));
+const STORE = {
+  profile: {
+    firstName: "Test", lastName: "Applicant", email: "test@example.com", phone: "6465550100",
+    country: "United States of America", city: "Springfield", state: "New York", address1: "1 Test Street", zip: "10001",
+    linkedin: "https://www.linkedin.com/in/test/", github: "https://github.com/test", website: "",
+    source: "LinkedIn", hearText: "LinkedIn", expectedGraduation: "05/2027",
+    projectsHighlight: "Form Tool: https://github.com/test/form-tool",
+    experiences: [{ company: "Examplecorp", title: "Engineering Intern" }],
+    education: [{ school: "Lakeview University", schoolAliases: "LSU Lakeview University", schoolSearch: "Lakeview", degreeOptions: "Bachelor of Engineering", field: "Computer Engineering", startMonth: "8", startYear: "2023", endYear: "2027" }],
+    answers: { workAuth: "Yes", sponsorship: "No", over18: "Yes", previousEmployers: "Examplecorp", citizen: "Yes", relocate: "Yes", govEmployee: "No", armedForces: "No" },
+    eeo: { gender: "Female", lgbtq: "I don't wish to answer", transgender: "No" },
+    api: { key: "test-key", model: "stub" },
+  },
+  settings: { useAI: true, learn: true, threshold: 0.75 },
+  learned: [],
+};
+let onMsg = null;
+// Location settings have no default in Options: the New York values these tests were written with (settings a fixture
+// sets itself are kept; a blank search took the old default search, and the default list when the list was blank too).
+{ const P = STORE.profile, AL = (P.applicationLocation ||= {}), A = (P.answers ||= {}), blank = !String(AL.search || "").trim();
+  if (blank) AL.search = "New York";
+  if (blank && !String(AL.matches || "").trim()) AL.matches = "New York City, New York, United States | New York, New York, United States | New York, NY, United States | New York, NY | New York City | New York, NY, USA | New York, USA";
+  if (!String(A.officeMetro || "").trim()) A.officeMetro = "New York City | NYC | New York, NY | New York, New York | Manhattan | Brooklyn | Queens | Bronx | Staten Island | Long Island | Jersey City | Hoboken | Newark | Westchester | Stamford"; }
+window.chrome = {
+  storage: {
+    local: {
+      get: async (keys) => {
+        const ks = typeof keys === "string" ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys || {});
+        const out = {};
+        for (const k of ks) if (STORE[k] !== undefined) out[k] = JSON.parse(JSON.stringify(STORE[k]));
+        return out;
+      },
+      set: async (o) => Object.assign(STORE, o),
+    },
+    onChanged: { addListener: () => {} },
+  },
+  runtime: { id: "test-extension",
+    onMessage: { addListener: (fn) => (onMsg = fn) },
+    sendMessage: async (msg) => {
+      // The classifier, as on the real page: education status / referral questions are routed, the rest "other".
+      if (msg.type === "CLASSIFY_ASK") {
+        window.__classify = (window.__classify || []).concat(msg.questions.map((q) => q.question));
+        const cat = (q) => /government/i.test(q) ? "military / government history" : /education|school/i.test(q) ? "education status" : /based in/i.test(q) ? "residence" : "other";
+        return { model: "stub-haiku", categories: msg.questions.map((q) => ({ id: q.id, category: cat(q.question) })) };
+      }
+      if (msg.type === "MAP_MEANING") {
+        window.__mapMeaning = (window.__mapMeaning || []).concat([msg.question + " | " + msg.meaning + (msg.detail ? " | " + msg.detail : "")]);
+        const i = msg.options.findIndex((o) => /relocate to either|relocate there/i.test(o));
+        return { model: "stub-haiku", option: i >= 0 ? msg.options[i] : null };
+      }
+      // Claude and drafts answer anything they get: what reaches them shows in AI / DRAFT.
+      if (msg.type === "ASK_AI") {
+        window.__aiPayload = (window.__aiPayload || []).concat(msg.questions.map((q) => q.question));
+        return { model: "stub-model", answers: msg.questions.map((q) => ({ id: q.id, answer: "Yes", confidence: 0.95 })) };
+      }
+      if (msg.type === "DRAFT") {
+        window.__draft = (window.__draft || []).concat(msg.questions.map((q) => q.question));
+        return { model: "stub-draft-model", included: { linkedinChars: 0, resumeChars: 0, notesChars: 0, descriptionChars: 0 }, answers: msg.questions.map((q) => ({ id: q.id, answer: "A draft." })) };
+      }
+      return {};
+    },
+  },
+};
+window.__runFill = () => new Promise((res) => onMsg({ type: "FILL" }, {}, res));
+</script>
+</head>
+<body>
+<!-- Kestrel-like Ashby page (fake data; the questions as reported, the markup assumed: the real page wasn't pasted). Failures on the
+     real page: the based-in-NYC-or-DC question got "I'd relocate to either city" (the residence rule passed a bare Yes to the
+     meaning mapper, whose Claude call was cut off at max_tokens and then picked a relocation option); the government projects
+     question got the government-history "No"; the Education History card (School "Search schools...", "+ Add Education") was
+     classified education status and left yellow. The card's markup is a stand-in: picking a school reveals Degree, Field of
+     study, Start date and End date. Controls: a based-in question whose options don't name the city (the mapper's
+     relocation pick is rejected: yellow) and a real government-employment question (No). -->
+<script>window.__appData = {"posting":{"locationName":"New York","descriptionPlainText":"Kestrel builds software for government agencies."}};</script>
+<h1>Software Engineer</h1>
+<div class="ashby-application-form-container">
+<div class="ashby-application-form-section-container" id="sec">
+  <div class="ashby-application-form-field-entry" data-field-path="_systemfield_name"><label class="ashby-application-form-question-title" for="_systemfield_name">Name</label><input id="_systemfield_name" name="_systemfield_name" type="text" class="ashby-application-form-input-text"></div>
+</div>
+</div>
+<button id="submit" type="submit">Submit Application</button>
+<pre id="out"></pre>
+<script>
+const Q = [
+  ["based", "radio", "Are you based in New York City or Washington, DC? If not, would you relocate?", ["I live in or commute to NYC today", "I live in or commute to DC today", "I'd relocate to NYC", "I'd relocate to DC", "I'd relocate to either city", "I'm not open to relocating"]],
+  ["based2", "radio", "Are you based in New York City?", ["Currently there", "I'd relocate there", "Neither"]],
+  ["gov", "radio", "Are you open to contributing to projects across all levels of government, including federal?", ["Yes", "No"]],
+  ["govemp", "radio", "Have you ever been employed by the federal government?", ["Yes", "No"]],
+  ["edu", "educard", "Education History"],
+];
+const sec = document.getElementById("sec");
+const combos = [];
+for (const [id, kind, label, opts] of Q) {
+  const d = document.createElement("div");
+  d.dataset.fieldPath = id;
+  if (kind === "yesno") {
+    d.className = "ashby-application-form-field-entry";
+    d.innerHTML = `<label class="ashby-application-form-question-title" for="${id}">${label}</label><div class="_container_1svni_28 ashby-application-form-input-yesno"><button class="ashby-application-form-input-yesno-option" aria-pressed="false" data-option="yes">Yes</button><button class="ashby-application-form-input-yesno-option" aria-pressed="false" data-option="no">No</button><input type="checkbox" class="_input_1svni_78" tabindex="-1" name="${id}"></div>`;
+  } else if (kind === "combo") {
+    // Ashby's autocomplete: results 300 ms after typing (the list filtered by the typed text); a click puts the
+    // option in the box; leaving without a pick clears it.
+    d.className = "ashby-application-form-field-entry";
+    d.innerHTML = `<label class="ashby-application-form-question-title" for="${id}">${label}</label><input id="${id}" class="ashby-application-form-input-autocomplete" placeholder="Start typing..." aria-autocomplete="list" aria-expanded="false" aria-haspopup="listbox" role="combobox" value="">`;
+    combos.push([d.querySelector("input"), opts]);
+  } else if (kind === "educard") {
+    d.className = "ashby-application-form-field-entry";
+    d.innerHTML = `<label class="ashby-application-form-question-title" for="${id}">${label}</label><div class="edu-list"><div class="edu-card">` +
+      `<div class="edu-row"><label class="edu-sub">School</label><input class="ashby-application-form-input-autocomplete" role="combobox" aria-autocomplete="list" aria-haspopup="listbox" aria-expanded="false" placeholder="Search schools..." value=""></div>` +
+      `<div class="edu-reveal"></div></div><button type="button" class="edu-add">+ Add Education</button></div>`;
+    combos.push([d.querySelector("input"), ["Lakeview University", "Brooklyn College", "Boston University"], () => reveal(d)]);
+  } else if (kind === "single") {
+    // A lone checkbox outside a fieldset, its own label just "Yes", the question in the entry's title.
+    d.className = "ashby-application-form-field-entry";
+    d.innerHTML = `<label class="ashby-application-form-question-title" for="${id}">${label}</label><div class="ashby-application-form-input-checkbox"><input type="checkbox" id="${id}-yes" name="${id}"><label for="${id}-yes">Yes</label></div>`;
+  } else if (kind === "text" || kind === "textarea") {
+    d.className = "ashby-application-form-field-entry";
+    d.innerHTML = `<label class="ashby-application-form-question-title" for="${id}">${label}</label>` + (kind === "text" ? `<input id="${id}" name="${id}" type="text" class="ashby-application-form-input-text">` : `<textarea id="${id}" name="${id}" class="ashby-application-form-input-textarea"></textarea>`);
+  } else {
+    const t = kind === "radio" ? "radio" : "checkbox";
+    d.innerHTML = `<fieldset class="ashby-application-form-input-${t}-group"><label class="ashby-application-form-question-title" for="${id}">${label}</label>` +
+      opts.map((o, i) => `<div class="ashby-application-form-input-${t}-group-option"><span data-disabled="false"><input type="${t}" id="${id}-o${i}" name="${t === "radio" ? id : o}"></span><label for="${id}-o${i}" class="ashby-application-form-input-${t}-group-option-label">${o}</label></div>`).join("") + `</fieldset>`;
+  }
+  sec.appendChild(d);
+}
+const setVal = (el, v) => Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(el, v);
+window.__searches = [];
+function reveal(d) {
+  const box = d.querySelector(".edu-reveal");
+  if (box.childElementCount) return;
+  box.innerHTML =
+    `<div class="edu-row"><label class="edu-sub">Degree</label><input class="ashby-application-form-input-autocomplete" role="combobox" aria-autocomplete="list" aria-haspopup="listbox" aria-expanded="false" placeholder="Search degrees..." value=""></div>` +
+    `<div class="edu-row"><label class="edu-sub">Field of Study</label><input type="text" class="ashby-application-form-input-text" value=""></div>` +
+    `<div class="edu-row"><label class="edu-sub">Start Date</label><input type="text" class="ashby-application-form-input-text" placeholder="MM/YYYY" value=""></div>` +
+    `<div class="edu-row"><label class="edu-sub">End Date</label><input type="text" class="ashby-application-form-input-text" placeholder="MM/YYYY" value=""></div>`;
+  wire(box.querySelector("input[role=combobox]"), ["Bachelor of Engineering", "Bachelor of Science", "Master of Science", "Associate's Degree"], null, 9);
+}
+combos.forEach(([input, all, onPick], n) => wire(input, all, onPick, n));
+function wire(input, all, onPick, n) {
+  let list = null, timer = null, picked = "";
+  const close = () => { list?.remove(); list = null; input.setAttribute("aria-expanded", "false"); input.removeAttribute("aria-controls"); };
+  const render = (items) => {
+    if (!list) {
+      list = document.createElement("div"); list.setAttribute("role", "listbox"); list.id = "combo-lb-" + n;
+      document.body.appendChild(list);
+      input.setAttribute("aria-expanded", "true"); input.setAttribute("aria-controls", list.id);
+    }
+    list.innerHTML = "";
+    for (const t of items) {
+      const o = document.createElement("div"); o.setAttribute("role", "option"); o.textContent = t;
+      o.addEventListener("click", () => { setVal(input, t); picked = t; close(); if (onPick) setTimeout(onPick, 200); });
+      list.appendChild(o);
+    }
+  };
+  input.addEventListener("mousedown", () => (list ? close() : render([])));
+  input.addEventListener("input", () => {
+    picked = ""; clearTimeout(timer); render([]);
+    if (input.value) window.__searches.push(input.id + ":" + input.value);
+    timer = setTimeout(() => render(input.value ? all.filter((t) => t.toLowerCase().includes(input.value.toLowerCase())) : []), 300);
+  });
+  input.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
+  input.addEventListener("focusout", () => setTimeout(() => { close(); if (!picked) setVal(input, ""); }, 0));
+}
+document.querySelectorAll(".ashby-application-form-input-yesno").forEach((g) =>
+  g.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
+    g.querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+    g.querySelector("input[type=checkbox]").checked = b.dataset.option === "yes";
+  })));
+</script>
+<!--SCRIPTS-->
+<script>
+setTimeout(async () => {
+  let stats;
+  try { stats = await window.__runFill(); } catch (e) { window.__errors.push("run: " + e.stack); }
+  const mark = (el) => el.closest("[data-wdaf]")?.dataset.wdaf || el.querySelector?.("[data-wdaf]")?.dataset.wdaf || "-";
+  const eduOut = [...document.querySelectorAll(".edu-row")].map((r) => "FIELD Education History - " + r.querySelector("label").textContent + " = " + JSON.stringify(r.querySelector("input").value) + " mark=" + mark(r.querySelector("input")));
+  const out = Q.filter(([, kind]) => kind !== "educard").map(([id, kind, label]) => {
+    const d = document.querySelector(`[data-field-path="${id}"]`);
+    let v;
+    if (kind === "yesno") v = [...d.querySelectorAll("button[aria-pressed=true]")].map((b) => b.textContent).join(",") || "-";
+    else if (kind === "text" || kind === "textarea" || kind === "combo") v = JSON.stringify(d.querySelector("input, textarea").value);
+    else if (kind === "single") v = d.querySelector("input").checked;
+    else v = [...d.querySelectorAll("input:checked")].map((i) => i.parentElement.nextElementSibling.textContent).join(", ") || "-";
+    return label.slice(0, 60) + " = " + v + " mark=" + mark(d.querySelector("fieldset, .ashby-application-form-input-yesno, input, textarea"));
+  });
+  document.getElementById("out").textContent = "@@BEGIN\n" + [
+    "STATS " + JSON.stringify(stats), "TOAST " + JSON.stringify((document.getElementById("aaf-done-toast")?.shadowRoot?.querySelector(".box")?.innerText || "").replace(/\n/g, " | ")),
+    "CLASSIFIED " + JSON.stringify(window.__classify || []), "SEARCHES " + JSON.stringify(window.__searches),
+    "AI " + JSON.stringify(window.__aiPayload || []),
+    "DRAFT " + JSON.stringify(window.__draft || []),
+    ...window.__errors.map((e) => "ERR " + e),
+    ...window.__logs.map((l) => "LOG " + l),
+    ...out.map((f) => "FIELD " + f), ...eduOut, "MAPMEANING " + JSON.stringify(window.__mapMeaning || []),
+  ].join("\n") + "\n@@END";
+}, 500);
+</script>
+</body>
+</html>

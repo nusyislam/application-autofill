@@ -1,0 +1,132 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Careers</title>
+<style>
+  body { font: 14px sans-serif; }
+  [role=listbox] { position: absolute; background: #fff; border: 1px solid #999; width: 320px; max-height: 200px; overflow: auto; z-index: 5; }
+  [role=option] { padding: 4px; min-height: 20px; }
+  .ff { margin: 10px 0; }
+</style>
+<script>
+window.__logs = [];
+window.__errors = [];
+const origLog = console.log;
+console.log = (...a) => {
+  if (a[0] === "[autofill]") window.__logs.push(a.slice(1).map((x) => (typeof x === "string" ? x : x && x.nodeType ? "<" + x.tagName + ">" : JSON.stringify(x))).join(" "));
+  origLog(...a);
+};
+window.addEventListener("error", (e) => window.__errors.push("error: " + e.message + " @ " + (e.filename || "").split("/").pop() + ":" + e.lineno));
+window.addEventListener("unhandledrejection", (e) => window.__errors.push("rejection: " + (e.reason && e.reason.stack || e.reason)));
+const STORE = {
+  profile: {
+    firstName: "Test", lastName: "Applicant",
+    skills: "Data Wrangling, Fortran Basics, Nonexistent Skill, GIMP Retouching",
+    experiences: [], education: [], languages: [], answers: {}, eeo: {}, api: { key: "" },
+  },
+  settings: { useAI: true, learn: true, threshold: 0.75 },
+  learned: [],
+};
+let onMsg = null;
+// Location settings have no default in Options: the New York values these tests were written with (settings a fixture
+// sets itself are kept; a blank search took the old default search, and the default list when the list was blank too).
+{ const P = STORE.profile, AL = (P.applicationLocation ||= {}), A = (P.answers ||= {}), blank = !String(AL.search || "").trim();
+  if (blank) AL.search = "New York";
+  if (blank && !String(AL.matches || "").trim()) AL.matches = "New York City, New York, United States | New York, New York, United States | New York, NY, United States | New York, NY | New York City | New York, NY, USA | New York, USA";
+  if (!String(A.officeMetro || "").trim()) A.officeMetro = "New York City | NYC | New York, NY | New York, New York | Manhattan | Brooklyn | Queens | Bronx | Staten Island | Long Island | Jersey City | Hoboken | Newark | Westchester | Stamford"; }
+window.chrome = {
+  storage: {
+    local: {
+      get: async (keys) => {
+        const ks = typeof keys === "string" ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys || {});
+        const out = {};
+        for (const k of ks) if (STORE[k] !== undefined) out[k] = JSON.parse(JSON.stringify(STORE[k]));
+        return out;
+      },
+      set: async (o) => Object.assign(STORE, o),
+    },
+    onChanged: { addListener: () => {} },
+  },
+  runtime: { id: "test-extension", onMessage: { addListener: (fn) => (onMsg = fn) }, sendMessage: async () => ({ model: "stub", answers: [] }) },
+};
+window.__runFill = () => new Promise((res) => onMsg({ type: "FILL" }, {}, res));
+</script>
+</head>
+<body>
+<h2>My Experience</h2>
+<!-- Stop mid-fill (fake data): the slow skills search from workday-skills.html; 4 s into the fill the
+     "Autofilling..." panel's Stop button is clicked. The run must stop within about a second (one line, the
+     step it was at), keep the chips added so far, run no retries, show "Stopped." with the counts, remove the
+     panel and bring back the floating button, and learn nothing right after. -->
+<div class="ff" data-automation-id="formField-skills"><label>Type to Add Skills</label>
+  <div data-automation-id="multiselectInputContainer"><input type="text" data-items="Data Wrangling|Fortran Basics|GIMP Retouching|InkScape Diagramming"></div></div>
+<pre id="out"></pre>
+
+<script>
+// ---- Workday-like skills search (test only), with a reused popup and transient "No Items.".
+window.__searches = [];
+const FLAKY = { "avr assembly": 1, "orcad pspice": 2 };
+const tries = {};
+const inp = document.querySelector("[data-automation-id=multiselectInputContainer] input");
+const field = inp.closest("[data-automation-id^=formField]");
+let lb = null;
+const render = (items) => {
+  const sig = items.join("|") || "No Items.";
+  if (lb && lb.isConnected && lb.dataset.sig === sig) return; // same content: the popup stays as it is
+  if (!lb || !lb.isConnected) {
+    lb = document.createElement("div");
+    lb.setAttribute("data-automation-id", "activeListContainer"); lb.setAttribute("role", "listbox");
+    field.appendChild(lb);
+  }
+  lb.dataset.sig = sig;
+  lb.innerHTML = "";
+  for (const t of items.length ? items : ["No Items."]) {
+    const row = document.createElement("div"); row.setAttribute("role", "option"); row.setAttribute("data-automation-id", "menuItem");
+    const leaf = document.createElement("div"); leaf.setAttribute("data-automation-id", "promptLeafNode");
+    const po = document.createElement("div"); po.setAttribute("data-automation-id", "promptOption"); po.textContent = t;
+    if (items.length) po.addEventListener("click", () => { const chip = document.createElement("div"); chip.setAttribute("data-automation-id", "selectedItem"); chip.textContent = t; field.appendChild(chip); });
+    leaf.appendChild(po); row.appendChild(leaf); lb.appendChild(row);
+  }
+};
+inp.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") return; // the popup stays open between searches, as on DataPilot
+  if (e.key !== "Enter") return;
+  const q = inp.value.trim().toLowerCase();
+  window.__searches.push(q);
+  tries[q] = (tries[q] || 0) + 1;
+  const items = inp.dataset.items.split("|").filter((t) => q && t.toLowerCase().includes(q));
+  render(tries[q] <= (FLAKY[q] || 0) ? [] : items);
+});
+</script>
+<!--SCRIPTS-->
+<script>
+setTimeout(async () => {
+  let stats;
+  let clickedAt = 0, panelStep = "", panelSeen = false;
+  setTimeout(() => {
+    const panel = document.getElementById("aaf-progress");
+    panelSeen = !!panel;
+    panelStep = panel ? panel.shadowRoot.querySelector(".step").textContent : "";
+    clickedAt = performance.now();
+    panel?.shadowRoot.querySelector(".stop").click();
+  }, 4000);
+  try { stats = await window.__runFill(); } catch (e) { window.__errors.push("run: " + e.stack); }
+  const stoppedAfter = Math.round(performance.now() - clickedAt);
+  const learnedBefore = (STORE.learned || []).length;
+  try { await AAF.learn(AAF.adapter.discoverFields()[0] || { nl: "a question label", label: "a question label", type: "text", c: document.body }, "x"); } catch (e) {}
+  const skills = [...field.querySelectorAll("[data-automation-id=selectedItem]")].map((x) => x.textContent);
+  document.getElementById("out").textContent = "@@BEGIN\n" + [
+    "STATS " + JSON.stringify(stats), "TOAST " + JSON.stringify((document.getElementById("aaf-done-toast")?.shadowRoot?.querySelector(".box")?.innerText || "").replace(/\n/g, " | ")),
+    "SKILLS " + JSON.stringify(skills),
+    "PANEL during the fill " + panelSeen + ' (step "' + panelStep + '"), after ' + !!document.getElementById("aaf-progress"),
+    "STOP took " + (stoppedAfter < 1500 ? "under 1.5 s" : stoppedAfter + " ms"),
+    "LEARNED right after the stop " + ((STORE.learned || []).length - learnedBefore),
+    "SEARCHES " + JSON.stringify(window.__searches),
+    ...window.__errors.map((e) => "ERR " + e),
+    ...window.__logs.map((l) => "LOG " + l),
+  ].join("\n") + "\n@@END";
+}, 500);
+</script>
+</body>
+</html>

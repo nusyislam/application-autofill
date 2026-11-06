@@ -1,0 +1,461 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Entry Level Engineer - Embedded Software / Systems - Careers</title>
+<style>
+  body { font: 14px sans-serif; }
+  .iCIMS_TableRow { display: flex; gap: 8px; margin: 3px 0; }
+  .iCIMS_InfoField { width: 320px; }
+  .dropdown-hide, .dropdown-invisible, .iCIMS_NoDisplay, .NoDisplay, .hide { display: none !important; }
+  .iCIMS_508_Label, .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .dropdown-select { display: inline-block; border: 1px solid #999; min-width: 260px; padding: 2px; cursor: pointer; }
+  .dropdown-container { border: 1px solid #666; background: #fff; }
+</style>
+<script>
+window.__logs = [];
+window.__errors = [];
+const origLog = console.log;
+console.log = (...a) => {
+  if (a[0] === "[autofill]") window.__logs.push(a.slice(1).map((x) => (typeof x === "string" ? x : x && x.nodeType ? "<" + x.tagName + ">" : JSON.stringify(x))).join(" "));
+  origLog(...a);
+};
+window.addEventListener("error", (e) => window.__errors.push("error: " + e.message + " @ " + (e.filename || "").split("/").pop() + ":" + e.lineno));
+window.addEventListener("unhandledrejection", (e) => window.__errors.push("rejection: " + (e.reason && e.reason.stack || e.reason)));
+const STORE = {
+  profile: {
+    firstName: "Testina", lastName: "Sample", preferredName: "Tess", email: "test.sample@example.com", phone: "6465550100",
+    address1: "100 Example Ave", address2: "", city: "Springfield", state: "New York", zip: "10001", country: "United States of America",
+    experiences: [{ title: "Engineering Intern", company: "Examplecorp", location: "Riverton, NJ", startMonth: "6", startYear: "2026", endMonth: "8", endYear: "2026" }],
+    education: [
+      { school: "Lakeview University", schoolAliases: "LSU Lakeview University", degreeOptions: "Bachelor of Engineering | BEng\nBachelor's Degree", field: "Computer Engineering",
+        fieldFallbacks: "Computer Engineering | Electrical & Computer Engineering | Electrical Engineering | Computer Science", endYear: "2027" },
+      { school: "Queensborough Community College", degreeOptions: "Associate Degree", field: "Engineering Science", endYear: "2024" },
+    ],
+    expectedGraduation: "05/2027",
+    answers: { workAuth: "Yes", sponsorship: "No", over18: "Yes", clearance: "No", previousEmployers: "", restrictions: "None", govEmployee: "No", armedForces: "No" },
+      eeo: {},
+    source: "LinkedIn | Social Media | Job Board", hearText: "LinkedIn",
+    api: { key: "test-key", model: "stub" },
+  },
+  settings: { useAI: true, learn: true, threshold: 0.75 },
+  learned: [{ q: "Password", a: "hunter2", type: "text" }],
+  resumeFile: { name: "TestSampleResume 9.27.pdf", type: "application/pdf", dataUrl: "data:application/pdf;base64,JVBERi0xLjQK" },
+};
+let onMsg = null;
+// Location settings have no default in Options: the New York values these tests were written with (settings a fixture
+// sets itself are kept; a blank search took the old default search, and the default list when the list was blank too).
+{ const P = STORE.profile, AL = (P.applicationLocation ||= {}), A = (P.answers ||= {}), blank = !String(AL.search || "").trim();
+  if (blank) AL.search = "New York";
+  if (blank && !String(AL.matches || "").trim()) AL.matches = "New York City, New York, United States | New York, New York, United States | New York, NY, United States | New York, NY | New York City | New York, NY, USA | New York, USA";
+  if (!String(A.officeMetro || "").trim()) A.officeMetro = "New York City | NYC | New York, NY | New York, New York | Manhattan | Brooklyn | Queens | Bronx | Staten Island | Long Island | Jersey City | Hoboken | Newark | Westchester | Stamford"; }
+window.chrome = {
+  storage: {
+    local: {
+      get: async (keys) => {
+        const ks = typeof keys === "string" ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys || {});
+        const out = {};
+        for (const k of ks) if (STORE[k] !== undefined) out[k] = JSON.parse(JSON.stringify(STORE[k]));
+        return out;
+      },
+      set: async (o) => Object.assign(STORE, o),
+    },
+    onChanged: { addListener: () => {} },
+  },
+  runtime: {
+    id: "test-extension",
+    onMessage: { addListener: (fn) => (onMsg = fn) },
+    sendMessage: async (msg) => {
+      if (msg.type === "DRAFT") {
+        window.__draft = msg;
+        return { model: "stub-draft-model", included: { linkedinChars: 0, resumeChars: 0, notesChars: 0, descriptionChars: 0 }, answers: msg.questions.map((q) => ({ id: q.id, answer: "A draft." })) };
+      }
+      if (msg.type === "ASK_AI") {
+        window.__aiPayload = msg.questions;
+        // Canned answers like Claude's: the education level, N/A for the local (CT / MA / RI) high school questions.
+        const ans = (q) => (/highest education level/i.test(q.question) ? "Some College" : /local (technical )?high school|technical school/i.test(q.question) ? "N/A" : null);
+        return { model: "stub-model", answers: msg.questions.map((q) => ({ id: q.id, answer: ans(q), confidence: ans(q) ? 0.9 : 0 })) };
+      }
+      return {};
+    },
+  },
+};
+window.__runFill = () => new Promise((res) => onMsg({ type: "FILL" }, {}, res));
+</script>
+</head>
+<body>
+<!-- iCIMS HMSY (careers-hmsy.icims.com) form#profileForm, as it sits inside icims_content_iframe: the real page's
+     structure (tests/fixtures/icims-combined-raw.html, git-ignored) with fake data. The resume is already on file
+     (its name shows next to "Replace Resume"); the parse prefilled login, names, email, phone, city, country and
+     state. iCIMS's searchable dropdown widget (a hidden <select icimsdropdown-enabled="1"> plus an
+     a.dropdown-select and a .dropdown-container whose rows load by ajax) is built by the script at the bottom
+     from the real markup's template; long option lists are shortened. Social-login buttons, Google Drive /
+     Dropbox / OneDrive upload buttons and the hCaptcha iframe are left out. -->
+<form method="post" id="profileForm" name="profileForm" action="#" onsubmit="event.preventDefault()">
+<input type="hidden" name="ps" value="1">
+<div class="iCIMS_MainWrapper iCIMS_CandidatePage">
+<div class="iCIMS_TopHeader"><div class="iCIMS_BackToWelcome"><div class="iCIMS_Navigation"><div class="iCIMS_NavigationIconContainer">
+<a class="iCIMS_Anchor_Nav" id="welcome" href="https://careers-example.icims.com/jobs/intro?in_iframe=1"><span class="iCIMS_NavigationText">Welcome page</span></a>
+</div></div></div>
+<div class="icims-user-profile text-right"><div class="iCIMS_userMenu"><div class="iCIMS_userMenuName">Returning Candidate?</div><div class="iCIMS_userMenuLink"><a href="https://careers-example.icims.com/jobs/21062/login?loginOnly=1">Log back in!</a></div></div></div>
+</div>
+<div class="container-fluid iCIMS_JobsTable"><div class="row">
+<div class="col-xs-12 title"><div id="iCIMS_Header"><h1 class="iCIMS_Header">Entry Level Engineer – Embedded Software / Systems</h1></div></div>
+<div class="col-xs-12 additionalFields"><dl class="iCIMS_JobHeaderGroup">
+<div class="iCIMS_JobHeaderTag"><dt class="iCIMS_JobHeaderField">Requisition ID</dt><dd class="iCIMS_JobHeaderData"><span>2026-21062</span></dd></div>
+<div class="iCIMS_JobHeaderTag"><dt class="iCIMS_JobHeaderField">Location</dt><dd class="iCIMS_JobHeaderData"><span>US-CT-New London</span></dd></div>
+<div class="iCIMS_JobHeaderTag"><dt class="iCIMS_JobHeaderField">Security Clearance Required</dt><dd class="iCIMS_JobHeaderData"><span>Secret</span></dd></div>
+</dl></div></div></div>
+<div class="iCIMS_PageStepText">Candidate Profile</div>
+<div class="iCIMS_CenteredPageContent">
+<h2>Candidate Profile</h2>
+<div class="iCIMS_InfoMsg iCIMS_InfoMsg_Candidate"><span class="iCIMS_InfoInstruction"><p><strong>Please enter updated information about yourself.</strong></p><p><strong>Do not enter information in all capitals</strong></p></span>
+<span class="Field_RequiredStar">*</span> indicates a required field.</div>
+
+<div role="group">
+<h2 class="iCIMS_SubHeader iCIMS_SubHeader_Candidate"><center>Upload Your Resume First To Prepopulate Your Information</center></h2>
+<div class="iCIMS_InfoMsg iCIMS_InfoMsg_Candidate"><ul><li>Provide your resume below to pre-fill your profile. Existing data in the form will be replaced:</li></ul></div>
+<div class="iCIMS_ProfileFormTable iCIMS_Table">
+<div class="iCIMS_EvenRow iCIMS_TableRow iCIMS_FieldRow_PortalProfileFields.Resume ">
+<div class="iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_Resume iCIMS_TableCell"><label tabindex="-1" id="label_PortalProfileFields.Resume_File" for="PortalProfileFields.Resume_File">Please upload your resume (Max size: 5 MB)</label><span class="Field_Required"><span class="Field_RequiredStar">* </span></span></div>
+<div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_Resume iCIMS_TableCell"><div id="PortalProfileFields.Resume_Loading" class="iCIMS_NoDisplay iCIMS_loadingImageResume"><div class="iCIMS_loadingImageResumeText">Parsing resume, please wait...</div></div><div class="iCIMS_ResumeContentDiv" id="PortalProfileFields.Resume_Content"><input id="PortalProfileFields.Resume" name="PortalProfileFields.Resume" type="hidden" value="false"><input id="PortalProfileFields.Resume_FileName" name="PortalProfileFields.Resume_FileName" type="hidden" value="TestSampleResume 9.27.pdf"><div id="PortalProfileFields.Resume_CurrentFile"><div id="PortalProfileFields.Resume_FileNameLabel" class="iCIMS_CurrentFile"><span>TestSampleResume 9.27.pdf</span><span class="iCIMS_NoDisplay iCIMS_CurrentFileIcon"></span></div><div id="PortalProfileFields.Resume_DeleteButtonSpan" class="iCIMS_FileUploadDeleteButtonContainer "><button id="PortalProfileFields.Resume_Button" type="button" class="small iCIMS_Button iCIMS_DeleteButton iCIMS_SecondaryButton" onclick="window.__replaceClicked = true">Replace Resume</button></div></div><div id="PortalProfileFields.Resume_UploadButtons" class="upload-buttons iCIMS_NoDisplay"><div class="iCIMS_FileUploadButtonBlock localButton"><div tabindex="0" class="iCIMS_FileFieldButton iCIMS_SecondaryButton iCIMS_resumeUpload"><label for="PortalProfileFields.Resume_File" id="label_for_PortalProfileFields.Resume_File" aria-hidden="true" class="iCIMS_508_Label">My Computer (Opens new window)</label><input type="file" id="PortalProfileFields.Resume_File" name="PortalProfileFields.Resume_File" tabindex="-1" aria-required="true" onchange="window.__resumeSubmitted = true"><span aria-hidden="true" class="iCIMS_FileFieldText">My Computer</span></div></div></div></div></div>
+</div>
+</div>
+</div>
+
+<div role="group">
+<h2 class="iCIMS_SubHeader iCIMS_SubHeader_Candidate"> Create a login</h2>
+<div class="iCIMS_ProfileFormTable iCIMS_Table">
+<div class="iCIMS_EvenRow iCIMS_TableRow iCIMS_FieldRow_Inline iCIMS_FieldRow_PersonProfileFields.Login ">
+<div class="iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_TableCell"><label tabindex="-1" id="label_PersonProfileFields.Login" for="PersonProfileFields.Login">Login</label><span class="Field_Required"><span class="Field_RequiredStar">* </span></span></div>
+<div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_TableCell"><input type="text" id="PersonProfileFields.Login" name="PersonProfileFields.Login" class="iCIMS_Forms_TextField form-control" aria-required="true" maxlength="128" autocomplete="username" value="test.sample@example.com"></div>
+</div>
+<div class="iCIMS_OddRow iCIMS_TableRow iCIMS_FieldRow_Inline iCIMS_FieldRow_PersonProfileFields.Password ">
+<div class="iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_TableCell"><label tabindex="-1" id="label_PersonProfileFields.Password" for="PersonProfileFields.Password">Password</label><span class="Field_Required"><span class="Field_RequiredStar">* </span></span></div>
+<div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_TableCell"><input type="password" autocomplete="new-password" id="PersonProfileFields.Password" name="PersonProfileFields.Password" class="iCIMS_Forms_PasswordField form-control" maxlength="128" aria-label="Password: Minimum 8 characters" aria-required="true"><div id="PersonProfileFields.Password.MsgContainer" class="iCIMS_PasswordMsgContainer NoDisplay"><div class="null">Your password cannot be the same as your login</div><ul class="iCIMS_PasswordRequirementsList"><li class="null">8 characters</li><li class="null">1 special character(s)</li></ul></div></div>
+</div>
+<div class="iCIMS_OddRow iCIMS_TableRow iCIMS_FieldRow_Inline iCIMS_FieldRow_PersonProfileFields.Password">
+<div class="iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_TableCell"><label tabindex="-1" id="label_PersonProfileFields.Password_Confirm" for="PersonProfileFields.Password_Confirm">Password (Re-enter)</label><span class="Field_Required"><span class="Field_RequiredStar">* </span></span></div>
+<div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_TableCell"><input type="password" autocomplete="new-password" id="PersonProfileFields.Password_Confirm" name="PersonProfileFields.Password_Confirm" class="iCIMS_Forms_PasswordField form-control" maxlength="128" aria-label="Password (Re-enter): Minimum 8 characters" aria-required="true"></div>
+</div>
+</div>
+</div>
+
+<div role="group">
+<h2 class="iCIMS_SubHeader iCIMS_SubHeader_Candidate"><p></p><p>Enter your information </p></h2>
+<div class="iCIMS_ProfileFormTable iCIMS_Table">
+<div class="iCIMS_EvenRow iCIMS_TableRow iCIMS_FieldRow iCIMS_FieldRow_rcf2123 ">
+<div class="iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_TableCell"><label tabindex="-1" id="label_rcf2123" for="rcf2123">Preferred First Name</label></div>
+<div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_TableCell"><input type="text" id="rcf2123" name="rcf2123" class="iCIMS_Forms_TextField form-control"></div>
+</div>
+<div class="iCIMS_OddRow iCIMS_TableRow iCIMS_FieldRow_Inline iCIMS_FieldRow_PersonProfileFields.FirstName ">
+<div class="iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_TableCell"><label tabindex="-1" id="label_PersonProfileFields.FirstName" for="PersonProfileFields.FirstName">Legal First Name</label><span class="Field_Required"><span class="Field_RequiredStar">* </span></span></div>
+<div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_TableCell"><input type="text" id="PersonProfileFields.FirstName" name="PersonProfileFields.FirstName" class="iCIMS_Forms_TextField form-control" aria-required="true" maxlength="192" autocomplete="given-name" value="Testina"></div>
+</div>
+<div class="iCIMS_EvenRow iCIMS_TableRow iCIMS_FieldRow_Inline iCIMS_FieldRow_PersonProfileFields.MiddleName ">
+<div class="iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_TableCell"><label tabindex="-1" id="label_PersonProfileFields.MiddleName" for="PersonProfileFields.MiddleName">Full Middle Name</label></div>
+<div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_TableCell"><input type="text" id="PersonProfileFields.MiddleName" name="PersonProfileFields.MiddleName" class="iCIMS_Forms_TextField form-control" maxlength="32" autocomplete="additional-name"></div>
+</div>
+<div class="iCIMS_OddRow iCIMS_TableRow iCIMS_FieldRow_Inline iCIMS_FieldRow_PersonProfileFields.LastName ">
+<div class="iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_TableCell"><label tabindex="-1" id="label_PersonProfileFields.LastName" for="PersonProfileFields.LastName">Legal Last Name</label><span class="Field_Required"><span class="Field_RequiredStar">* </span></span></div>
+<div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_TableCell"><input type="text" id="PersonProfileFields.LastName" name="PersonProfileFields.LastName" class="iCIMS_Forms_TextField form-control" aria-required="true" maxlength="64" autocomplete="family-name" value="SAMPLE"></div>
+</div>
+<div class="iCIMS_EvenRow iCIMS_TableRow iCIMS_FieldRow iCIMS_FieldRow_PersonProfileFields.FormerLastName ">
+<div class="iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_TableCell"><label tabindex="-1" id="label_PersonProfileFields.FormerLastName" for="PersonProfileFields.FormerLastName">Former Last Name</label></div>
+<div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_TableCell"><input type="text" id="PersonProfileFields.FormerLastName" name="PersonProfileFields.FormerLastName" class="iCIMS_Forms_TextField form-control" maxlength="64"></div>
+</div>
+<div class="iCIMS_OddRow iCIMS_TableRow iCIMS_FieldRow iCIMS_FieldRow_PersonProfileFields.Email ">
+<div class="iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_TableCell"><label tabindex="-1" id="label_PersonProfileFields.Email" for="PersonProfileFields.Email">Email</label><span class="Field_Required"><span class="Field_RequiredStar">* </span></span></div>
+<div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_TableCell"><input type="email" id="PersonProfileFields.Email" name="PersonProfileFields.Email" class="iCIMS_Forms_EmailField form-control" aria-required="true" maxlength="128" autocomplete="email" value="test.sample@example.com"></div>
+</div>
+<div tabindex="-1" class="iCIMS_CollectionContainer PersonProfileFields.Phones-1-Container"><fieldset class="iCIMS_CollectionGroup iCIMS_OddRow"><legend><span tabindex="-1" class="iCIMS_LabelText" name="labelText" id="PersonProfileFields.Phones_-1_label">Phones (1)<span class="Field_Required"><span class="Field_RequiredStar">* </span><span class="sr-only">required.</span></span></span></legend><div class="PersonProfileFields.Phones-1 iCIMS_TableRow"><div class="iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_CollectionLegend iCIMS_TableCell"></div><div class="iCIMS_InfoData iCIMS_TableCell"></div></div><div data-collection="PersonProfileFields.Phones" data-index="1" class="PersonProfileFields.Phones-1 iCIMS_TableRow iCIMS_FieldRow_Inline"><div class=" iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_CollectionField iCIMS_TableCell"><label id="label_-1_PersonProfileFields.PhoneType" for="-1_PersonProfileFields.PhoneType"><span class="iCIMS_LabelText" name="labelText">Type</span></label><span class="Field_Required"><span class="Field_RequiredStar">* </span><span class="sr-only">required.</span></span></div><div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_CollectionField iCIMS_TableCell"><select id="-1_PersonProfileFields.PhoneType" name="-1_PersonProfileFields.PhoneType" data-label="Type" class=" iCIMS_Forms_ListEditorField form-control" aria-label="Type" aria-required="true" icimsdropdown-enabled="0" icimsdropdown-ajax="1" icimsdropdown-search="0"><option value="" legacy="true"></option><option title="Home" value="15143">Home</option><option title="Mobile" value="15145" selected="selected">Mobile</option><option title="Work" value="33265">Work</option></select></div></div><div data-collection="PersonProfileFields.Phones" data-index="1" class="PersonProfileFields.Phones-1 iCIMS_TableRow iCIMS_FieldRow_Inline"><div class=" iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_CollectionField iCIMS_TableCell"><label id="label_-1_PersonProfileFields.PhoneNumber" for="-1_PersonProfileFields.PhoneNumber"><span class="iCIMS_LabelText" name="labelText">Number (Format: 123-456-7890)</span></label><span class="Field_Required"><span class="Field_RequiredStar">* </span><span class="sr-only">required.</span></span></div><div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_CollectionField iCIMS_TableCell"><input type="text" id="-1_PersonProfileFields.PhoneNumber" name="-1_PersonProfileFields.PhoneNumber" class="iCIMS_Forms_TextField form-control" aria-required="true" maxlength="128" autocomplete="tel-national" value="+1 646 555-0100"></div></div></fieldset><div class="iCIMS_CollectionButtonsRow"><div class="iCIMS_CollectionButtons iCIMS_OddRow iCIMS_TableRow"><div></div><div class="iCIMS_InfoData iCIMS_TableCell"><a role="button" class="iCIMS_Anchor" href="javascript:void(0)" onclick="showGroup('PersonProfileFields.Phones', '-1', '-2', 2, 'recruit')" id="PersonProfileFields.PhonesButton_-1">Add More (Phones)</a></div></div></div></div>
+<div class="iCIMS_OddRow iCIMS_TableRow iCIMS_FieldRow iCIMS_FieldRow_rcf2238 ">
+<div class="iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_TableCell"><label tabindex="-1" id="label_rcf2238" for="rcf2238">Do you agree to HMSY communicating to you via SMS Text Message regarding this application of employment?  (Message+ data rates may apply; At any time reply "Stop" to unsubscribe)</label></div>
+<div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_TableCell"><label class="iCIMS_508_Label" for="rcf2238">Do you agree to HMSY communicating to you via SMS Text Message regarding this application of employment?</label><select id="rcf2238" name="rcf2238" class=" iCIMS_Forms_ListEditorField form-control dropdown-hide" icimsdropdown-enabled="1" icimsdropdown-ajax="1" icimsdropdown-search="0" icimsdropdown-selected=""><option value="" legacy="true"></option></select></div>
+</div>
+<div tabindex="-1" class="iCIMS_CollectionContainer PersonProfileFields.Addresses-1-Container"><fieldset class="iCIMS_CollectionGroup iCIMS_OddRow"><legend><span tabindex="-1" class="iCIMS_LabelText" name="labelText" id="PersonProfileFields.Addresses_-1_label">Addresses (1)<span class="Field_Required"><span class="Field_RequiredStar">* </span><span class="sr-only">required.</span></span></span></legend><div data-collection="PersonProfileFields.Addresses" data-index="1" class="PersonProfileFields.Addresses-1 iCIMS_TableRow iCIMS_FieldRow_Inline"><div class=" iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_CollectionField iCIMS_TableCell"><label id="label_-1_PersonProfileFields.AddressType" for="-1_PersonProfileFields.AddressType"><span class="iCIMS_LabelText" name="labelText">Type</span></label><span class="Field_Required"><span class="Field_RequiredStar">* </span><span class="sr-only">required.</span></span></div><div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_CollectionField iCIMS_TableCell"><select id="-1_PersonProfileFields.AddressType" name="-1_PersonProfileFields.AddressType" data-label="Type" class=" iCIMS_Forms_ListEditorField form-control" aria-label="Type" aria-required="true" icimsdropdown-enabled="0"><option value="" legacy="true"></option><option title="Home" value="15149" selected="selected">Home</option><option title="College (Student Address)" value="33717">College (Student Address)</option><option title="Other" value="15151">Other</option></select></div></div><div data-collection="PersonProfileFields.Addresses" data-index="1" class="PersonProfileFields.Addresses-1 iCIMS_TableRow iCIMS_FieldRow_Inline"><div class=" iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_CollectionField iCIMS_TableCell"><label id="label_-1_PersonProfileFields.AddressStreet1" for="-1_PersonProfileFields.AddressStreet1"><span class="iCIMS_LabelText" name="labelText">Address</span></label><span class="Field_Required"><span class="Field_RequiredStar">* </span><span class="sr-only">required.</span></span></div><div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_CollectionField iCIMS_TableCell"><input type="text" id="-1_PersonProfileFields.AddressStreet1" name="-1_PersonProfileFields.AddressStreet1" class="iCIMS_Forms_TextField form-control" aria-required="true" maxlength="128" autocomplete="street-address"></div></div><div data-collection="PersonProfileFields.Addresses" data-index="1" class="PersonProfileFields.Addresses-1 iCIMS_TableRow iCIMS_FieldRow_Inline"><div class=" iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_CollectionField iCIMS_TableCell"><label id="label_-1_PersonProfileFields.AddressStreet2" for="-1_PersonProfileFields.AddressStreet2"><span class="iCIMS_LabelText" name="labelText">Address 2</span></label></div><div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_CollectionField iCIMS_TableCell"><input type="text" id="-1_PersonProfileFields.AddressStreet2" name="-1_PersonProfileFields.AddressStreet2" class="iCIMS_Forms_TextField form-control" maxlength="128" autocomplete="address-line2"></div></div><div data-collection="PersonProfileFields.Addresses" data-index="1" class="PersonProfileFields.Addresses-1 iCIMS_TableRow iCIMS_FieldRow_Inline"><div class=" iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_CollectionField iCIMS_TableCell"><label id="label_-1_PersonProfileFields.AddressCity" for="-1_PersonProfileFields.AddressCity"><span class="iCIMS_LabelText" name="labelText">City</span></label><span class="Field_Required"><span class="Field_RequiredStar">* </span><span class="sr-only">required.</span></span></div><div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_CollectionField iCIMS_TableCell"><input type="text" id="-1_PersonProfileFields.AddressCity" name="-1_PersonProfileFields.AddressCity" class="iCIMS_Forms_TextField form-control" aria-required="true" maxlength="64" autocomplete="address-level2" value="New York"></div></div><div data-collection="PersonProfileFields.Addresses" data-index="1" class="PersonProfileFields.Addresses-1 iCIMS_TableRow iCIMS_FieldRow_Inline"><div class=" iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_CollectionField iCIMS_TableCell"><label id="label_-1_PersonProfileFields.AddressZip" for="-1_PersonProfileFields.AddressZip"><span class="iCIMS_LabelText" name="labelText">Zip/Postal Code</span></label><span class="Field_Required"><span class="Field_RequiredStar">* </span><span class="sr-only">required.</span></span></div><div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_CollectionField iCIMS_TableCell"><input type="text" id="-1_PersonProfileFields.AddressZip" name="-1_PersonProfileFields.AddressZip" class="iCIMS_Forms_TextField form-control" aria-required="true" maxlength="16" autocomplete="postal-code"></div></div><div data-collection="PersonProfileFields.Addresses" data-index="1" class="PersonProfileFields.Addresses-1 iCIMS_TableRow iCIMS_FieldRow_Inline"><div class=" iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_CollectionField iCIMS_TableCell"><label id="label_-1_PersonProfileFields.AddressCountry" for="-1_PersonProfileFields.AddressCountry"><span class="iCIMS_LabelText" name="labelText">Country</span></label><span class="Field_Required"><span class="Field_RequiredStar">* </span><span class="sr-only">required.</span></span></div><div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_CollectionField iCIMS_TableCell"><select id="-1_PersonProfileFields.AddressCountry" name="-1_PersonProfileFields.AddressCountry" data-label="Country" class=" iCIMS_Forms_IdDropDown form-control dropdown-hide" icimsdropdown-enabled="1" icimsdropdown-ajax="1" icimsdropdown-search="1" icimsdropdown-selected="12781" i_required="true" role="combobox"><option value="12781" selected="selected">United States</option></select></div></div><div data-collection="PersonProfileFields.Addresses" data-index="1" class="PersonProfileFields.Addresses-1 iCIMS_TableRow iCIMS_FieldRow_Inline"><div class=" iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_CollectionField iCIMS_TableCell"><label id="label_-1_PersonProfileFields.AddressState" for="-1_PersonProfileFields.AddressState"><span class="iCIMS_LabelText" name="labelText">State/Province</span></label><span class="Field_Required"><span class="Field_RequiredStar">* </span><span class="sr-only">required.</span></span></div><div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_CollectionField iCIMS_TableCell"><select id="-1_PersonProfileFields.AddressState" name="-1_PersonProfileFields.AddressState" data-label="State/Province" class=" iCIMS_Forms_IdDropDown form-control dropdown-hide" icimsdropdown-enabled="1" icimsdropdown-ajax="1" icimsdropdown-search="1" icimsdropdown-selected="12816" i_required="true" role="combobox"><option value="12816" selected="selected">New York</option></select></div></div></fieldset><div class="iCIMS_CollectionButtonsRow"><div class="iCIMS_CollectionButtons iCIMS_OddRow iCIMS_TableRow"><div></div><div class="iCIMS_InfoData iCIMS_TableCell"><a role="button" class="iCIMS_Anchor" href="javascript:void(0)" onclick="showGroup('PersonProfileFields.Addresses', '-1', '-2', 2, 'recruit')" id="PersonProfileFields.AddressesButton_-1">Add More (Addresses)</a></div></div></div></div>
+<div class="iCIMS_OddRow iCIMS_TableRow iCIMS_FieldRow_Inline iCIMS_FieldRow_rcf3048 ">
+<div class="iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_TableCell"><label tabindex="-1" id="label_rcf3048" for="rcf3048">How did you hear about us?</label><span class="Field_Required"><span class="Field_RequiredStar">* </span></span></div>
+<div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_TableCell"><select id="rcf3048" name="rcf3048" class=" iCIMS_Forms_DropDown form-control" icimsdropdown-enabled="0" aria-required="true"><option value="" selected="selected">— Make a Selection —</option><option value="Agency" textsourcename="">Agency</option><option value="College/University" textsourcename="">College/University</option><option value="Company Website" textsourcename="">Company Website</option><option value="Employee Referral" textsourcename="1">Employee Referral</option><option value="Job Board" textsourcename="">Job Board</option><option value="Job Board - Other" textsourcename="1">Job Board - Other</option><option value="Social Networks" textsourcename="">Social Networks</option></select></div>
+</div>
+<div style="display:none" class="iCIMS_EvenRow iCIMS_TableRow iCIMS_FieldRow_Inline iCIMS_FieldRow_rcf3049 ">
+<div class="iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_TableCell"><label tabindex="-1" id="label_rcf3049" for="rcf3049">Please specify</label><span class="Field_Required"><span class="Field_RequiredStar">* </span></span></div>
+<div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_TableCell"><input type="text" id="rcf3049_Text" name="rcf3049_Text" class="form-control" value="" maxlength="128" style="display: none;"><select id="rcf3049" name="rcf3049" class="form-control" aria-label="Please specify"><option value="-999">No additional source details needed.  Thank you.</option></select></div>
+</div>
+</div>
+</div>
+
+<div role="group">
+<h2 class="iCIMS_SubHeader iCIMS_SubHeader_Candidate"><center><b>Education Details </b></center> <p>Highest Education Level<br></p></h2>
+<div class="iCIMS_ProfileFormTable iCIMS_Table">
+<div class="iCIMS_EvenRow iCIMS_TableRow iCIMS_FieldRow iCIMS_FieldRow_rcf2032 ">
+<div class="iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_TableCell"><label tabindex="-1" id="label_rcf2032" for="rcf2032">Highest Education Level</label><span class="Field_Required"><span class="Field_RequiredStar">* </span></span></div>
+<div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_TableCell"><label class="iCIMS_508_Label" for="rcf2032">Highest Education Level</label><select id="rcf2032" name="rcf2032" class=" iCIMS_Forms_ListEditorField form-control dropdown-hide" i_required="true" icimsdropdown-enabled="1" icimsdropdown-ajax="1" icimsdropdown-search="1" icimsdropdown-selected=""><option value="" legacy="true"></option></select></div>
+</div>
+</div>
+</div>
+
+<div role="group">
+<h2 class="iCIMS_SubHeader iCIMS_SubHeader_Candidate"><p>Local High School (CT, MA &amp; RI): <br><br> We would like to know if you attended a local high school. If you did not attend one, you can select N/A to the questions below. <br><br></p></h2>
+<div class="iCIMS_ProfileFormTable iCIMS_Table">
+<div class="iCIMS_EvenRow iCIMS_TableRow iCIMS_FieldRow iCIMS_FieldRow_rcf2012 ">
+<div class="iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_TableCell"><label tabindex="-1" id="label_rcf2012" for="rcf2012">Name of Local Technical High School Attended</label><span class="Field_Required"><span class="Field_RequiredStar">* </span></span></div>
+<div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_TableCell"><label class="iCIMS_508_Label" for="rcf2012">Name of Local Technical High School Attended</label><select id="rcf2012" name="rcf2012" class=" iCIMS_Forms_ListEditorField form-control dropdown-hide" i_required="true" icimsdropdown-enabled="1" icimsdropdown-ajax="1" icimsdropdown-search="1" icimsdropdown-selected=""><option value="" legacy="true"></option></select></div>
+</div>
+<div class="iCIMS_OddRow iCIMS_TableRow iCIMS_FieldRow iCIMS_FieldRow_rcf2009 ">
+<div class="iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_TableCell"><label tabindex="-1" id="label_rcf2009" for="rcf2009">Type of Local Technical High School Program</label><span class="Field_Required"><span class="Field_RequiredStar">* </span></span></div>
+<div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_TableCell"><label class="iCIMS_508_Label" for="rcf2009">Type of Local Technical High School Program</label><select id="rcf2009" name="rcf2009" class=" iCIMS_Forms_ListEditorField form-control dropdown-hide" i_required="true" icimsdropdown-enabled="1" icimsdropdown-ajax="1" icimsdropdown-search="1" icimsdropdown-selected=""><option value="" legacy="true"></option></select></div>
+</div>
+<div class="iCIMS_EvenRow iCIMS_TableRow iCIMS_FieldRow iCIMS_FieldRow_rcf2013 ">
+<div class="iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_TableCell"><label tabindex="-1" id="label_rcf2013" for="rcf2013">Local Technical High School Degree Type</label><span class="Field_Required"><span class="Field_RequiredStar">* </span></span></div>
+<div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_TableCell"><label class="iCIMS_508_Label" for="rcf2013">Local Technical High School Degree Type</label><select id="rcf2013" name="rcf2013" class=" iCIMS_Forms_ListEditorField form-control dropdown-hide" i_required="true" icimsdropdown-enabled="1" icimsdropdown-ajax="1" icimsdropdown-search="0" icimsdropdown-selected=""><option value="" legacy="true"></option></select></div>
+</div>
+<div class="iCIMS_OddRow iCIMS_TableRow iCIMS_FieldRow iCIMS_FieldRow_rcf2010 ">
+<div class="iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_TableCell"><label tabindex="-1" id="label_rcf2010" for="rcf2010">Did you graduate from a Technical School?</label><span class="Field_Required"><span class="Field_RequiredStar">* </span></span></div>
+<div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_TableCell"><label class="iCIMS_508_Label" for="rcf2010">Did you graduate from a Technical School?</label><select id="rcf2010" name="rcf2010" class=" iCIMS_Forms_ListEditorField form-control dropdown-hide" i_required="true" icimsdropdown-enabled="1" icimsdropdown-ajax="1" icimsdropdown-search="0" icimsdropdown-selected=""><option value="" legacy="true"></option></select></div>
+</div>
+<div role="group" aria-labelledby="label_rcf2011" class="iCIMS_EvenRow iCIMS_TableRow iCIMS_FieldRow iCIMS_FieldRow_rcf2011 ">
+<div class="iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_TableCell"><label class="iCIMS_LabelText" name="labelText" tabindex="-1" id="label_rcf2011">If Yes, when did you graduate?</label>&nbsp;<label class="iCIMS_LabelText" name="labelText" tabindex="-1" id="label_rcf2011_desc">(Month / Day / Year)</label></div>
+<div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_TableCell"><div class="iCIMS_Forms_DateOnlyField iCIMS_Table"><div class="iCIMS_TableRow"><div class="iCIMS_DateField-Month iCIMS_TableCell"><label id="label_rcf2011_Month" class="iCIMS_508_Label" for="rcf2011_Month">Month</label><select id="rcf2011_Month" name="rcf2011_Month" aria-labelledby="label_rcf2011 label_rcf2011_Month" class="iCIMS_Forms_MonthInput iCIMS_Forms_DropDown form-control"><option value="0"></option><option value="01">Jan</option><option value="02">Feb</option><option value="05">May</option><option value="12">Dec</option></select></div><div class="iCIMS_DateField-Day iCIMS_TableCell"><label id="label_rcf2011_Date" class="iCIMS_508_Label" for="rcf2011_Date">Day</label><select id="rcf2011_Date" name="rcf2011_Date" aria-labelledby="label_rcf2011 label_rcf2011_Date" class="iCIMS_Forms_DayInput iCIMS_Forms_DropDown form-control"><option value="0"></option><option value="1">1</option><option value="2">2</option><option value="31">31</option></select></div><div class="iCIMS_DateField-Year iCIMS_TableCell"><label id="label_rcf2011_Year" class="iCIMS_508_Label" for="rcf2011_Year">Year</label><input type="text" size="6" maxlength="4" id="rcf2011_Year" name="rcf2011_Year" aria-labelledby="label_rcf2011 label_rcf2011_Year" class="iCIMS_Forms_YearInput form-control"></div></div></div></div>
+</div>
+<div class="iCIMS_OddRow iCIMS_TableRow iCIMS_FieldRow iCIMS_FieldRow_rcf2008 ">
+<div class="iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_TableCell"><label tabindex="-1" id="label_rcf2008" for="rcf2008">Name of Local High School Attended</label><span class="Field_Required"><span class="Field_RequiredStar">* </span></span></div>
+<div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_TableCell"><label class="iCIMS_508_Label" for="rcf2008">Name of Local High School Attended</label><select id="rcf2008" name="rcf2008" class=" iCIMS_Forms_ListEditorField form-control dropdown-hide" i_required="true" icimsdropdown-enabled="1" icimsdropdown-ajax="1" icimsdropdown-search="1" icimsdropdown-selected=""><option value="" legacy="true"></option></select></div>
+</div>
+<div class="iCIMS_EvenRow iCIMS_TableRow iCIMS_FieldRow iCIMS_FieldRow_rcf2016 ">
+<div class="iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_TableCell"><label tabindex="-1" id="label_rcf2016" for="rcf2016">Local High School (Non Vocational / Non Technical) Degree Type</label><span class="Field_Required"><span class="Field_RequiredStar">* </span></span></div>
+<div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_TableCell"><label class="iCIMS_508_Label" for="rcf2016">Local High School (Non Vocational / Non Technical) Degree Type</label><select id="rcf2016" name="rcf2016" class=" iCIMS_Forms_ListEditorField form-control dropdown-hide" i_required="true" icimsdropdown-enabled="1" icimsdropdown-ajax="1" icimsdropdown-search="0" icimsdropdown-selected=""><option value="" legacy="true"></option></select></div>
+</div>
+<div class="iCIMS_OddRow iCIMS_TableRow iCIMS_FieldRow iCIMS_FieldRow_rcf2014 ">
+<div class="iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_TableCell"><label tabindex="-1" id="label_rcf2014" for="rcf2014">Local High School (Non Vocational / Non Technical) Graduated?</label><span class="Field_Required"><span class="Field_RequiredStar">* </span></span></div>
+<div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_TableCell"><label class="iCIMS_508_Label" for="rcf2014">Local High School (Non Vocational / Non Technical) Graduated?</label><select id="rcf2014" name="rcf2014" class=" iCIMS_Forms_ListEditorField form-control dropdown-hide" i_required="true" icimsdropdown-enabled="1" icimsdropdown-ajax="1" icimsdropdown-search="0" icimsdropdown-selected=""><option value="" legacy="true"></option></select></div>
+</div>
+<div role="group" aria-labelledby="label_rcf2015" class="iCIMS_EvenRow iCIMS_TableRow iCIMS_FieldRow iCIMS_FieldRow_rcf2015 ">
+<div class="iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_TableCell"><label class="iCIMS_LabelText" name="labelText" tabindex="-1" id="label_rcf2015">If you graduated, enter the year and month. (Day can be 01)</label>&nbsp;<label class="iCIMS_LabelText" name="labelText" tabindex="-1" id="label_rcf2015_desc">(Month / Day / Year)</label></div>
+<div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_TableCell"><div class="iCIMS_Forms_DateOnlyField iCIMS_Table"><div class="iCIMS_TableRow"><div class="iCIMS_DateField-Month iCIMS_TableCell"><label id="label_rcf2015_Month" class="iCIMS_508_Label" for="rcf2015_Month">Month</label><select id="rcf2015_Month" name="rcf2015_Month" class="iCIMS_Forms_MonthInput form-control"><option value="0"></option><option value="01">Jan</option><option value="05">May</option></select></div><div class="iCIMS_DateField-Day iCIMS_TableCell"><label id="label_rcf2015_Date" class="iCIMS_508_Label" for="rcf2015_Date">Day</label><select id="rcf2015_Date" name="rcf2015_Date" class="iCIMS_Forms_DayInput form-control"><option value="0"></option><option value="1">1</option></select></div><div class="iCIMS_DateField-Year iCIMS_TableCell"><label id="label_rcf2015_Year" class="iCIMS_508_Label" for="rcf2015_Year">Year</label><input type="text" size="6" maxlength="4" id="rcf2015_Year" name="rcf2015_Year" class="iCIMS_Forms_YearInput form-control"></div></div></div></div>
+</div>
+</div>
+</div>
+
+<div role="group">
+<h2 class="iCIMS_SubHeader iCIMS_SubHeader_Candidate"><p>College / University: <br><br> Starting with the most recent degree obtained. Select <b> "N/A"</b> if not applicable.</p></h2>
+<div class="iCIMS_ProfileFormTable iCIMS_Table">
+<div tabindex="-1" class="iCIMS_CollectionContainer rcf2104-1-Container"><fieldset class="iCIMS_CollectionGroup iCIMS_OddRow"><legend><span tabindex="-1" class="iCIMS_LabelText" name="labelText" id="rcf2104_-1_label">College / University (1)<span class="Field_Required"><span class="Field_RequiredStar">* </span><span class="sr-only">required.</span></span></span></legend><div data-collection="rcf2104" data-index="1" class="rcf2104-1 iCIMS_TableRow iCIMS_FieldRow_Inline"><div class=" iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_CollectionField iCIMS_TableCell"><label id="label_-1_PersonProfileFields.rcf2106" for="-1_PersonProfileFields.rcf2106"><span class="iCIMS_LabelText" name="labelText">College / University - School Name</span></label><span class="Field_Required"><span class="Field_RequiredStar">* </span><span class="sr-only">required.</span></span></div><div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_CollectionField iCIMS_TableCell"><label class="iCIMS_508_Label" for="-1_PersonProfileFields.rcf2106">College / University - School Name</label><select id="-1_PersonProfileFields.rcf2106" name="-1_PersonProfileFields.rcf2106" class=" iCIMS_Forms_ListEditorField form-control dropdown-hide" i_required="true" icimsdropdown-enabled="1" icimsdropdown-ajax="1" icimsdropdown-search="1" icimsdropdown-selected=""><option value="" legacy="true"></option></select></div></div><div data-collection="rcf2104" data-index="1" class="rcf2104-1 iCIMS_TableRow iCIMS_FieldRow_Inline"><div class=" iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_CollectionField iCIMS_TableCell"><label id="label_-1_PersonProfileFields.rcf2136" for="-1_PersonProfileFields.rcf2136"><span class="iCIMS_LabelText" name="labelText">College / University - Major</span></label><span class="Field_Required"><span class="Field_RequiredStar">* </span><span class="sr-only">required.</span></span></div><div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_CollectionField iCIMS_TableCell"><select id="-1_PersonProfileFields.rcf2136" name="-1_PersonProfileFields.rcf2136" class=" iCIMS_Forms_ListEditorField form-control dropdown-hide" i_required="true" icimsdropdown-enabled="1" icimsdropdown-ajax="1" icimsdropdown-search="1" icimsdropdown-selected=""><option value="" legacy="true"></option></select></div></div><div data-collection="rcf2104" data-index="1" class="rcf2104-1 iCIMS_TableRow iCIMS_FieldRow_Inline"><div class=" iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_CollectionField iCIMS_TableCell"><label id="label_-1_PersonProfileFields.rcf2105" for="-1_PersonProfileFields.rcf2105"><span class="iCIMS_LabelText" name="labelText">College / University - Graduated?</span></label><span class="Field_Required"><span class="Field_RequiredStar">* </span><span class="sr-only">required.</span></span></div><div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_CollectionField iCIMS_TableCell"><select id="-1_PersonProfileFields.rcf2105" name="-1_PersonProfileFields.rcf2105" class=" iCIMS_Forms_ListEditorField form-control dropdown-hide" i_required="true" icimsdropdown-enabled="1" icimsdropdown-ajax="1" icimsdropdown-search="0" icimsdropdown-selected=""><option value="" legacy="true"></option></select></div></div><div data-collection="rcf2104" data-index="1" class="rcf2104-1 iCIMS_TableRow iCIMS_FieldRow_Inline"><div class=" iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_CollectionField iCIMS_TableCell"><label id="label_-1_PersonProfileFields.rcf2135" for="-1_PersonProfileFields.rcf2135"><span class="iCIMS_LabelText" name="labelText">College / University - Degree Type</span></label><span class="Field_Required"><span class="Field_RequiredStar">* </span><span class="sr-only">required.</span></span></div><div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_CollectionField iCIMS_TableCell"><select id="-1_PersonProfileFields.rcf2135" name="-1_PersonProfileFields.rcf2135" class=" iCIMS_Forms_ListEditorField form-control dropdown-hide" i_required="true" icimsdropdown-enabled="1" icimsdropdown-ajax="1" icimsdropdown-search="1" icimsdropdown-selected=""><option value="" legacy="true"></option></select></div></div><div role="group" aria-labelledby="label_-1_PersonProfileFields.rcf2134" data-collection="rcf2104" data-index="1" class="rcf2104-1 iCIMS_TableRow iCIMS_FieldRow_Inline"><div class=" iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_CollectionField iCIMS_TableCell"><label id="label_-1_PersonProfileFields.rcf2134"><span class="iCIMS_LabelText" name="labelText">College / University - Date Issued</span></label>&nbsp;<label id="label_-1_PersonProfileFields.rcf2134_desc"><span class="iCIMS_LabelText" name="labelText">(Month / Day / Year)</span></label></div><div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_CollectionField iCIMS_TableCell"><div class="iCIMS_Forms_DateOnlyField iCIMS_Table"><div class="iCIMS_TableRow"><div class="iCIMS_DateField-Month iCIMS_TableCell"><label id="label_-1_PersonProfileFields.rcf2134_Month" class="iCIMS_508_Label" for="-1_PersonProfileFields.rcf2134_Month">Month</label><select id="-1_PersonProfileFields.rcf2134_Month" name="-1_PersonProfileFields.rcf2134_Month" class="iCIMS_Forms_MonthInput form-control"><option value="0"></option><option value="01">Jan</option><option value="05">May</option></select></div><div class="iCIMS_DateField-Day iCIMS_TableCell"><label id="label_-1_PersonProfileFields.rcf2134_Date" class="iCIMS_508_Label" for="-1_PersonProfileFields.rcf2134_Date">Day</label><select id="-1_PersonProfileFields.rcf2134_Date" name="-1_PersonProfileFields.rcf2134_Date" class="iCIMS_Forms_DayInput form-control"><option value="0"></option><option value="1">1</option></select></div><div class="iCIMS_DateField-Year iCIMS_TableCell"><label id="label_-1_PersonProfileFields.rcf2134_Year" class="iCIMS_508_Label" for="-1_PersonProfileFields.rcf2134_Year">Year</label><input type="text" size="6" maxlength="4" id="-1_PersonProfileFields.rcf2134_Year" name="-1_PersonProfileFields.rcf2134_Year" class="iCIMS_Forms_YearInput form-control"></div></div></div></div></div></fieldset><div class="iCIMS_CollectionButtonsRow"><div class="iCIMS_CollectionButtons iCIMS_OddRow iCIMS_TableRow"><div></div><div class="iCIMS_InfoData iCIMS_TableCell"><a role="button" class="iCIMS_Anchor" href="javascript:void(0)" onclick="showGroup('rcf2104', '-1', '-2', 2, 'recruit')" id="rcf2104Button_-1">Add More (College / University)</a></div></div></div></div>
+</div>
+</div>
+
+<div role="group">
+<h2 class="iCIMS_SubHeader iCIMS_SubHeader_Candidate">Security Clearance</h2>
+<div class="iCIMS_ProfileFormTable iCIMS_Table">
+<div class="iCIMS_EvenRow iCIMS_TableRow iCIMS_FieldRow iCIMS_FieldRow_rcf2244 ">
+<div class="iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_TableCell"><label tabindex="-1" id="label_rcf2244" for="rcf2244">Have you ever been granted a U.S. Security Clearance?</label><span class="Field_Required"><span class="Field_RequiredStar">* </span></span></div>
+<div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_TableCell"><select id="rcf2244" name="rcf2244" class=" iCIMS_Forms_DropDown form-control dropdown-hide" icimsdropdown-enabled="1" icimsdropdown-ajax="1" icimsdropdown-search="0" icimsdropdown-selected="" i_required="true" role="combobox"><option value="" legacy="true"></option></select></div>
+</div>
+<div tabindex="-1" class="iCIMS_CollectionContainer rcf2245-1-Container"><fieldset class="iCIMS_CollectionGroup iCIMS_OddRow"><legend><span tabindex="-1" class="iCIMS_LabelText" name="labelText" id="rcf2245_-1_label">If Yes, please provide level and issuer. (1)</span></legend><div data-collection="rcf2245" data-index="1" class="rcf2245-1 iCIMS_TableRow iCIMS_FieldRow_Inline"><div class=" iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_CollectionField iCIMS_TableCell"><label id="label_-1_PersonProfileFields.rcf2258" for="-1_PersonProfileFields.rcf2258"><span class="iCIMS_LabelText" name="labelText">Type/Level:</span></label></div><div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_CollectionField iCIMS_TableCell"><select id="-1_PersonProfileFields.rcf2258" name="-1_PersonProfileFields.rcf2258" class=" iCIMS_Forms_DropDown form-control dropdown-hide" icimsdropdown-enabled="1" icimsdropdown-ajax="1" icimsdropdown-search="0" icimsdropdown-selected=""><option value="" legacy="true"></option></select></div></div><div data-collection="rcf2245" data-index="1" class="rcf2245-1 iCIMS_TableRow iCIMS_FieldRow_Inline"><div class=" iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_CollectionField iCIMS_TableCell"><label id="label_-1_PersonProfileFields.rcf2259" for="-1_PersonProfileFields.rcf2259"><span class="iCIMS_LabelText" name="labelText">Employer:</span></label></div><div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_CollectionField iCIMS_TableCell"><input type="text" id="-1_PersonProfileFields.rcf2259" name="-1_PersonProfileFields.rcf2259" class="iCIMS_Forms_TextField form-control"></div></div></fieldset><div class="iCIMS_CollectionButtonsRow"><div class="iCIMS_CollectionButtons iCIMS_OddRow iCIMS_TableRow"><div></div><div class="iCIMS_InfoData iCIMS_TableCell"><a role="button" class="iCIMS_Anchor" href="javascript:void(0)" onclick="showGroup('rcf2245', '-1', '-2', 2, 'recruit')" id="rcf2245Button_-1">Add More (If Yes, please provide level and issuer.)</a></div></div></div></div>
+</div>
+</div>
+
+<div role="group">
+<h2 class="iCIMS_SubHeader iCIMS_SubHeader_Candidate">Military/Government Service</h2>
+<div class="iCIMS_ProfileFormTable iCIMS_Table">
+<div class="iCIMS_EvenRow iCIMS_TableRow iCIMS_FieldRow iCIMS_FieldRow_rcf2234 ">
+<div class="iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_TableCell"><label tabindex="-1" id="label_rcf2234" for="rcf2234">Are you an active member of the United States Armed Forces (which includes those on transitional/terminal leave and/or the Reserve/National Guard) or currently an employee of the United States Government?</label><span class="Field_Required"><span class="Field_RequiredStar">* </span></span></div>
+<div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_TableCell"><select id="rcf2234" name="rcf2234" class=" iCIMS_Forms_DropDown form-control dropdown-hide" icimsdropdown-enabled="1" icimsdropdown-ajax="1" icimsdropdown-search="0" icimsdropdown-selected="" i_required="true" role="combobox"><option value="" legacy="true"></option></select></div>
+</div>
+<div class="iCIMS_OddRow iCIMS_TableRow iCIMS_FieldRow iCIMS_FieldRow_rcf2235 ">
+<div class="iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_TableCell"><label tabindex="-1" id="label_rcf2235" for="rcf2235">Have you ever served in the United States Armed Forces or the United States Government?</label><span class="Field_Required"><span class="Field_RequiredStar">* </span></span></div>
+<div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_TableCell"><select id="rcf2235" name="rcf2235" class=" iCIMS_Forms_DropDown form-control dropdown-hide" icimsdropdown-enabled="1" icimsdropdown-ajax="1" icimsdropdown-search="0" icimsdropdown-selected="" i_required="true" role="combobox"><option value="" legacy="true"></option></select></div>
+</div>
+<div role="group" aria-labelledby="label_rcf2288" class="iCIMS_EvenRow iCIMS_TableRow iCIMS_FieldRow iCIMS_FieldRow_rcf2288 ">
+<div class="iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_TableCell"><label class="iCIMS_LabelText" name="labelText" tabindex="-1" id="label_rcf2288">If yes, when did you first start service in the United States Government?</label>&nbsp;<label class="iCIMS_LabelText" name="labelText" tabindex="-1" id="label_rcf2288_desc">(Month / Day / Year)</label></div>
+<div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_TableCell"><div class="iCIMS_Forms_DateOnlyField iCIMS_Table"><div class="iCIMS_TableRow"><div class="iCIMS_DateField-Month iCIMS_TableCell"><label id="label_rcf2288_Month" class="iCIMS_508_Label" for="rcf2288_Month">Month</label><select id="rcf2288_Month" name="rcf2288_Month" class="iCIMS_Forms_MonthInput form-control"><option value="0"></option><option value="01">Jan</option></select></div><div class="iCIMS_DateField-Day iCIMS_TableCell"><label id="label_rcf2288_Date" class="iCIMS_508_Label" for="rcf2288_Date">Day</label><select id="rcf2288_Date" name="rcf2288_Date" class="iCIMS_Forms_DayInput form-control"><option value="0"></option><option value="1">1</option></select></div><div class="iCIMS_DateField-Year iCIMS_TableCell"><label id="label_rcf2288_Year" class="iCIMS_508_Label" for="rcf2288_Year">Year</label><input type="text" size="6" maxlength="4" id="rcf2288_Year" name="rcf2288_Year" class="iCIMS_Forms_YearInput form-control"></div></div></div></div>
+</div>
+<div tabindex="-1" class="iCIMS_CollectionContainer rcf2236-1-Container"><fieldset class="iCIMS_CollectionGroup iCIMS_OddRow"><legend><span tabindex="-1" class="iCIMS_LabelText" name="labelText" id="rcf2236_-1_label">Branch of U.S. Armed Forces/Government Agency Served: (1)</span></legend><div data-collection="rcf2236" data-index="1" class="rcf2236-1 iCIMS_TableRow iCIMS_FieldRow_Inline"><div class=" iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_CollectionField iCIMS_TableCell"><label id="label_-1_PersonProfileFields.rcf2260" for="-1_PersonProfileFields.rcf2260"><span class="iCIMS_LabelText" name="labelText">Name of Branch of U.S. Armed Forces/Government Agency:</span></label></div><div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_CollectionField iCIMS_TableCell"><input type="text" id="-1_PersonProfileFields.rcf2260" name="-1_PersonProfileFields.rcf2260" class="iCIMS_Forms_TextField form-control"></div></div><div data-collection="rcf2236" data-index="1" class="rcf2236-1 iCIMS_TableRow iCIMS_FieldRow_Inline"><div class=" iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_CollectionField iCIMS_TableCell"><label id="label_-1_PersonProfileFields.rcf2261" for="-1_PersonProfileFields.rcf2261"><span class="iCIMS_LabelText" name="labelText">Years of Service</span></label></div><div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_CollectionField iCIMS_TableCell"><input type="text" size="5" id="-1_PersonProfileFields.rcf2261" name="-1_PersonProfileFields.rcf2261" class="iCIMS_Forms_NumberField form-control"></div></div><div role="group" aria-labelledby="label_-1_PersonProfileFields.rcf2262" data-collection="rcf2236" data-index="1" class="rcf2236-1 iCIMS_TableRow iCIMS_FieldRow_Inline"><div class=" iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_CollectionField iCIMS_TableCell"><label id="label_-1_PersonProfileFields.rcf2262"><span class="iCIMS_LabelText" name="labelText">From:</span></label>&nbsp;<label id="label_-1_PersonProfileFields.rcf2262_desc"><span class="iCIMS_LabelText" name="labelText">(Month / Day / Year)</span></label></div><div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_CollectionField iCIMS_TableCell"><div class="iCIMS_Forms_DateOnlyField iCIMS_Table"><div class="iCIMS_TableRow"><div class="iCIMS_DateField-Month iCIMS_TableCell"><label id="label_-1_PersonProfileFields.rcf2262_Month" class="iCIMS_508_Label" for="-1_PersonProfileFields.rcf2262_Month">Month</label><select id="-1_PersonProfileFields.rcf2262_Month" name="-1_PersonProfileFields.rcf2262_Month" class="iCIMS_Forms_MonthInput form-control"><option value="0"></option><option value="01">Jan</option></select></div><div class="iCIMS_DateField-Year iCIMS_TableCell"><label id="label_-1_PersonProfileFields.rcf2262_Year" class="iCIMS_508_Label" for="-1_PersonProfileFields.rcf2262_Year">Year</label><input type="text" size="6" maxlength="4" id="-1_PersonProfileFields.rcf2262_Year" name="-1_PersonProfileFields.rcf2262_Year" class="iCIMS_Forms_YearInput form-control"></div></div></div></div></div><div data-collection="rcf2236" data-index="1" class="rcf2236-1 iCIMS_TableRow iCIMS_FieldRow_Inline"><div class=" iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_CollectionField iCIMS_TableCell"><label id="label_-1_PersonProfileFields.rcf2264" for="-1_PersonProfileFields.rcf2264"><span class="iCIMS_LabelText" name="labelText">Highest Rank or GS Level Held:</span></label></div><div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_CollectionField iCIMS_TableCell"><input type="text" id="-1_PersonProfileFields.rcf2264" name="-1_PersonProfileFields.rcf2264" class="iCIMS_Forms_TextField form-control"></div></div><div data-collection="rcf2236" data-index="1" class="rcf2236-1 iCIMS_TableRow"><div class=" iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_CollectionField iCIMS_TableCell"><label id="label_-1_PersonProfileFields.rcf2265" for="-1_PersonProfileFields.rcf2265"><span class="iCIMS_LabelText" name="labelText">Describe your military service or government position. Please also provide any responsibilities that involve defense contracts, contracts with Harbor Shipyard and acquisition of defense contracts. This would include acting as a program manager, deputy program manager, contracting officer or otherwise being involved in the contracting process.</span></label></div><div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_CollectionField iCIMS_TableCell"><textarea id="-1_PersonProfileFields.rcf2265" name="-1_PersonProfileFields.rcf2265" class="iCIMS_Forms_TextBox form-control" cols="40" rows="10"></textarea></div></div></fieldset><div class="iCIMS_CollectionButtonsRow"><div class="iCIMS_CollectionButtons iCIMS_OddRow iCIMS_TableRow"><div></div><div class="iCIMS_InfoData iCIMS_TableCell"><a role="button" class="iCIMS_Anchor" href="javascript:void(0)" onclick="showGroup('rcf2236', '-1', '-2', 2, 'recruit')" id="rcf2236Button_-1">Add More (Branch of U.S. Armed Forces/Government Agency Served:)</a></div></div></div></div>
+</div>
+</div>
+
+<div role="group">
+<h2 class="iCIMS_SubHeader iCIMS_SubHeader_Candidate">Harbor Marine (HM) History <br><br><p style="color:red">Are you current EB Employee? <a href="https://internal-example.icims.com//" style="color:red">Click Here to Apply</a></p></h2>
+<div class="iCIMS_ProfileFormTable iCIMS_Table">
+<div class="iCIMS_EvenRow iCIMS_TableRow iCIMS_FieldRow iCIMS_FieldRow_rcf2248 ">
+<div class="iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_TableCell"><label tabindex="-1" id="label_rcf2248" for="rcf2248">Are you a current or former HM Employee?</label><span class="Field_Required"><span class="Field_RequiredStar">* </span></span></div>
+<div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_TableCell"><select id="rcf2248" name="rcf2248" class=" iCIMS_Forms_DropDown form-control dropdown-hide" icimsdropdown-enabled="1" icimsdropdown-ajax="1" icimsdropdown-search="0" icimsdropdown-selected="" i_required="true" role="combobox"><option value="" legacy="true"></option></select></div>
+</div>
+<div class="iCIMS_OddRow iCIMS_TableRow iCIMS_FieldRow iCIMS_FieldRow_rcf2249 ">
+<div class="iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_TableCell"><label tabindex="-1" id="label_rcf2249" for="rcf2249">Select HM Business Unit if actively or formerly employed</label></div>
+<div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_TableCell"><select id="rcf2249" name="rcf2249" class=" iCIMS_Forms_DropDown form-control dropdown-hide" icimsdropdown-enabled="1" icimsdropdown-ajax="1" icimsdropdown-search="1" icimsdropdown-selected=""><option value="" legacy="true"></option></select></div>
+</div>
+<div class="iCIMS_EvenRow iCIMS_TableRow iCIMS_FieldRow iCIMS_FieldRow_rcf2250 ">
+<div class="iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_TableCell"><label tabindex="-1" id="label_rcf2250" for="rcf2250">Please provide your HM Employee Badge Number</label></div>
+<div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_TableCell"><input type="text" id="rcf2250" name="rcf2250" class="iCIMS_Forms_TextField form-control"></div>
+</div>
+</div>
+</div>
+
+<div role="group">
+<h2 class="iCIMS_SubHeader iCIMS_SubHeader_Candidate">EB Vendor History</h2>
+<div class="iCIMS_ProfileFormTable iCIMS_Table">
+<div class="iCIMS_EvenRow iCIMS_TableRow iCIMS_FieldRow iCIMS_FieldRow_rcf2285 ">
+<div class="iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_TableCell"><label tabindex="-1" id="label_rcf2285" for="rcf2285">Are you a current or former V&#8203;endor at Harbor Shipyard?</label></div>
+<div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_TableCell"><select id="rcf2285" name="rcf2285" class=" iCIMS_Forms_DropDown form-control dropdown-hide" icimsdropdown-enabled="1" icimsdropdown-ajax="1" icimsdropdown-search="0" icimsdropdown-selected=""><option value="" legacy="true"></option></select></div>
+</div>
+<div class="iCIMS_OddRow iCIMS_TableRow iCIMS_FieldRow iCIMS_FieldRow_rcf2286 ">
+<div class="iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_TableCell"><label tabindex="-1" id="label_rcf2286" for="rcf2286">Please &#8203;provide the name of the vendor company</label></div>
+<div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_TableCell"><input type="text" id="rcf2286" name="rcf2286" class="iCIMS_Forms_TextField form-control"></div>
+</div>
+</div>
+</div>
+
+<div role="group">
+<h2 class="iCIMS_SubHeader iCIMS_SubHeader_Candidate">Additional Documents To Upload</h2>
+<div class="iCIMS_ProfileFormTable iCIMS_Table">
+<div role="group" aria-labelledby="label_rcf2157_File" class="iCIMS_EvenRow iCIMS_TableRow iCIMS_FieldRow iCIMS_FieldRow_rcf2157 ">
+<div class="iCIMS_InfoField iCIMS_InfoField_Candidate iCIMS_TableCell"><label tabindex="-1" id="label_rcf2157_File" for="rcf2157_File">Certificate of Release or Discharge from Active Duty - DD214 (PDF Only)</label></div>
+<div class="iCIMS_InfoData iCIMS_InfoData_Candidate iCIMS_TableCell"><input id="rcf2157_FileName" name="rcf2157_FileName" type="hidden" value=""><div id="rcf2157_CurrentFile"><div id="rcf2157_FileNameLabel" class="iCIMS_CurrentFile iCIMS_NoDisplay"><span></span></div></div><div id="rcf2157_UploadButtons" class="upload-buttons"><div class="iCIMS_FileUploadButtonBlock localButton"><div tabindex="0" class="iCIMS_FileFieldButton iCIMS_SecondaryButton iCIMS_resumeUpload"><label for="rcf2157_File" id="label_for_rcf2157_File" aria-hidden="true" class="iCIMS_508_Label">My Computer (Opens new window)</label><input type="file" id="rcf2157_File" name="rcf2157_File" tabindex="-1" onchange="window.__dd214Set = true"><span aria-hidden="true" class="iCIMS_FileFieldText">My Computer</span></div></div></div></div>
+</div>
+</div>
+</div>
+
+<div class="iCIMS_ProfileFormTable iCIMS_Table">
+<div class="iCIMS_TableRow"><div class="iCIMS_TableCell"></div><div class="iCIMS_TableCell"><div class="iCIMS_socialDisclaimer">By proceeding you agree to ICIMS <a href="http://www.icims.com/content/privacy.asp" target="_blank">Privacy Policy</a>.</div></div></div>
+<div class="iCIMS_SubmitButtonRow iCIMS_TableRow iCIMS_MobileButton_1"><div class="iCIMS_TableCell"></div><div class="iCIMS_SubmitButtonCell iCIMS_TableCell" id="cp_form_submit_label">
+<input type="submit" id="cp_form_submit_i" class="iCIMS_PrimaryButton" name="profileButton" value="Submit Profile">
+</div></div>
+</div>
+</div>
+</div>
+<div id="h-captcha" class="h-captcha"><textarea id="h-captcha-response-01jz5ku6vsru" name="h-captcha-response" style="display: none;"></textarea></div>
+</form>
+<pre id="out"></pre>
+<script>
+// ---- iCIMS dropdown widget stand-in (behaviour assumed: click the a.dropdown-select to open; rows load by
+// "ajax"; typing in .dropdown-search filters server-side; clicking a row selects it, updates the hidden
+// select + the shown text, closes, and fires change). Markup copied from the real page's template.
+const LISTS = {
+  rcf2238: ["I agree", "I do not agree"],
+  "-1_PersonProfileFields.AddressCountry": ["United States", "Afghanistan", "Åland Islands", "Albania", "Canada"],
+  "-1_PersonProfileFields.AddressState": ["Alabama", "Alaska", "California", "Connecticut", "New Jersey", "New York"],
+  rcf2032: ["Not Indicated", "Less Than HS Graduate", "HS Graduate or Equivalent", "Technical School", "2-Year College Degree", "Some College", "Bachelor's Level Degree", "Some Graduate School", "Master's Level Degree", "Doctorate (Academic)", "Military Specialty Training", "Doctorate (Professional)", "GED"],
+  rcf2012: ["N/A", "CT - Other", "MA - Other", "RI - Other", "CT - A.I. Prince Tech High", "CT - Ella T. Grasso SE Technical High School"],
+  rcf2009: ["N/A", "Accounting", "Acoustical Engineering", "Aeronautical Science"],
+  rcf2013: ["N/A", "Non Graduate", "Diploma"],
+  rcf2010: ["N/A", "No", "Yes"],
+  rcf2008: ["N/A", "Other", "CT-GED", "MA-GED", "RI-GED", "CT-Avon High School"],
+  rcf2016: ["Diploma", "N/A", "GED", "Non Graduate"],
+  rcf2014: ["N/A", "No", "Yes"],
+  rcf2106: ["N/A", "Other", "AK-Alaska University Of", "AL-Alabama A&M Univ.", "AL-Auburn University"]
+    .concat(Array.from({ length: 24 }, (_, i) => `AL-Example College ${i + 1}`), ["NY-Queensborough Community College", "NY-LSU At Lakeview", "NY-Lakeview University"]),
+  // HMSY's major names (from the retest): no plain "Computer Engineering".
+  rcf2136: ["N/A", "Accounting", "Acoustics", "Aeronautics"].concat(Array.from({ length: 24 }, (_, i) => `Area Studies ${i + 1}`), ["Computer Science & Info System", "Electrical & Computer Engring", "Engineering,Computer", "Engineering Science"]),
+  rcf2105: ["Yes", "N/A", "No"],
+  rcf2135: ["N/A", "Non Graduate", "Certificate", "Business/Technical/Vocational", "Military Special Training", "Associate Degree", "Bachelor Degree", "Master Degree", "Doctor of Philosophy", "Juris Doctor", "Doctorate"],
+  rcf2244: ["Yes", "No"],
+  rcf2258: ["Confidential", "Secret", "Top secret"],
+  rcf2234: ["Yes", "No"],
+  rcf2235: ["Yes", "No"],
+  rcf2248: ["Never Employed at Harbor Marine", "Former", "Current"],
+  rcf2249: ["No", "HM Harbor Shipyard", "HM Information Technology", "HM Mission Systems"],
+  rcf2285: ["Current Vendor at Harbor Shipyard", "Former Vendor at Harbor Shipyard", "Never Employed as Vendor at Harbor Shipyard"],
+};
+const listFor = (id) => LISTS[id] || LISTS[id.replace(/^-\d+_PersonProfileFields\./, "")] || [];
+const PH = '<span class="dropdown-placeholder">— Make a Selection —</span>';
+function initWidget(sel) {
+  const id = sel.id;
+  const searchable = sel.getAttribute("icimsdropdown-search") === "1";
+  const cur = sel.value ? sel.selectedOptions[0].text : "";
+  sel.insertAdjacentHTML("afterend",
+    `<a id="${id}_icimsDropdown" class="dropdown-select" aria-expanded="false" tabindex="0" role="combobox"><span id="${id}_fakeSelected_icimsDropdown" class="dropdown-text">${cur || PH}</span><div class="dropdown-arrow-container"><i class="dropdown-arrow"></i></div></a>` +
+    `<div id="${id}_icimsDropdown_ctnr" class="dropdown-container dropdown-invisible" aria-owns="${id}_dropdown-results" aria-expanded="false"><input type="text" class="dropdown-search${searchable ? "" : " dropdown-invisible"}" autocomplete="off" placeholder="— Type to Search —" role="combobox"><div aria-live="polite"><ul id="${id}_dropdown-results" class="dropdown-results" role="listbox"></ul><div class="dropdown-loading hide"></div><div style="overflow: hidden; display: block; width:0;height:0;" role="status" id="result-summary_${id}"></div></div></div>`);
+  const a = document.getElementById(id + "_icimsDropdown");
+  const ctnr = document.getElementById(id + "_icimsDropdown_ctnr");
+  const ul = document.getElementById(id + "_dropdown-results");
+  const input = ctnr.querySelector("input");
+  const load = ctnr.querySelector(".dropdown-loading");
+  let timer;
+  const render = (term) => {
+    load.classList.remove("hide");
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      const items = listFor(id).filter((t) => !term || t.toLowerCase().includes(term.toLowerCase())).slice(0, 25);
+      ul.innerHTML = `<li class="dropdown-result result-selectable" role="option" dropdown-index="-1">${PH}</li>` + items.map((t, i) => `<li class="dropdown-result result-selectable" role="option" dropdown-index="${i}" title="${t}">${t}</li>`).join("");
+      load.classList.add("hide");
+    }, 200);
+  };
+  const open = () => { ctnr.classList.remove("dropdown-invisible"); a.setAttribute("aria-expanded", "true"); input.value = ""; render(""); };
+  const close = () => { ctnr.classList.add("dropdown-invisible"); a.setAttribute("aria-expanded", "false"); };
+  a.addEventListener("click", () => (ctnr.classList.contains("dropdown-invisible") ? open() : close()));
+  input.addEventListener("input", () => render(input.value));
+  input.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
+  ul.addEventListener("click", (e) => {
+    const li = e.target.closest("li.result-selectable");
+    if (!li) return;
+    const t = li.getAttribute("dropdown-index") === "-1" ? "" : li.textContent.trim();
+    sel.innerHTML = '<option value="" legacy="true"></option>' + (t ? `<option value="${t}" selected>${t}</option>` : "");
+    document.getElementById(id + "_fakeSelected_icimsDropdown").innerHTML = t || PH;
+    close();
+    sel.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  document.addEventListener("click", (e) => { if (!a.contains(e.target) && !ctnr.contains(e.target)) close(); }, true);
+}
+document.querySelectorAll('select[icimsdropdown-enabled="1"]').forEach(initWidget);
+// SourceChange() stand-in: choosing a source shows "Please specify": its sub-sources, or a text box for sources
+// with textsourcename="1" (Employee Referral, Job Board - Other).
+document.getElementById("rcf3048").addEventListener("change", (e) => {
+  const opt = e.target.selectedOptions[0];
+  const row = document.querySelector(".iCIMS_FieldRow_rcf3049");
+  const txt = document.getElementById("rcf3049_Text");
+  const sel = document.getElementById("rcf3049");
+  row.style.display = opt.value ? "" : "none";
+  const text = opt.getAttribute("textsourcename") === "1";
+  txt.style.display = text ? "" : "none";
+  sel.style.display = text ? "none" : "";
+  const subs = { "Job Board": ["Indeed", "LinkedIn", "Monster", "ZipRecruiter"], "Social Networks": ["Facebook", "LinkedIn", "Twitter"] }[opt.value];
+  sel.innerHTML = subs ? '<option value="">— Make a Selection —</option>' + subs.map((s) => `<option value="${s}">${s}</option>`).join("") : '<option value="-999">No additional source details needed.  Thank you.</option>';
+});
+// "Add More": the next group of the collection (ids -1 -> -2), its own Add link, the old one hidden.
+window.showGroup = (name, from, to, n) => {
+  const old = document.querySelector(`.${CSS.escape(name)}${from}-Container`);
+  const tmp = document.createElement("div");
+  const k = String(-Number(from)), k2 = String(-Number(to));
+  tmp.innerHTML = old.outerHTML
+    .split(`${from}_`).join(`${to}_`).split(`${name}${from}`).join(`${name}${to}`).split(`(${k})`).join(`(${k2})`)
+    .split(`data-index="${k}"`).join(`data-index="${k2}"`)
+    .split(`'${from}', '${to}', ${n}`).join(`'${to}', '-${n + 1}', ${n + 1}`).split(`Button_${from}`).join(`Button_${to}`);
+  const fresh = tmp.firstElementChild;
+  fresh.querySelectorAll(".dropdown-select, .dropdown-container").forEach((x) => x.remove());
+  fresh.querySelectorAll("input:not([type=hidden])").forEach((x) => (x.value = ""));
+  fresh.querySelectorAll("select").forEach((s) => { if (s.getAttribute("icimsdropdown-enabled") === "1") s.innerHTML = '<option value="" legacy="true"></option>'; else s.selectedIndex = 0; });
+  old.querySelector(".iCIMS_CollectionButtonsRow").style.display = "none";
+  old.after(fresh);
+  fresh.querySelectorAll('select[icimsdropdown-enabled="1"]').forEach(initWidget);
+};
+</script>
+<!--SCRIPTS-->
+<script>
+setTimeout(async () => {
+  let stats;
+  try { stats = await window.__runFill(); } catch (e) { window.__errors.push("run: " + e.stack); }
+  const val = (el) => {
+    if (el.tagName !== "SELECT") return el.value;
+    const shown = document.getElementById(el.id + "_fakeSelected_icimsDropdown");
+    if (shown) return shown.querySelector(".dropdown-placeholder") ? "" : shown.textContent.trim();
+    return el.selectedIndex > 0 || (el.value && el.value !== "0") ? el.selectedOptions[0].text : "";
+  };
+  const fields = [...document.querySelectorAll("#profileForm select, #profileForm input:not([type=hidden]):not([type=submit]):not(.dropdown-search), #profileForm textarea")]
+    .filter((el) => el.offsetParent || el.getAttribute("icimsdropdown-enabled") === "1" || el.type === "file")
+    .map((el) => (el.id || el.name).slice(0, 48) + " = " + JSON.stringify(val(el)) + " mark=" + (el.closest("[data-wdaf]")?.dataset.wdaf || "-"));
+  document.getElementById("out").textContent = "@@BEGIN\n" + [
+    "STATS " + JSON.stringify(stats), "TOAST " + JSON.stringify((document.getElementById("aaf-done-toast")?.shadowRoot?.querySelector(".box")?.innerText || "").replace(/\n/g, " | ")),
+    "GUARD " + JSON.stringify([["submit", AAF.click(document.getElementById("cp_form_submit_i"))], ["welcome", AAF.click(document.getElementById("welcome"))]]),
+    "RESUME " + JSON.stringify({ resubmitted: !!window.__resumeSubmitted, replaceClicked: !!window.__replaceClicked, dd214: !!window.__dd214Set }),
+    "AI " + JSON.stringify((window.__aiPayload || []).map((q) => q.question.slice(0, 70) + (q.options ? " " + JSON.stringify(q.options.slice(0, 6)) : ""))),
+    "DRAFT " + JSON.stringify(window.__draft ? window.__draft.questions.map((q) => q.question.slice(0, 70)) : null),
+    "LEARNED " + JSON.stringify(STORE.learned.map((x) => x.q)),
+    ...window.__errors.map((e) => "ERR " + e),
+    ...window.__logs.map((l) => "LOG " + l),
+    ...fields.map((f) => "FIELD " + f),
+  ].join("\n") + "\n@@END";
+}, 500);
+</script>
+</body>
+</html>

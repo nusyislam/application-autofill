@@ -1,0 +1,11 @@
+﻿tests/.out/
+
+# Raw portal HTML with personal data (fixtures use fake-data copies)
+tests/fixtures/*-raw.html
+
+# Your personal strings for the privacy check in tests/run.ps1 (never committed)
+tests/private-patterns.txt
+
+# YC Work at a Startup captures (personal data)
+tests/fixtures/yc-waas-raw.html
+tests/fixtures/yc-waas-job-raw.html

@@ -1,0 +1,13 @@
+#!/bin/sh
+# Blocks a commit whose staged content holds a string from tests/private-patterns.txt (git-ignored): your name, email,
+# phone, address, employers, school ... (tests/privacy-check.js; a hit names the file, line and pattern number, never
+# the text). Enable once per clone: git config core.hooksPath tests/hooks
+# Bypassing it (git commit --no-verify) defeats the point; fix the file instead.
+if ! command -v node >/dev/null 2>&1; then
+  echo "pre-commit: node not found, privacy check NOT run; install Node.js or commit from a shell that has it" >&2
+  exit 1
+fi
+node "$(git rev-parse --show-toplevel)/tests/privacy-check.js" --staged || {
+  echo "pre-commit: commit blocked by the privacy check (see above)" >&2
+  exit 1
+}

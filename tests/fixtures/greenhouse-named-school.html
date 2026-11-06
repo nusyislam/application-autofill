@@ -1,0 +1,195 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Job Application for Quantitative Researcher at GlobeQuant</title>
+<style>
+  body { font: 14px sans-serif; }
+  .field-wrapper { margin: 10px 0; }
+  .select__control { border: 1px solid #999; min-height: 30px; width: 320px; position: relative; display: flex; flex-wrap: wrap; }
+  .select__menu { position: absolute; background: #fff; border: 1px solid #999; width: 320px; z-index: 5; }
+  .select__option { padding: 4px; }
+  .select__multi-value { display: inline-block; background: #eee; margin: 2px; padding: 0 4px; }
+</style>
+<script>
+// ---- stub chrome API (test only)
+window.__logs = [];
+window.__errors = [];
+const origLog = console.log;
+console.log = (...a) => {
+  if (a[0] === "[autofill]") window.__logs.push(a.slice(1).map((x) => (typeof x === "string" ? x : x && x.nodeType ? "<" + x.tagName + ">" : JSON.stringify(x))).join(" "));
+  origLog(...a);
+};
+window.addEventListener("error", (e) => window.__errors.push("error: " + e.message + " @ " + (e.filename || "").split("/").pop() + ":" + e.lineno));
+window.addEventListener("unhandledrejection", (e) => window.__errors.push("rejection: " + (e.reason && e.reason.stack || e.reason)));
+const STORE = {
+  profile: {
+    firstName: "Test", lastName: "Applicant", email: "test@example.com", phone: "6465550100",
+    country: "United States of America", address1: "1 Test Street", city: "Springfield", state: "New York", zip: "10001",
+    expectedGraduation: "05/2027",
+    experiences: [
+      { title: "Engineering Intern", company: "Examplecorp", current: false, startYear: "2026", endYear: "2026" },
+      { title: "Software Intern", company: "Samplesoft", current: false, startYear: "2024", endYear: "2024" },
+    ],
+    education: [{ school: "Lakeview University", schoolAliases: "LSU Lakeview University | Lakeland State University at Lakeview", schoolSearch: "Lakeview", field: "Computer Engineering", endYear: "2027" }],
+    applicationLocation: { search: "New York", matches: "New York, NY | New York, New York, United States" },
+    answers: { workAuth: "Yes", sponsorship: "No", over18: "Yes", relocate: "No", restrictions: "None", armedForces: "No", govEmployee: "No" },
+    eeo: {}, api: { key: "test-key", model: "stub" },
+  },
+  settings: { useAI: true, learn: true, threshold: 0.75 },
+  learned: [],
+};
+let onMsg = null;
+// Location settings have no default in Options: the New York values these tests were written with (settings a fixture
+// sets itself are kept; a blank search took the old default search, and the default list when the list was blank too).
+{ const P = STORE.profile, AL = (P.applicationLocation ||= {}), A = (P.answers ||= {}), blank = !String(AL.search || "").trim();
+  if (blank) AL.search = "New York";
+  if (blank && !String(AL.matches || "").trim()) AL.matches = "New York City, New York, United States | New York, New York, United States | New York, NY, United States | New York, NY | New York City | New York, NY, USA | New York, USA";
+  if (!String(A.officeMetro || "").trim()) A.officeMetro = "New York City | NYC | New York, NY | New York, New York | Manhattan | Brooklyn | Queens | Bronx | Staten Island | Long Island | Jersey City | Hoboken | Newark | Westchester | Stamford"; }
+window.chrome = {
+  storage: {
+    local: {
+      get: async (keys) => {
+        const ks = typeof keys === "string" ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys || {});
+        const out = {};
+        for (const k of ks) if (STORE[k] !== undefined) out[k] = JSON.parse(JSON.stringify(STORE[k]));
+        return out;
+      },
+      set: async (o) => Object.assign(STORE, o),
+    },
+    onChanged: { addListener: () => {} },
+  },
+  runtime: { id: "test-extension",
+    onMessage: { addListener: (fn) => (onMsg = fn) },
+    sendMessage: async (msg) => {
+      if (msg.type === "DRAFT") {
+        window.__draftPayload = msg.questions;
+        return { model: "stub-draft-model", included: { linkedinChars: 0, resumeChars: 0, notesChars: 0, descriptionChars: 0 }, answers: msg.questions.map((q) => ({ id: q.id, answer: "A draft." })) };
+      }
+      if (msg.type === "ASK_AI") {
+        window.__aiPayload = msg.questions;
+        return { model: "stub-model", answers: msg.questions.map((q) => ({ id: q.id, answer: /programming language/i.test(q.question) ? "Python" : "Yes", confidence: 0.9 })) };
+      }
+      // The classifier before Claude (by question text), and the meaning mapper's Haiku step.
+      if (msg.type === "CLASSIFY_ASK_OFF") {
+        window.__classify = msg.questions;
+        const cat = (q) => /legal right to take up employment/i.test(q) ? "work authorization" : /anything else/i.test(q) ? "open-ended" : /personal commitments/i.test(q) ? "disclosure" : "other";
+        return { model: "stub-haiku", categories: msg.questions.map((q) => ({ id: q.id, category: cat(q.question) })) };
+      }
+      if (msg.type === "MAP_MEANING") {
+        window.__mapMeaning = (window.__mapMeaning || []).concat([msg]);
+        return { model: "stub-haiku", option: msg.meaning === "yes" ? msg.options.find((o) => /^authorized/i.test(o)) || null : null };
+      }
+      return {};
+    },
+  },
+};
+window.__runFill = () => new Promise((res) => onMsg({ type: "FILL" }, {}, res));
+</script>
+</head>
+<body>
+<h1>Quantitative Researcher</h1>
+<div class="job__location">New York, NY</div>
+<!-- GlobeQuant (embedded Greenhouse) look-alike (fake data): "Have you been a student with GlobeQuant University within the past 12
+     months?" (a Yes / No dropdown) went to the school rule, which typed the school aliases into it for 40 s and FAILed; "Where are
+     you currently located?" lists countries, and the location rule typed "New York" (options []) twice. Plus a state list, a region
+     list, and a named-school question about your own school. -->
+<form id="application-form" class="application--form">
+  <div class="field-wrapper"><div class="react-select" data-opts="Yes|No"><label id="question_1-label" for="question_1">Have you been a student with GlobeQuant University within the past 12 months?*</label></div></div>
+  <div class="field-wrapper"><div class="react-select" data-opts="Canada|India|United Kingdom|United States|Other"><label id="question_2-label" for="question_2">Where are you currently located?*</label></div></div>
+  <div class="field-wrapper"><div class="react-select" data-opts="California|Massachusetts|New Jersey|New York|Texas"><label id="question_3-label" for="question_3">Which state are you currently located in?*</label></div></div>
+  <div class="field-wrapper"><div class="react-select" data-opts="Americas|EMEA|APAC"><label id="question_4-label" for="question_4">Current location (region)*</label></div></div>
+  <div class="field-wrapper"><div class="react-select" data-opts="Yes|No"><label id="question_5-label" for="question_5">Have you attended Lakeview University?*</label></div></div>
+</form>
+<pre id="out"></pre>
+<script>
+// ---- react-select look-alike (test only), single or multi (data-multi): a control mousedown opens
+// the menu once the input has seen focus events; typing filters it (static lists); clicking an
+// option sets the single value or adds a chip (and leaves the menu's list without it); Escape closes.
+let rs = 0;
+function makeSelect(wrap) {
+  const label = wrap.querySelector("label");
+  const id = label.getAttribute("for");
+  const all = wrap.dataset.opts.split("|");
+  const multi = !!wrap.dataset.multi;
+  const chosen = [];
+  const lbId = "react-select-" + ++rs + "-listbox";
+  wrap.insertAdjacentHTML("beforeend",
+    `<div class="select-shell"><div class="select__control"><div class="select__value-container${multi ? " select__value-container--is-multi" : ""}"><div class="select__placeholder">Select...</div>` +
+    `<div class="select__input-container"><input class="select__input" role="combobox" aria-expanded="false" aria-haspopup="true" aria-autocomplete="list" id="${id}" aria-labelledby="${id}-label" type="text"></div></div></div></div>`);
+  const control = wrap.querySelector(".select__control");
+  const vc = wrap.querySelector(".select__value-container");
+  const input = wrap.querySelector("input");
+  let menu = null;
+  const close = () => { menu?.remove(); menu = null; input.setAttribute("aria-expanded", "false"); input.removeAttribute("aria-controls"); };
+  const render = (list) => {
+    if (!menu) {
+      menu = document.createElement("div"); menu.className = "select__menu";
+      control.after(menu);
+      input.setAttribute("aria-expanded", "true"); input.setAttribute("aria-controls", lbId);
+    }
+    menu.innerHTML = `<div class="select__menu-list" role="listbox" id="${lbId}"></div>`;
+    const lb = menu.firstChild;
+    if (!list.length) lb.innerHTML = `<div class="select__menu-notice">No options</div>`;
+    for (const t of list) {
+      const o = document.createElement("div"); o.className = "select__option"; o.setAttribute("role", "option"); o.textContent = t;
+      o.addEventListener("click", () => {
+        vc.querySelector(".select__placeholder")?.remove();
+        if (multi) {
+          chosen.push(t);
+          vc.insertAdjacentHTML("afterbegin", `<div class="select__multi-value"><div class="select__multi-value__label">${t}</div></div>`);
+        } else {
+          vc.querySelector(".select__single-value")?.remove();
+          vc.insertAdjacentHTML("afterbegin", `<div class="select__single-value">${t}</div>`);
+        }
+        input.value = ""; close();
+      });
+      lb.appendChild(o);
+    }
+  };
+  const filtered = () => (wrap.dataset.async && !input.value ? [] : all).filter((t) => !chosen.includes(t) && (!input.value || t.toLowerCase().includes(input.value.toLowerCase())));
+  let focused = false;
+  input.addEventListener("focusin", () => (focused = true));
+  input.addEventListener("focusout", () => { focused = false; close(); });
+  control.addEventListener("mousedown", () => { if (!focused) return; menu ? close() : render(filtered()); });
+  input.addEventListener("input", () => render(filtered()));
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") close();
+    if (e.key === "ArrowDown" && !menu) render(filtered());
+  });
+}
+document.querySelectorAll(".react-select").forEach(makeSelect);
+// Prefilled react-selects show their value like a pick would.
+document.querySelectorAll(".react-select[data-value]").forEach((w) => {
+  const vc = w.querySelector(".select__value-container");
+  vc.querySelector(".select__placeholder")?.remove();
+  vc.insertAdjacentHTML("afterbegin", `<div class="select__single-value">${w.dataset.value}</div>`);
+});
+</script>
+<!--SCRIPTS-->
+<script>
+setTimeout(async () => {
+  let stats;
+  try { stats = await window.__runFill(); } catch (e) { window.__errors.push("run: " + e.stack); }
+  const val = (w) => {
+    const sv = w.querySelector(".select__single-value"); if (sv) return sv.textContent;
+    const r = w.querySelector("input[type=radio]:checked"); if (r) return r.parentElement.textContent.trim();
+    const c = w.querySelector("textarea, input:not([role=combobox])"); return c ? c.value : "";
+  };
+  const fields = [...document.querySelectorAll(".field-wrapper")].map((w) => {
+    const lab = (w.querySelector("legend, label")?.textContent || "").replace(/\*/g, "").trim();
+    const marked = w.closest("[data-wdaf]") || w.querySelector("[data-wdaf]");
+    return lab.slice(0, 50) + " = " + JSON.stringify(val(w)) + " mark=" + ((marked && marked.dataset.wdaf) || "-");
+  });
+  document.getElementById("out").textContent = "@@BEGIN\n" + [
+    "STATS " + JSON.stringify(stats), "TOAST " + JSON.stringify((document.getElementById("aaf-done-toast")?.shadowRoot?.querySelector(".box")?.innerText || "").replace(/\n/g, " | ")),
+    "AI " + JSON.stringify((window.__aiPayload || []).map((q) => q.question)),
+    "DRAFT " + JSON.stringify((window.__draftPayload || []).map((q) => q.question)),
+    ...window.__errors.map((e) => "ERR " + e),
+    ...window.__logs.map((l) => "LOG " + l),
+    ...fields.map((f) => "FIELD " + f),
+  ].join("\n") + "\n@@END";
+}, 500);
+</script>
+</body>
+</html>

@@ -1,0 +1,195 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Software Engineer, New Grad 2027 - Notional</title>
+<script>
+window.__logs = [];
+window.__errors = [];
+const origLog = console.log;
+console.log = (...a) => {
+  if (a[0] === "[autofill]") window.__logs.push(a.slice(1).map((x) => (typeof x === "string" ? x : x && x.nodeType ? "<" + x.tagName + ">" : JSON.stringify(x))).join(" "));
+  origLog(...a);
+};
+window.addEventListener("error", (e) => window.__errors.push("error: " + e.message + " @ " + (e.filename || "").split("/").pop() + ":" + e.lineno));
+window.addEventListener("unhandledrejection", (e) => window.__errors.push("rejection: " + (e.reason && e.reason.stack || e.reason)));
+const STORE = {
+  profile: {
+    firstName: "Test", lastName: "Applicant", email: "test@example.com", phone: "6465550100",
+    linkedin: "https://www.linkedin.com/in/test-applicant",
+    expectedGraduation: "05/2027",
+    experiences: [{ company: "Examplecorp", title: "Engineering Intern" }],
+    education: [{ school: "Lakeview University", degreeOptions: "Bachelor of Engineering | BEng\nBachelor's Degree", field: "Computer Engineering", endYear: "2027" }],
+    country: "United States of America", city: "Springfield", state: "New York", zip: "10001",
+    answers: { workAuth: "Yes", sponsorship: "No", over18: "Yes", previousEmployers: "Examplecorp", citizen: "Yes", usPerson: "Yes", clearance: "No", clearanceEligible: "Yes", interviewLanguage: "Python" },
+    eeo: { gender: "Male", race: "Asian", veteran: "I am not a protected veteran | I am not a veteran" },
+    api: { key: "test-key", model: "stub" },
+  },
+  settings: { useAI: true, learn: true, threshold: 0.75 },
+  learned: [],
+  resumeFile: { name: "TestApplicantResume 9.27.pdf", type: "application/pdf", dataUrl: "data:application/pdf;base64,JVBERi0xLjQK" },
+};
+// A 150-word draft for the "around 100 words max" question (the stub ignores the limit; the extension must not).
+const LONG = Array.from({ length: 15 }, (_, i) => `Sentence ${i + 1} of my answer has exactly ten words in it.`).join(" ");
+let onMsg = null;
+// Location settings have no default in Options: the New York values these tests were written with (settings a fixture
+// sets itself are kept; a blank search took the old default search, and the default list when the list was blank too).
+{ const P = STORE.profile, AL = (P.applicationLocation ||= {}), A = (P.answers ||= {}), blank = !String(AL.search || "").trim();
+  if (blank) AL.search = "New York";
+  if (blank && !String(AL.matches || "").trim()) AL.matches = "New York City, New York, United States | New York, New York, United States | New York, NY, United States | New York, NY | New York City | New York, NY, USA | New York, USA";
+  if (!String(A.officeMetro || "").trim()) A.officeMetro = "New York City | NYC | New York, NY | New York, New York | Manhattan | Brooklyn | Queens | Bronx | Staten Island | Long Island | Jersey City | Hoboken | Newark | Westchester | Stamford"; }
+window.chrome = {
+  storage: {
+    local: {
+      get: async (keys) => {
+        const ks = typeof keys === "string" ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys || {});
+        const out = {};
+        for (const k of ks) if (STORE[k] !== undefined) out[k] = JSON.parse(JSON.stringify(STORE[k]));
+        return out;
+      },
+      set: async (o) => Object.assign(STORE, o),
+    },
+    onChanged: { addListener: () => {} },
+  },
+  runtime: {
+    id: "test-extension",
+    onMessage: { addListener: (fn) => (onMsg = fn) },
+    sendMessage: async (msg) => {
+      if (msg.type === "DRAFT") {
+        window.__draft = msg;
+        return { model: "stub-draft-model", included: { linkedinChars: 0, resumeChars: 0, notesChars: 0, descriptionChars: (msg.job.description || "").length }, answers: msg.questions.map((q) => ({ id: q.id, answer: /interested in Notional/i.test(q.question) ? LONG : "A draft answer from my real background." })) };
+      }
+      // The classifier as on the real page's second run: the interview-language question "open-ended" (it was drafted).
+      if (msg.type === "CLASSIFY_ASK") {
+        window.__classify = (window.__classify || []).concat(msg.questions.map((q) => q.question));
+        return { model: "stub-haiku", categories: msg.questions.map((q) => ({ id: q.id, category: /programming language/i.test(q.question) ? "open-ended" : "other" })) };
+      }
+      if (msg.type === "ASK_AI") {
+        window.__aiPayload = msg.questions;
+        return { model: "stub-model", answers: msg.questions.map((q) => ({ id: q.id, answer: /programming language/i.test(q.question) ? "JavaScript" : "Yes", confidence: 0.95 })) };
+      }
+      return {};
+    },
+  },
+};
+window.__runFill = () => new Promise((res) => onMsg({ type: "FILL" }, {}, res));
+</script>
+</head>
+<body>
+<!-- Notional (Gem) look-alike (fake data; the real markup wasn't pasted), in Gem's question blocks (div.flex-30 > span.bodyImportant- +
+     control). 1. "Do you presently hold an active U.S. security clearance, or are you eligible to obtain one?" with options that combine
+     two facts: the eligibility setting (Yes) picked "Yes, I hold an active clearance" (false). 2. "If you have held a U.S. security
+     clearance in the past, what level?" checkboxes: never held -> only "N/A - have never held ...". 3. The self-ID block is the REAL
+     markup (gem-selfid-markup-raw.html, git-ignored): Gem's own dropdown buttons with a portal menu; the real page showed "Please select" after the fill. 4. "What is your preferred
+     programming language for interviews?" (Options, never Claude). 5. Five textareas sharing "New Grad 2027 Application Questions :"; the
+     "around 100 words max" one got no log line at all. Plus the embargoed-country and U.S.-person cases (Saleshub / Similis). -->
+<div class="jobPosting-12"><h1 class="h1-44">Software Engineer, New Grad 2027</h1>
+  <div class="body-48"><span>New York</span> <span>•</span> <span>In office</span></div>
+  <div class="jobDescription-20"><p>Notional builds test and evaluation software for hardware engineers.</p></div></div>
+<div class="formContainer-25"><div class="formLayout-43"><div class="h2-45 primary-51">Ready to apply?</div><div class="form-38" id="form"></div>
+<div><div class="formLayout-43"><div class="h3-46 primary-51">Voluntary Self-Identification</div><div class="body-48 primary-51">To comply with government reporting requirements, we invite candidates to participate in the self-identification survey below. Your completion of this form is entirely optional, and your decision will neither influence the hiring process nor any subsequent stages. Any information you choose to share will be kept confidential and stored in a secure file. As outlined in our Equal Employment Opportunity policy, we uphold a commitment to non-discrimination based on any protected group status specified in applicable laws.</div><div class="input-142"><div class="bodyImportant-47 primary-51">Gender</div><button type="button" class="button-150 button-d0-164 inputGroupEligible-92 normal-160 secondary-153"><div class="buttonContentContainer-146">Please select<i class="container-18 small-20"><svg width="24" height="24" viewBox="0 0 24 24" fill="#404449" xmlns="http://www.w3.org/2000/svg" class="icon-17 small-20"><path d="M15.7236 9.49995H8.27633C7.25179 9.49995 6.7387 10.7387 7.46316 11.4631L11.1161 15.1161C11.6043 15.6042 12.3957 15.6042 12.8839 15.1161L16.5368 11.4631C17.2613 10.7387 16.7482 9.49995 15.7236 9.49995Z" fill="current"></path></svg></i></div></button></div><div class="input-142"><div class="bodyImportant-47 primary-51">Race</div><button type="button" class="button-150 button-d1-165 inputGroupEligible-92 normal-160 secondary-153"><div class="buttonContentContainer-146">Please select<i class="container-18 small-20"><svg width="24" height="24" viewBox="0 0 24 24" fill="#404449" xmlns="http://www.w3.org/2000/svg" class="icon-17 small-20"><path d="M15.7236 9.49995H8.27633C7.25179 9.49995 6.7387 10.7387 7.46316 11.4631L11.1161 15.1161C11.6043 15.6042 12.3957 15.6042 12.8839 15.1161L16.5368 11.4631C17.2613 10.7387 16.7482 9.49995 15.7236 9.49995Z" fill="current"></path></svg></i></div></button></div><div class="container-166"><div class="flex-30" style="gap: 8px; flex-direction: column; flex-grow: 0;"><div class="title-167">Race and ethnicity descriptions<button type="button" class="button-150 button-d2-168 inputGroupEligible-92 normal-160 text-155">Expand<i class="container-18 iconRight-163 small-20"><svg width="24" height="24" viewBox="0 0 24 24" fill="#0d61ff" xmlns="http://www.w3.org/2000/svg" class="icon-17 small-20"><path d="M14.9504 12.0031L8.48016 18.4823C8.04232 18.9202 8.04227 19.6262 8.48016 20.0641C8.91806 20.502 9.62407 20.502 10.062 20.0641L17.4885 12.6376C17.837 12.2891 17.837 11.726 17.4885 11.3775L10.062 3.95099C9.62424 3.51325 8.9186 3.51308 8.48067 3.95049L8.47969 3.95144C8.04226 4.38045 8.0424 5.09505 8.47122 5.52387L14.9504 12.0031Z" fill="current"></path></svg></i></button></div></div></div><div class="divider-145"></div><div class="h3-46 primary-51">Voluntary Self-Identification of Veteran Status</div><div class="body-48 primary-51">VEVRAA requires Government contractors to take affirmative action to employ and advance in employment protected veterans. To help us measure the effectiveness of our outreach and recruitment efforts of veterans, we are asking you to tell us if you are a veteran covered by VEVRAA. If you believe that you belong to any of the following categories of protected veterans, please indicate by making the appropriate selection.</div><div class="container-166"><div class="flex-30" style="gap: 8px; flex-direction: column; flex-grow: 0;"><div class="title-167">Veteran status descriptions<button type="button" class="button-150 button-d3-169 inputGroupEligible-92 normal-160 text-155">Collapse<i class="container-18 iconRight-163 small-20"><svg width="24" height="24" viewBox="0 0 24 24" fill="#0d61ff" xmlns="http://www.w3.org/2000/svg" class="icon-17 small-20"><path d="M12.0006 14.9505L18.4799 8.48025C18.9178 8.04241 19.6238 8.04237 20.0617 8.48025C20.4996 8.91816 20.4996 9.62417 20.0617 10.0621L12.6352 17.4886C12.2866 17.8371 11.7236 17.8371 11.3751 17.4886L3.94855 10.0621C3.51081 9.62434 3.51064 8.9187 3.94805 8.48076L3.949 8.47979C4.37801 8.04235 5.09261 8.04249 5.52143 8.47132L12.0006 14.9505Z" fill="current"></path></svg></i></button></div><div><div class="description-141"><div class="textBlock-139"><div class="bolded-140">Disabled veteran</div>A veteran who served on active duty in the U.S. military and is entitled to disability compensation (or who but for the receipt of military retired pay would be entitled to disability compensation) under laws administered by the Secretary of Veterans Affairs, or was discharged or released from active duty because of a service-connected disability</div><div class="textBlock-139"><div class="bolded-140">Recently separated veteran</div>A veteran separated during the three-year period beginning on the date of the veteran's discharge or release from active duty in the U.S military, ground, naval, or air service</div><div class="textBlock-139"><div class="bolded-140">Active duty wartime or campaign badge veteran</div>A veteran who served on active duty in the U.S. military during a war, or in a campaign or expedition for which a campaign badge was authorized under the laws administered by the Department of Defense</div><div class="textBlock-139"><div class="bolded-140">Armed Forces service medal veteran</div>A veteran who, while serving on active duty in the U.S. military ground, naval, or air service, participated in a United States military operation for which an Armed Forces service medal was awarded pursuant to Executive Order 12985 (61 Fed. Reg. 1209).</div></div></div></div></div><div class="input-142"><div class="bodyImportant-47 primary-51">Veteran status</div><button type="button" class="button-150 button-d4-170 inputGroupEligible-92 normal-160 secondary-153"><div class="buttonContentContainer-146">Please select<i class="container-18 small-20"><svg width="24" height="24" viewBox="0 0 24 24" fill="#404449" xmlns="http://www.w3.org/2000/svg" class="icon-17 small-20"><path d="M15.7236 9.49995H8.27633C7.25179 9.49995 6.7387 10.7387 7.46316 11.4631L11.1161 15.1161C11.6043 15.6042 12.3957 15.6042 12.8839 15.1161L16.5368 11.4631C17.2613 10.7387 16.7482 9.49995 15.7236 9.49995Z" fill="current"></path></svg></i></div></button></div></div></div>
+<button type="submit" class="button-130">Apply</button></div></div>
+<pre id="out"></pre>
+<script>
+let k = 0;
+const block = (label, inner) => `<div class="flex-30" style="gap: 6px; flex-direction: column;"><span class="bodyImportant-47 primary-51">${label}<span class="requiredAsterisk-76"> *</span></span>${inner}</div>`;
+const radios = (opts) => opts.map((o) => { const id = "r" + k++; return `<div><input class="radioInput-110" id="${id}" type="radio"><label for="${id}" class="label-111"><div class="body-48 primary-51">${o}</div></label></div>`; }).join("");
+const checks = (opts) => opts.map((o) => { const id = "c" + k++; return `<div><input class="checkboxInput-130" id="${id}" type="checkbox"><label for="${id}" class="label-131"><div class="body-48 primary-51">${o}</div></label></div>`; }).join("");
+const text = () => `<div class="textField-77"><div class="inputWrapper-80"><input class="input-84" type="text"></div></div>`;
+const area = () => `<div class="textareaField-121"><div class="growWrap-122"><textarea class="textarea-123"></textarea></div></div>`;
+const P = "New Grad 2027 Application Questions : ";
+document.getElementById("form").innerHTML = [
+  block("Do you presently hold an active U.S. security clearance, or are you eligible to obtain one?", radios(["Yes, I hold an active clearance", "Yes, I'm eligible to obtain one", "No"])),
+  block("If you have held a U.S. security clearance in the past, what level?", checks(["Confidential", "Secret", "Top Secret", "TS/SCI", "N/A - have never held a U.S. security clearance"])),
+  block("Are you a citizen, national or permanent resident of Iran, Cuba, North Korea or Syria?", radios(["Yes", "No"])),
+  block("Which best describes your U.S. person status?", radios(["I am a citizen of Cuba, Iran, North Korea, Syria, or the Crimea region", "I am a U.S. person", "None of the above"])),
+  block(P + "What is your preferred programming language for interviews?", area()),
+  block(P + "Why are you interested in Notional? There is no right answer here; we want to understand what draws you to us. A great answer is around 100 words max.", area()),
+  block(P + "Tell us about a project you're proud of.", area()),
+  block(P + "What's something you taught yourself recently?", area()),
+  block(P + "Describe a technical challenge you faced and how you solved it.", area()),
+  block(P + "Is there anything else you'd like us to know?", area()),
+].join("");
+// Gem's own dropdowns, as on the real page (gem-selfid-gender-raw.html): a click on the "Please select" button opens a
+// menu in a portal at body level (div#floating-ui-portal > div > menu.menu-NNN > li[role=menuitem].dropdownItem-NNN >
+// div.mainContent-NNN > div.text-NNN); clicking an item shows it in the button and closes the menu; Escape closes it.
+// Race's first item click doesn't register (the extension must reopen and click once more).
+const GEM_OPTS = {
+  Gender: ["Male", "Female", "Decline to self-identify"],
+  Race: ["American Indian or Alaska Native", "Asian", "Black or African American", "Hispanic or Latino", "Native Hawaiian or Other Pacific Islander", "Two or More Races", "White", "Decline to self-identify"],
+  "Veteran status": ["I identify as one or more of the classifications of protected veterans", "I am not a protected veteran", "Decline to self-identify"],
+};
+window.__menuOpens = 0;
+let raceMisses = 1;
+const closeMenu = () => document.getElementById("floating-ui-portal")?.remove();
+for (const btn of document.querySelectorAll('div[class^="input-"] > button[type=button]')) {
+  const lab = btn.parentElement.querySelector('[class^="bodyImportant-"]').textContent.trim();
+  btn.addEventListener("click", () => {
+    if (document.getElementById("floating-ui-portal")?.dataset.for === lab) return closeMenu();
+    closeMenu();
+    window.__menuOpens++;
+    const portal = document.createElement("div"); portal.id = "floating-ui-portal"; portal.dataset.for = lab;
+    portal.innerHTML = `<div><menu class="menu-194" tabindex="-1" aria-orientation="vertical">${GEM_OPTS[lab].map((o) => `<li class="dropdownItem-198" tabindex="0" role="menuitem" aria-disabled="false"><div class="mainContent-199"><div class="text-200">${o}</div></div></li>`).join("")}</menu></div>`;
+    for (const li of portal.querySelectorAll("li")) li.addEventListener("click", () => {
+      if (lab === "Race" && raceMisses-- > 0) return; // a click that doesn't take
+      btn.querySelector('[class^="buttonContentContainer-"]').firstChild.textContent = li.textContent.trim();
+      closeMenu();
+    });
+    document.body.appendChild(portal);
+  });
+}
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeMenu(); });
+</script>
+<!--SCRIPTS-->
+<script>
+// Two fills in a row (Notional's second run): between them, the export-control radio our first fill clicked is marked as
+// edited, the trusted event Chrome fires for our own label click. The second fill must keep our own answers (not "you
+// entered"), keep the earlier drafts ("kept (earlier draft)", not "unhandled field"), and answer the interview question
+// by the rule, not a draft.
+const report = (tag) => {
+  const fields = [...document.querySelectorAll('[class^="form-"] > .flex-30')].map((c) => {
+    const lab = (c.querySelector('[class^="bodyImportant-"]')?.textContent || "").replace(/\s*\*\s*$/, "").replace(P, "").trim();
+    const on = [...c.querySelectorAll("input[type=radio], input[type=checkbox]")].filter((x) => x.checked).map((x) => x.nextElementSibling.textContent.trim());
+    const t = c.querySelector("input[type=text], textarea");
+    const s = c.querySelector("select");
+    const val = on.length ? on.join(", ") : s ? (s.value ? s.selectedOptions[0].text : "") : t ? (t.tagName === "TEXTAREA" && t.value.split(/\s+/).length > 3 ? t.value.split(/\s+/).filter(Boolean).length + " words" : t.value) : "";
+    const marked = c.dataset.wdaf || c.querySelector("[data-wdaf]")?.dataset.wdaf || "-";
+    return tag + lab.slice(0, 60) + " = " + JSON.stringify(val) + " mark=" + marked;
+  });
+  for (const box of document.querySelectorAll('div[class^="input-"]')) {
+    const btn = box.querySelector("button");
+    const lab = box.querySelector('[class^="bodyImportant-"]').textContent.trim();
+    fields.push(tag + lab + " = " + JSON.stringify(btn.innerText.trim()) + " mark=" + (box.dataset.wdaf || box.querySelector("[data-wdaf]")?.dataset.wdaf || "-"));
+  }
+  return fields;
+};
+setTimeout(async () => {
+  let stats, stats2;
+  try { stats = await window.__runFill(); } catch (e) { window.__errors.push("run: " + e.stack); }
+  const first = report("");
+  const logs1 = window.__logs.splice(0);
+  const draft1 = window.__draft;
+  window.__draft = null;
+  window.__aiPayload = null;
+  const exportBox = [...document.querySelectorAll('[class^="form-"] > .flex-30')].find((c) => /Iran, Cuba/.test(c.textContent));
+  AAF.markUserEdited?.(exportBox.querySelector("input:checked"));
+  await new Promise((r) => setTimeout(r, 1500));
+  try { stats2 = await window.__runFill(); } catch (e) { window.__errors.push("run 2: " + e.stack); }
+  const second = report("rerun: ");
+  document.getElementById("out").textContent = "@@BEGIN\n" + [
+    "MENU " + JSON.stringify({ opens: window.__menuOpens, leftOpen: !!document.getElementById("floating-ui-portal") }),
+    "STATS " + JSON.stringify(stats), "TOAST " + JSON.stringify((document.getElementById("aaf-done-toast")?.shadowRoot?.querySelector(".box")?.innerText || "").replace(/\n/g, " | ")),
+    "AI " + JSON.stringify((window.__aiPayload || []).map((q) => q.question)),
+    "DRAFT " + JSON.stringify(draft1 ? draft1.questions.map((q) => q.question.slice(0, 80) + (q.lengthLimit ? " [limit " + q.lengthLimit + "]" : "")) : null),
+    "STATS2 " + JSON.stringify(stats2),
+    "DRAFT2 " + JSON.stringify(window.__draft ? window.__draft.questions.map((q) => q.question.slice(0, 80)) : null),
+    ...window.__errors.map((e) => "ERR " + e),
+    ...logs1.map((l) => "LOG " + l),
+    ...window.__logs.map((l) => "LOG rerun: " + l),
+    ...first.map((f) => "FIELD " + f),
+    ...second.map((f) => "FIELD " + f),
+  ].join("\n") + "\n@@END";
+}, 500);
+</script>
+</body>
+</html>

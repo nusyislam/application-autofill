@@ -1,0 +1,118 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Software Engineer Intern - Nuvix</title>
+<script>
+window.__logs = [];
+window.__errors = [];
+const origLog = console.log;
+console.log = (...a) => {
+  if (a[0] === "[autofill]") window.__logs.push(a.slice(1).map((x) => (typeof x === "string" ? x : x && x.nodeType ? "<" + x.tagName + ">" : JSON.stringify(x))).join(" "));
+  origLog(...a);
+};
+window.addEventListener("error", (e) => window.__errors.push("error: " + e.message + " @ " + (e.filename || "").split("/").pop() + ":" + e.lineno));
+window.addEventListener("unhandledrejection", (e) => window.__errors.push("rejection: " + (e.reason && e.reason.stack || e.reason)));
+const STORE = {
+  profile: {
+    firstName: "Test", lastName: "Applicant", email: "test@example.com", phone: "6465550100",
+    linkedin: "https://www.linkedin.com/in/test-applicant",
+    expectedGraduation: "05/2027",
+    experiences: [{ company: "Examplecorp", title: "Engineering Intern" }],
+    education: [{ school: "Lakeview University", degreeOptions: "Bachelor of Engineering | BEng\nBachelor's Degree", field: "Computer Engineering", endYear: "2027" }],
+    answers: { workAuth: "Yes", sponsorship: "No", over18: "Yes", previousEmployers: "Examplecorp" }, eeo: {},
+    api: { key: "test-key", model: "stub" },
+  },
+  settings: { useAI: true, learn: true, threshold: 0.75 },
+  learned: [],
+  resumeFile: { name: "TestApplicantResume 9.27.pdf", type: "application/pdf", dataUrl: "data:application/pdf;base64,JVBERi0xLjQK" },
+};
+let onMsg = null;
+// Location settings have no default in Options: the New York values these tests were written with (settings a fixture
+// sets itself are kept; a blank search took the old default search, and the default list when the list was blank too).
+{ const P = STORE.profile, AL = (P.applicationLocation ||= {}), A = (P.answers ||= {}), blank = !String(AL.search || "").trim();
+  if (blank) AL.search = "New York";
+  if (blank && !String(AL.matches || "").trim()) AL.matches = "New York City, New York, United States | New York, New York, United States | New York, NY, United States | New York, NY | New York City | New York, NY, USA | New York, USA";
+  if (!String(A.officeMetro || "").trim()) A.officeMetro = "New York City | NYC | New York, NY | New York, New York | Manhattan | Brooklyn | Queens | Bronx | Staten Island | Long Island | Jersey City | Hoboken | Newark | Westchester | Stamford"; }
+window.chrome = {
+  storage: {
+    local: {
+      get: async (keys) => {
+        const ks = typeof keys === "string" ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys || {});
+        const out = {};
+        for (const k of ks) if (STORE[k] !== undefined) out[k] = JSON.parse(JSON.stringify(STORE[k]));
+        return out;
+      },
+      set: async (o) => Object.assign(STORE, o),
+    },
+    onChanged: { addListener: () => {} },
+  },
+  runtime: {
+    id: "test-extension",
+    onMessage: { addListener: (fn) => (onMsg = fn) },
+    sendMessage: async (msg) => {
+      if (msg.type === "DRAFT") {
+        window.__draft = msg;
+        return { model: "stub-draft-model", included: { linkedinChars: 0, resumeChars: 0, notesChars: 0, descriptionChars: (msg.job.description || "").length }, answers: msg.questions.map((q) => ({ id: q.id, answer: "A draft answer from my real background." })) };
+      }
+      if (msg.type === "ASK_AI") {
+        window.__aiPayload = msg.questions;
+        return { model: "stub-model", answers: msg.questions.map((q) => ({ id: q.id, answer: null, confidence: 0.9 })) };
+      }
+      return {};
+    },
+  },
+};
+window.__runFill = () => new Promise((res) => onMsg({ type: "FILL" }, {}, res));
+</script>
+</head>
+<body>
+<!-- jobs.gem.com/nuvix: the real application form (div.formLayout-43, from tests/fixtures/gem-basic-raw.html,
+     which is git-ignored) with fake data. The posting header above it is a stand-in: only its "•" line
+     matters (the office rule). -->
+<div class="jobPosting-12"><h1 class="h1-44">Software Engineer Intern</h1>
+  <div class="body-48"><span>San Francisco • New York</span> <span>•</span> <span>In office</span></div>
+  <div class="jobDescription-20"><p>Nuvix builds a network for B2B trade. You will work on our core platform.</p></div></div>
+<div class="formContainer-25">
+<div class="formLayout-43"><div class="flex-30" style="flex-direction: row; justify-content: space-between; flex-grow: 0;"><div class="h2-45 primary-51">Ready to apply?</div><div class=""><div class="flex-30" style="gap: 4px; align-items: center; justify-content: center; flex-grow: 0;"><div class="body-60" data-tooltip-trigger="true">Powered by</div><a href="https://www.gem.com" target="_blank" rel="noreferrer"><img class="gemLogo-54" alt="Gem Logo" src="https://static.gem.com/assets/logotype-black-BHkPYK9F.png"></a></div></div></div><div class="form-38"><div class="flex-30" style="gap: 6px; flex-direction: column; justify-content: center; flex-grow: 0;"><span class="bodyImportant-47 primary-51">First name<span class="requiredAsterisk-76"> *</span></span><div class="textField-77"><div class="inputWrapper-80"><div class="inputElementAndIconWrapper-81"><input data-1p-ignore="true" class="input-84 input-d0-90 inputGroupEligible-92" type="text" value="Test"></div></div></div></div><div class="flex-30" style="gap: 6px; flex-direction: column; justify-content: center; flex-grow: 0;"><span class="bodyImportant-47 primary-51">Last name<span class="requiredAsterisk-76"> *</span></span><div class="textField-77"><div class="inputWrapper-80"><div class="inputElementAndIconWrapper-81"><input data-1p-ignore="true" class="input-84 input-d1-99 inputGroupEligible-92" type="text" value="Applicant"></div></div></div></div><div class="flex-30" style="gap: 6px; flex-direction: column; justify-content: center; flex-grow: 0;"><span class="bodyImportant-47 primary-51">Email<span class="requiredAsterisk-76"> *</span></span><div class="textField-77"><div class="inputWrapper-80"><div class="inputElementAndIconWrapper-81"><input data-1p-ignore="true" class="input-84 input-d2-100 inputGroupEligible-92" type="text" value="test@example.com"></div></div></div></div><div class="flex-30" style="gap: 6px; flex-direction: column; justify-content: center; flex-grow: 0;"><span class="bodyImportant-47 primary-51">LinkedIn URL</span><div class="textField-77"><div class="inputWrapper-80"><div class="inputElementAndIconWrapper-81"><input data-1p-ignore="true" class="input-84 input-d3-101 inputGroupEligible-92" type="text" value="www.linkedin.com/in/test-applicant"></div></div></div></div><div class="flex-30" style="gap: 6px; flex-direction: column; justify-content: center; flex-grow: 0;"><span class="bodyImportant-47 primary-51">Resume<span class="requiredAsterisk-76"> *</span></span><div><div><div class="container-103 container-d0-108" role="presentation" tabindex="0" classes="[object Object]"><input accept="application/pdf,.pdf,application/msword,.doc,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx" tabindex="-1" type="file" style="display: none;"><div class="promptContainer-105"><i class="container-18 small-20"><svg width="24" height="24" viewBox="0 0 24 24" fill="#0d61ff" xmlns="http://www.w3.org/2000/svg" class="icon-17 small-20"><path d="M10 16H14C14.55 16 15 15.55 15 15V9.99997H16.59C17.48 9.99997 17.93 8.91997 17.3 8.28997L12.71 3.69997C12.32 3.30997 11.69 3.30997 11.3 3.69997L6.71 8.28997C6.08 8.91997 6.52 9.99997 7.41 9.99997H9V15C9 15.55 9.45 16 10 16ZM6 18H18C18.55 18 19 18.45 19 19C19 19.55 18.55 20 18 20H6C5.45 20 5 19.55 5 19C5 18.45 5.45 18 6 18Z" fill="current"></path></svg></i><span class="promptText-106">Click to replace or drag and drop here</span></div><em></em></div></div></div></div><div class="flex-30" style="gap: 6px; flex-direction: column; justify-content: center; flex-grow: 0;"><div class="flex-30" style="gap: 4px; flex-direction: column; flex-grow: 0;"><span class="bodyImportant-47 primary-51">Are you graduating from a bachelor's or master's degree program in 2027?<span class="requiredAsterisk-109"> *</span></span></div><div><div class="flex-30" style="gap: 5px; flex-direction: column; justify-content: center; flex-grow: 0;"><div class="flex-30" style="gap: 5px; flex-direction: column; flex-grow: 0;"><div class="flex-30" style="gap: 5px; flex-direction: column; flex-grow: 0;"><div><input class="radioInput-110" id="cXVlc29wdDr2mPgcKmDmWR--6pzqIrSu" type="radio"><label for="cXVlc29wdDr2mPgcKmDmWR--6pzqIrSu" class="label-111"><span class="outerCircle-113 unselected-116"><div class="innerCircle-114 innerCircleHidden-115"></div></span><div class="body-48 primary-51">Yes</div></label><div class="helpTextContainer-120"></div></div><div><input class="radioInput-110" id="cXVlc29wdDqQUA5RvvH9kR5KxYF0UMMY" type="radio"><label for="cXVlc29wdDqQUA5RvvH9kR5KxYF0UMMY" class="label-111"><span class="outerCircle-113 unselected-116"><div class="innerCircle-114 innerCircleHidden-115"></div></span><div class="body-48 primary-51">No</div></label><div class="helpTextContainer-120"></div></div></div></div></div></div></div><div class="flex-30" style="gap: 6px; flex-direction: column; justify-content: center; flex-grow: 0;"><div class="flex-30" style="gap: 4px; flex-direction: column; flex-grow: 0;"><span class="bodyImportant-47 primary-51">Is your degree in Computer Science?<span class="requiredAsterisk-109"> *</span></span></div><div><div class="flex-30" style="gap: 5px; flex-direction: column; justify-content: center; flex-grow: 0;"><div class="flex-30" style="gap: 5px; flex-direction: column; flex-grow: 0;"><div class="flex-30" style="gap: 5px; flex-direction: column; flex-grow: 0;"><div><input class="radioInput-110" id="cXVlc29wdDrilZJInJY6gTeOafRTUtkX" type="radio"><label for="cXVlc29wdDrilZJInJY6gTeOafRTUtkX" class="label-111"><span class="outerCircle-113 unselected-116"><div class="innerCircle-114 innerCircleHidden-115"></div></span><div class="body-48 primary-51">Yes</div></label><div class="helpTextContainer-120"></div></div><div><input class="radioInput-110" id="cXVlc29wdDpEAlBwlPyeF6Qll7f8XFI8" type="radio"><label for="cXVlc29wdDpEAlBwlPyeF6Qll7f8XFI8" class="label-111"><span class="outerCircle-113 unselected-116"><div class="innerCircle-114 innerCircleHidden-115"></div></span><div class="body-48 primary-51">No</div></label><div class="helpTextContainer-120"></div></div></div></div></div></div></div><div class="flex-30" style="gap: 6px; flex-direction: column; justify-content: center; flex-grow: 0;"><div class="flex-30" style="gap: 4px; flex-direction: column; flex-grow: 0;"><span class="bodyImportant-47 primary-51">What is the most impressive project you've worked on? Why is it impressive?<span class="requiredAsterisk-109"> *</span></span></div><div class="textareaField-121"><div class="growWrap-122" data-value=""><textarea class="textarea-123"></textarea></div></div></div><div class="flex-30" style="gap: 6px; flex-direction: column; justify-content: center; flex-grow: 0;"><div class="flex-30" style="gap: 4px; flex-direction: column; flex-grow: 0;"><span class="bodyImportant-47 primary-51">What's the most interesting technology you've discovered recently? How does it work?<span class="requiredAsterisk-109"> *</span></span></div><div class="textareaField-121"><div class="growWrap-122" data-value=""><textarea class="textarea-123"></textarea></div></div></div></div><button type="submit" class="button-130 button-d3-147 inputGroupEligible-92 normal-140 primary-132" aria-disabled="false" width="100%">Apply</button></div>
+</div>
+<pre id="out"></pre>
+<script>
+// Like Gem: after an upload, the file's name and an X appear above the dropzone.
+const FILE_BLOCK = "<div class=\"fileContainer-102\"><div class=\"body-48 primary-51\">__NAME__</div><button type=\"button\" class=\"button-148 extraSmall-149 light-154\" aria-label=\"cross\"><i class=\"container-18 extraSmall-19\"><svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"#0d61ff\" xmlns=\"http://www.w3.org/2000/svg\" class=\"icon-17 extraSmall-19\"><path d=\"M18.3 5.70997C17.91 5.31997 17.28 5.31997 16.89 5.70997L12 10.59L7.11 5.69997C6.72 5.30997 6.09 5.30997 5.7 5.69997C5.31 6.08997 5.31 6.71997 5.7 7.10997L10.59 12L5.7 16.89C5.31 17.28 5.31 17.91 5.7 18.3C6.09 18.69 6.72 18.69 7.11 18.3L12 13.41L16.89 18.3C17.28 18.69 17.91 18.69 18.3 18.3C18.69 17.91 18.69 17.28 18.3 16.89L13.41 12L18.3 7.10997C18.68 6.72997 18.68 6.08997 18.3 5.70997Z\" fill=\"current\"></path></svg></i></button></div>";
+const fileInput = document.querySelector("input[type=file]");
+fileInput.addEventListener("change", () => {
+  const field = fileInput.closest(".flex-30");
+  field.querySelector('[class^="fileContainer-"]')?.remove();
+  field.querySelector("span").insertAdjacentHTML("afterend", FILE_BLOCK.replace("__NAME__", fileInput.files[0]?.name || ""));
+});
+// Like Gem: a radio's option registers through its label click (state in the input).
+</script>
+<!--SCRIPTS-->
+<script>
+setTimeout(async () => {
+  let stats;
+  try { stats = await window.__runFill(); } catch (e) { window.__errors.push("run: " + e.stack); }
+  const fields = [...document.querySelectorAll('[class^="form-"] > .flex-30')].map((c) => {
+    const lab = (c.querySelector('[class^="bodyImportant-"]')?.textContent || "").replace("*", "").trim();
+    const r = [...c.querySelectorAll("input[type=radio]")].find((x) => x.checked);
+    const t = c.querySelector("input[type=text], textarea");
+    const file = c.querySelector('[class^="fileContainer-"]');
+    const val = r ? r.nextElementSibling.textContent.trim() : file ? "file:" + file.textContent.trim() : t ? t.value : "";
+    const marked = c.dataset.wdaf || c.querySelector("[data-wdaf]")?.dataset.wdaf || "-";
+    return lab.slice(0, 50) + " = " + JSON.stringify(val) + " mark=" + marked;
+  });
+  document.getElementById("out").textContent = "@@BEGIN\n" + [
+    "STATS " + JSON.stringify(stats), "TOAST " + JSON.stringify((document.getElementById("aaf-done-toast")?.shadowRoot?.querySelector(".box")?.innerText || "").replace(/\n/g, " | ")),
+    "BUTTON " + JSON.stringify(AAF.adapter?.isFormPage?.() ? "shown" : "hidden"),
+    "GUARD " + JSON.stringify(AAF.click(document.querySelector("button[type=submit]"))),
+    "AI " + JSON.stringify((window.__aiPayload || []).map((q) => q.question)),
+    "DRAFT " + JSON.stringify(window.__draft ? { questions: window.__draft.questions.map((q) => q.question), job: window.__draft.job } : null),
+    ...window.__errors.map((e) => "ERR " + e),
+    ...window.__logs.map((l) => "LOG " + l),
+    ...fields.map((f) => "FIELD " + f),
+  ].join("\n") + "\n@@END";
+}, 500);
+</script>
+</body>
+</html>

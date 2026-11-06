@@ -1,0 +1,139 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Software Engineer @ Similis</title>
+<style>
+  body { font: 14px sans-serif; }
+  .ashby-application-form-field-entry { margin: 10px 0; position: relative; }
+  .ashby-application-form-input-yesno { display: flex; gap: 4px; position: relative; }
+  .ashby-application-form-input-yesno-option[aria-pressed="true"] { background: #333; color: #fff; }
+  /* Real Ashby: the mirror checkbox is NOT hidden (it has client rects). */
+  ._input_1svni_78 { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .combo-list { position: absolute; background: #fff; border: 1px solid #999; width: 320px; z-index: 5; }
+  .combo-list [role=option] { padding: 4px; }
+</style>
+<script>
+// ---- stub chrome API (test only)
+window.__logs = [];
+window.__errors = [];
+const origLog = console.log;
+console.log = (...a) => {
+  if (a[0] === "[autofill]") window.__logs.push(a.slice(1).map((x) => (typeof x === "string" ? x : x && x.nodeType ? "<" + x.tagName + ">" : JSON.stringify(x))).join(" "));
+  origLog(...a);
+};
+window.addEventListener("error", (e) => window.__errors.push("error: " + e.message + " @ " + (e.filename || "").split("/").pop() + ":" + e.lineno));
+window.addEventListener("unhandledrejection", (e) => window.__errors.push("rejection: " + (e.reason && e.reason.stack || e.reason)));
+const STORE = {
+  profile: {
+    firstName: "Test", lastName: "Applicant", preferredName: "Tess", email: "test@example.com", phone: "6465550100",
+    phoneCountry: "United States of America", country: "United States of America", city: "Springfield", state: "New York",
+    address1: "1 Test Street", zip: "10001",
+    // applicationLocation not set here: the New York values set below (before the chrome stub) apply.
+    linkedin: "https://www.linkedin.com/in/test/", github: "https://github.com/test", website: "https://test.dev",
+    source: "LinkedIn", expectedGraduation: "05/2027",
+    experiences: [{ company: "Examplecorp", title: "Engineering Intern" }],
+    education: [{ school: "Lakeview University", schoolAliases: "LSU Lakeview University | Lakeland State University at Lakeview", schoolSearch: "Lakeview",
+      degreeOptions: "Bachelor of Engineering | BEng | B.E. | BE\nBachelor's Degree | Bachelor's | Bachelors | Bachelor Degree\nBachelor of Science | BS | B.S. | BSc\nUndergraduate",
+      field: "Computer Engineering", gpa: "", startYear: "2023", endYear: "2027" }],
+    answers: { workAuth: "Yes", sponsorship: "No", citizen: "Yes", usPerson: "Yes", over18: "Yes", previousEmployers: "Examplecorp", travel: "Maximum", restrictions: "None" },
+    eeo: { gender: "Male", hispanic: "No", race: "Hispanic or Latino", veteran: "Decline", disability: "Decline" },
+    api: { key: "test-key", model: "stub" },
+  },
+  settings: { useAI: true, learn: true, threshold: 0.75 },
+  learned: [],
+};
+let onMsg = null;
+// Location settings have no default in Options: the New York values these tests were written with (settings a fixture
+// sets itself are kept; a blank search took the old default search, and the default list when the list was blank too).
+{ const P = STORE.profile, AL = (P.applicationLocation ||= {}), A = (P.answers ||= {}), blank = !String(AL.search || "").trim();
+  if (blank) AL.search = "New York";
+  if (blank && !String(AL.matches || "").trim()) AL.matches = "New York City, New York, United States | New York, New York, United States | New York, NY, United States | New York, NY | New York City | New York, NY, USA | New York, USA";
+  if (!String(A.officeMetro || "").trim()) A.officeMetro = "New York City | NYC | New York, NY | New York, New York | Manhattan | Brooklyn | Queens | Bronx | Staten Island | Long Island | Jersey City | Hoboken | Newark | Westchester | Stamford"; }
+window.chrome = {
+  storage: {
+    local: {
+      get: async (keys) => {
+        const ks = typeof keys === "string" ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys || {});
+        const out = {};
+        for (const k of ks) if (STORE[k] !== undefined) out[k] = JSON.parse(JSON.stringify(STORE[k]));
+        return out;
+      },
+      set: async (o) => Object.assign(STORE, o),
+    },
+    onChanged: { addListener: () => {} },
+  },
+  runtime: { id: "test-extension",
+    onMessage: { addListener: (fn) => (onMsg = fn) },
+    sendMessage: async (msg) => {
+      if (msg.type === "DRAFT") {
+        window.__draft = msg;
+        return { model: "stub-draft-model", included: { linkedinChars: 0, resumeChars: 0, notesChars: 0, descriptionChars: (msg.job.description || "").length }, answers: msg.questions.map((q) => (/blockchain/i.test(q.question) ? { id: q.id, answer: null, reason: "No blockchain experience in the materials." } : { id: q.id, answer: "I enjoy building tools — mostly data ones, and this role would let me build more of them for real users." })) };
+      }
+      if (msg.type === "ASK_AI") {
+        window.__aiPayload = msg.questions;
+        return { model: "stub-model", answers: msg.questions.map((q) => ({ id: q.id, answer: q.type === "textarea" ? "I enjoy building tools." : null, confidence: 0.9 })) };
+      }
+      return {};
+    },
+  },
+};
+window.__runFill = () => new Promise((res) => onMsg({ type: "FILL" }, {}, res));
+</script>
+</head>
+<body>
+<h1>Software Engineer</h1>
+<!-- Similis-like Ashby page (fake data). Fixed answers whose options have no Yes (work authorization as a
+     country list, the U.S. person status statements), a work-authorization list with nothing meaning yes
+     (yellow, logged), and conditional visa questions (N/A or No, blue; never the work-authorization Yes). -->
+<div class="ashby-application-form-container">
+<div class="ashby-application-form-section-container" id="sec"></div>
+</div>
+<button id="submit" type="submit">Submit Application</button>
+<pre id="out"></pre>
+<script>
+const Q = [
+  ["radio", "Are you legally authorized to work in any of the following countries?", ["United States", "Singapore", "No", "N.A."]],
+  ["radio", "Which best describes your U.S. person status?", ["I am a U.S. person", "I am a citizen of Cuba, Iran, North Korea, Syria, or the Crimea region", "None of the above"]],
+  ["radio", "In which country are you currently authorized to work?", ["Singapore", "Canada", "Outside of the US"]],
+  ["radio", "If on F-1 visa, are you eligible for OPT / STEM OPT for the duration of this role?", ["Yes", "No", "N/A"]],
+  ["radio", "If you are on an F-1 visa, are you authorized to work in the U.S. through OPT?", ["Yes", "No", "I am not on a visa"]],
+  ["text", "If you are on OPT/CPT/H-1B, please list your visa type and expiration date", null],
+  ["radio", "If you require sponsorship, which visa type will you need?", ["H-1B", "O-1", "No"]],
+  ["radio", "Are you authorized to work in the United States?", ["Yes", "No"]],
+];
+const sec = document.getElementById("sec");
+Q.forEach(([type, label, opts], i) => {
+  const id = "q" + i;
+  let html = `<div class="ashby-application-form-field-entry" data-field-path="${id}">`;
+  if (type === "text") html += `<label class="ashby-application-form-question-title _required_x" for="${id}">${label}</label><input class="ashby-application-form-input-text" id="${id}" name="${id}" type="text" required>`;
+  else {
+    html += `<fieldset class="ashby-application-form-input-radio-group"><label class="ashby-application-form-question-title _required_x" for="${id}">${label}</label>`;
+    opts.forEach((o, j) => (html += `<div class="ashby-application-form-input-radio-group-option"><span><input type="radio" id="${id}-r${j}" name="${id}" class="ashby-application-form-input-radio-group-option-radio"></span><label for="${id}-r${j}">${o}</label></div>`));
+    html += `</fieldset>`;
+  }
+  sec.insertAdjacentHTML("beforeend", html + `</div>`);
+});
+</script>
+<!--SCRIPTS-->
+<script>
+setTimeout(async () => {
+  let stats;
+  try { stats = await window.__runFill(); } catch (e) { window.__errors.push("run: " + e.stack); }
+  const fields = [...document.querySelectorAll("[data-field-path]")].map((e) => {
+    const lab = e.querySelector("label").textContent.trim();
+    const r = e.querySelector("input[type=radio]:checked");
+    const v = r ? e.querySelector(`label[for="${r.id}"]`).textContent : e.querySelector("input[type=text]")?.value || "";
+    return lab.slice(0, 60) + " = " + JSON.stringify(v) + " mark=" + (e.closest("[data-wdaf]")?.dataset.wdaf || e.querySelector("[data-wdaf]")?.dataset.wdaf || "-");
+  });
+  document.getElementById("out").textContent = "@@BEGIN\n" + [
+    "STATS " + JSON.stringify(stats), "TOAST " + JSON.stringify((document.getElementById("aaf-done-toast")?.shadowRoot?.querySelector(".box")?.innerText || "").replace(/\n/g, " | ")),
+    "AI " + JSON.stringify((window.__aiPayload || []).map((q) => q.question)),
+    ...window.__errors.map((e) => "ERR " + e),
+    ...window.__logs.map((l) => "LOG " + l),
+    ...fields.map((f) => "FIELD " + f),
+  ].join("\n") + "\n@@END";
+}, 500);
+</script>
+</body>
+</html>

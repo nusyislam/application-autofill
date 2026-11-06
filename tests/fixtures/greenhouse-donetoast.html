@@ -1,0 +1,117 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Job Application for Software Engineer Intern at Acme</title>
+<style>
+  body { font: 14px sans-serif; }
+  .field-wrapper { margin: 10px 0; }
+  .select__control { border: 1px solid #999; min-height: 30px; width: 320px; position: relative; display: flex; flex-wrap: wrap; }
+  .select__menu { position: absolute; background: #fff; border: 1px solid #999; width: 320px; z-index: 5; }
+  .select__option { padding: 4px; }
+  .select__multi-value { display: inline-block; background: #eee; margin: 2px; padding: 0 4px; }
+</style>
+<script>
+// ---- stub chrome API (test only)
+window.__logs = [];
+window.__errors = [];
+const origLog = console.log;
+console.log = (...a) => {
+  if (a[0] === "[autofill]") window.__logs.push(a.slice(1).map((x) => (typeof x === "string" ? x : x && x.nodeType ? "<" + x.tagName + ">" : JSON.stringify(x))).join(" "));
+  origLog(...a);
+};
+window.addEventListener("error", (e) => window.__errors.push("error: " + e.message + " @ " + (e.filename || "").split("/").pop() + ":" + e.lineno));
+window.addEventListener("unhandledrejection", (e) => window.__errors.push("rejection: " + (e.reason && e.reason.stack || e.reason)));
+const STORE = {
+  profile: { firstName: "Test", lastName: "Applicant", email: "test@example.com", answers: {}, eeo: {}, api: { key: "test-key", model: "stub" } },
+  settings: { useAI: true, learn: true, threshold: 0.75 },
+  learned: [],
+};
+let onMsg = null;
+// Location settings have no default in Options: the New York values these tests were written with (settings a fixture
+// sets itself are kept; a blank search took the old default search, and the default list when the list was blank too).
+{ const P = STORE.profile, AL = (P.applicationLocation ||= {}), A = (P.answers ||= {}), blank = !String(AL.search || "").trim();
+  if (blank) AL.search = "New York";
+  if (blank && !String(AL.matches || "").trim()) AL.matches = "New York City, New York, United States | New York, New York, United States | New York, NY, United States | New York, NY | New York City | New York, NY, USA | New York, USA";
+  if (!String(A.officeMetro || "").trim()) A.officeMetro = "New York City | NYC | New York, NY | New York, New York | Manhattan | Brooklyn | Queens | Bronx | Staten Island | Long Island | Jersey City | Hoboken | Newark | Westchester | Stamford"; }
+window.chrome = {
+  storage: {
+    local: {
+      get: async (keys) => {
+        const ks = typeof keys === "string" ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys || {});
+        const out = {};
+        for (const k of ks) if (STORE[k] !== undefined) out[k] = JSON.parse(JSON.stringify(STORE[k]));
+        return out;
+      },
+      set: async (o) => Object.assign(STORE, o),
+    },
+    onChanged: { addListener: () => {} },
+  },
+  runtime: { id: "test-extension",
+    onMessage: { addListener: (fn) => (onMsg = fn) },
+    sendMessage: async (msg) => {
+      if (msg.type === "ASK_AI") {
+        window.__aiPayload = msg.questions;
+        return { model: "stub-model", answers: msg.questions.map((q) => ({ id: q.id, answer: null, confidence: 0.9 })) };
+      }
+      return {};
+    },
+  },
+};
+window.__runFill = () => new Promise((res) => onMsg({ type: "FILL" }, {}, res));
+</script>
+</head>
+<body>
+<!-- The Done toast (shared/donetoast.js): the ordinary page toast after a fill, then the in-iframe fallback
+     placement (frame mode) on a tall page scrolled partway down, and "need you" scrolling to the yellow field. -->
+<form id="application-form" class="application--form">
+  <div class="field-wrapper"><label for="first_name" id="first_name-label">First Name*</label><input id="first_name" type="text"></div>
+  <div style="height:2600px"></div>
+  <div class="field-wrapper"><label for="question_9" id="question_9-label">Tell us about a time you disagreed with a teammate and how you resolved it, in one word*</label><input id="question_9" type="text" aria-required="true"></div>
+  <div style="height:1400px"></div>
+</form>
+<pre id="out"></pre>
+<!--SCRIPTS-->
+<script>
+setTimeout(async () => {
+  let stats;
+  try { stats = await window.__runFill(); } catch (e) { window.__errors.push("run: " + e.stack); }
+  const host = () => document.getElementById("aaf-done-toast");
+  const text = () => (host()?.shadowRoot?.querySelector(".box")?.innerText || "").replace(/\n/g, " | ");
+  const lines = ["STATS " + JSON.stringify(stats), "TOAST " + JSON.stringify(text())];
+  try {
+  lines.push("TOAST position " + (host() ? getComputedStyle(host()).position : "no toast"));
+  // Frame mode on a page scrolled to 1500 px: the toast must sit inside the visible part, not at the bottom.
+  window.scrollTo(0, 1500);
+  await new Promise((r) => setTimeout(r, 200));
+  AAF_DONE_TOAST({ filled: 1, kept: 0, needs: 1, blue: 0, drafts: 0, site: "example" }, { local: true, frame: true });
+  await new Promise((r) => setTimeout(r, 400));
+  const r = host().getBoundingClientRect();
+  lines.push(`FRAME toast top ${Math.round(r.top)} bottom ${Math.round(r.bottom)} in viewport 0..${window.innerHeight}: ${r.top >= 0 && r.bottom <= window.innerHeight ? "visible" : "NOT visible"} (position ${host().style.position})`);
+  // Scrolling keeps it in view.
+  // Probe: does IntersectionObserver report after a scroll in this headless run at all?
+  const probe = document.createElement("div");
+  probe.style.cssText = "position:absolute;top:3100px;left:0;width:1px;height:1px";
+  document.body.appendChild(probe);
+  let probed = "no callback";
+  new IntersectionObserver((es) => { for (const e of es) if (e.isIntersecting) probed = "fired"; }).observe(probe);
+  window.scrollTo(0, 3000);
+  await new Promise((r) => setTimeout(r, 1500));
+  lines.push("IO probe after scroll: " + probed);
+  const r2 = host().getBoundingClientRect();
+  lines.push(`FRAME after scrolling to 3000: ${r2.top >= 0 && r2.bottom <= window.innerHeight ? "visible" : "NOT visible"}`);
+  // "need you" scrolls to the first yellow field.
+  window.scrollTo(0, 0);
+  await new Promise((r) => setTimeout(r, 200));
+  host().shadowRoot.querySelector(".needs").click();
+  await new Promise((r) => setTimeout(r, 800));
+  const y = document.querySelector('[data-wdaf="needs"]').getBoundingClientRect();
+  lines.push(`NEEDS click: yellow field at ${Math.round(y.top)} in viewport 0..${window.innerHeight}: ${y.top >= 0 && y.bottom <= window.innerHeight ? "in view" : "NOT in view"}`);
+  host().shadowRoot.querySelector(".x").click();
+  lines.push("CLOSE " + (host() ? "still there" : "removed"));
+  } catch (e) { lines.push("ERR report " + e.message); }
+  document.getElementById("out").textContent = "@@BEGIN\n" + [...lines, ...window.__errors.map((e) => "ERR " + e), ...window.__logs.map((l) => "LOG " + l)].join("\n") + "\n@@END";
+}, 500);
+</script>
+</body>
+</html>

@@ -1,0 +1,118 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Candidate Profile - Acme Careers</title>
+<style>
+  body { font: 14px sans-serif; }
+  td { padding: 4px; vertical-align: top; }
+  fieldset { margin: 10px 0; }
+  .select2-container { display: inline-block; border: 1px solid #999; min-width: 200px; padding: 2px; }
+</style>
+<script>
+window.__logs = [];
+window.__errors = [];
+const origLog = console.log;
+console.log = (...a) => {
+  if (a[0] === "[autofill]") window.__logs.push(a.slice(1).map((x) => (typeof x === "string" ? x : x && x.nodeType ? "<" + x.tagName + ">" : JSON.stringify(x))).join(" "));
+  origLog(...a);
+};
+window.addEventListener("error", (e) => window.__errors.push("error: " + e.message + " @ " + (e.filename || "").split("/").pop() + ":" + e.lineno));
+window.addEventListener("unhandledrejection", (e) => window.__errors.push("rejection: " + (e.reason && e.reason.stack || e.reason)));
+const STORE = {
+  profile: {
+    firstName: "Test", lastName: "Applicant", email: "test@example.com", phone: "6465550100",
+    country: "United States of America", city: "Springfield",
+    experiences: [
+      { title: "Engineering Intern", company: "Examplecorp", location: "Riverton, NJ", startMonth: "6", startYear: "2026", endMonth: "8", endYear: "2026" },
+      { title: "Software Intern", company: "Samplesoft", location: "", startMonth: "6", startYear: "2024", endMonth: "10", endYear: "2024" },
+    ],
+    education: [{ school: "Lakeview University", schoolAliases: "LSU Lakeview University", degreeOptions: "Bachelor of Engineering | BEng\nBachelor's Degree", field: "Computer Engineering", endYear: "2027" }],
+    expectedGraduation: "05/2027",
+    answers: { workAuth: "Yes", sponsorship: "No", over18: "Yes", previousEmployers: "Examplecorp" },
+    eeo: { gender: "Male" },
+    api: { key: "test-key", model: "stub" },
+  },
+  settings: { useAI: true, learn: true, threshold: 0.75 },
+  learned: [],
+};
+let onMsg = null;
+// Location settings have no default in Options: the New York values these tests were written with (settings a fixture
+// sets itself are kept; a blank search took the old default search, and the default list when the list was blank too).
+{ const P = STORE.profile, AL = (P.applicationLocation ||= {}), A = (P.answers ||= {}), blank = !String(AL.search || "").trim();
+  if (blank) AL.search = "New York";
+  if (blank && !String(AL.matches || "").trim()) AL.matches = "New York City, New York, United States | New York, New York, United States | New York, NY, United States | New York, NY | New York City | New York, NY, USA | New York, USA";
+  if (!String(A.officeMetro || "").trim()) A.officeMetro = "New York City | NYC | New York, NY | New York, New York | Manhattan | Brooklyn | Queens | Bronx | Staten Island | Long Island | Jersey City | Hoboken | Newark | Westchester | Stamford"; }
+window.chrome = {
+  storage: {
+    local: {
+      get: async (keys) => {
+        const ks = typeof keys === "string" ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys || {});
+        const out = {};
+        for (const k of ks) if (STORE[k] !== undefined) out[k] = JSON.parse(JSON.stringify(STORE[k]));
+        return out;
+      },
+      set: async (o) => Object.assign(STORE, o),
+    },
+    onChanged: { addListener: () => {} },
+  },
+  runtime: {
+    id: "test-extension",
+    onMessage: { addListener: (fn) => (onMsg = fn) },
+    sendMessage: async (msg) => {
+      if (msg.type === "DRAFT") {
+        window.__draft = msg;
+        return { model: "stub-draft-model", included: { linkedinChars: 0, resumeChars: 0, notesChars: 0, descriptionChars: 0 }, answers: msg.questions.map((q) => ({ id: q.id, answer: "A draft answer from my real background." })) };
+      }
+      if (msg.type === "ASK_AI") {
+        window.__aiPayload = msg.questions;
+        return { model: "stub-model", answers: msg.questions.map((q) => ({ id: q.id, answer: "Test Applicant", confidence: 0.99 })) };
+      }
+      return {};
+    },
+  },
+};
+window.__runFill = () => new Promise((res) => onMsg({ type: "FILL" }, {}, res));
+</script>
+</head>
+<body>
+<!-- iCIMS-like job search page (fake data): keyword / category / location filters. Nothing here is an
+     application answer: learn() on "Category -> Engineering/IT" must not store it (job search page, and a bare
+     filter label), and the category checks cover the job-specific wordings. -->
+<div class="iCIMS_MainWrapper">
+<h1>Search Jobs</h1>
+<form id="searchForm" onsubmit="event.preventDefault()">
+  <table class="filters">
+    <tr><td>Keyword</td><td><input name="searchKeyword"></td></tr>
+    <tr><td>Category</td><td><select name="searchCategory"><option value="">(All)</option><option>Engineering/IT</option><option>Finance</option></select></td></tr>
+    <tr><td>Location</td><td><select name="searchLocation"><option value="">(All)</option><option>US-VA-Herndon</option><option>US-NY-New York</option></select></td></tr>
+  </table>
+  <button type="submit" id="go">Search</button>
+</form>
+</div>
+<pre id="out"></pre>
+<!--SCRIPTS-->
+<script>
+setTimeout(async () => {
+  let stats;
+  try { stats = await window.__runFill(); } catch (e) { window.__errors.push("run: " + e.stack); }
+  const lines = [];
+  try {
+    const cat = AAF.adapter.discoverFields().find((f) => f.nl === "category");
+    lines.push("JOB SEARCH PAGE " + AAF.jobSearchPage());
+    await AAF.learn(cat, "Engineering/IT");
+    lines.push("LEARNED " + JSON.stringify((STORE.learned || []).map((x) => x.q + " = " + x.a)));
+    const R = globalThis.AAF_LEARN_RULES;
+    for (const q of ["Category", "Department", "Keyword", "Location", "Are you able to perform the essential job functions of this position?", "Do you meet the qualifications as described?", "Why are you interested in the role?", "What is your favorite programming language?"])
+      lines.push("CATEGORY " + q + " -> " + JSON.stringify(R.categoryOf(q)));
+  } catch (e) { window.__errors.push("check: " + e.stack); }
+  document.getElementById("out").textContent = "@@BEGIN\n" + [
+    "STATS " + JSON.stringify(stats),
+    ...lines,
+    ...window.__errors.map((e) => "ERR " + e),
+    ...window.__logs.map((l) => "LOG " + l),
+  ].join("\n") + "\n@@END";
+}, 500);
+</script>
+</body>
+</html>

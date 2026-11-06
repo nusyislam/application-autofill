@@ -1,0 +1,158 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Job Application for Software Engineer Intern at Acme</title>
+<style>
+  body { font: 14px sans-serif; }
+  .field-wrapper { margin: 10px 0; }
+</style>
+<script>
+// ---- stub chrome API (test only)
+window.__logs = [];
+window.__errors = [];
+const origLog = console.log;
+console.log = (...a) => {
+  if (a[0] === "[autofill]") window.__logs.push(a.slice(1).map((x) => (typeof x === "string" ? x : x && x.nodeType ? "<" + x.tagName + ">" : JSON.stringify(x))).join(" "));
+  origLog(...a);
+};
+window.addEventListener("error", (e) => window.__errors.push("error: " + e.message + " @ " + (e.filename || "").split("/").pop() + ":" + e.lineno));
+window.addEventListener("unhandledrejection", (e) => window.__errors.push("rejection: " + (e.reason && e.reason.stack || e.reason)));
+const STORE = {
+  profile: {
+    firstName: "Test", lastName: "Applicant", email: "test@example.com", phone: "6465550100",
+    city: "Springfield", state: "New York", country: "United States of America",
+    expectedGraduation: "05/2027", education: [],
+    experiences: [{ company: "Northwind", title: "Engineering Intern" }],
+    answers: { workAuth: "Yes", sponsorship: "No" },
+    eeo: {}, api: { key: "test-key", model: "stub" },
+  },
+  settings: { useAI: true, learn: true, threshold: 0.75 },
+  // Old-style learned entries like the ones the review found: unscoped company questions, a general relationships
+  // "[company]" entry, location / office / acknowledgment / consent answers, a wrong learned former-employer answer,
+  // and one ordinary general answer (disciplinary action) that must still be reused.
+  learned: [
+    { q: "Please select if you were a previous Unison employee.", a: "No", type: "radio" },
+    { q: "Were you previously employed by Northwind?", a: "No", type: "radio" },
+    { q: "Do you know anyone who currently works for SageWell?", a: "No", type: "radio" },
+    { q: "Do you have any relatives employed by Bank of Fictionland?", a: "No", type: "radio" },
+    { q: "Do you have relatives employed by [company]?", a: "No", type: "radio" },
+    { q: "If you do not live in NYC or Chicago, are you open to moving to one of them?", a: "Yes", type: "radio" },
+    { q: "This role requires 3 days/week in our NYC office. Are you able to meet this requirement?", a: "Yes", type: "radio" },
+    { q: "Point of Data Transfer", a: "Acknowledge", type: "radio" },
+    { q: "Interview Recording Consent", a: "Yes, I consent to be recorded", type: "radio" },
+    { q: "Have you ever been subject to disciplinary action at work?", a: "No", type: "radio" },
+  ],
+};
+let onMsg = null;
+// Location settings have no default in Options: the New York values these tests were written with (settings a fixture
+// sets itself are kept; a blank search took the old default search, and the default list when the list was blank too).
+{ const P = STORE.profile, AL = (P.applicationLocation ||= {}), A = (P.answers ||= {}), blank = !String(AL.search || "").trim();
+  if (blank) AL.search = "New York";
+  if (blank && !String(AL.matches || "").trim()) AL.matches = "New York City, New York, United States | New York, New York, United States | New York, NY, United States | New York, NY | New York City | New York, NY, USA | New York, USA";
+  if (!String(A.officeMetro || "").trim()) A.officeMetro = "New York City | NYC | New York, NY | New York, New York | Manhattan | Brooklyn | Queens | Bronx | Staten Island | Long Island | Jersey City | Hoboken | Newark | Westchester | Stamford"; }
+window.chrome = {
+  storage: {
+    local: {
+      get: async (keys) => {
+        const ks = typeof keys === "string" ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys || {});
+        const out = {};
+        for (const k of ks) if (STORE[k] !== undefined) out[k] = JSON.parse(JSON.stringify(STORE[k]));
+        return out;
+      },
+      set: async (o) => Object.assign(STORE, o),
+    },
+    onChanged: { addListener: () => {} },
+  },
+  runtime: { id: "test-extension",
+    onMessage: { addListener: (fn) => (onMsg = fn) },
+    sendMessage: async (msg) => {
+      if (msg.type === "ASK_AI") {
+        window.__aiPayload = msg.questions;
+        return { model: "stub-model", answers: msg.questions.map((q) => ({ id: q.id, answer: null, confidence: 0 })) };
+      }
+      return {};
+    },
+  },
+};
+window.__runFill = () => new Promise((res) => onMsg({ type: "FILL" }, {}, res));
+</script>
+</head>
+<body>
+<h1>Software Engineer Intern</h1>
+<div class="job__location">New York, NY</div>
+<form id="application-form" class="application--form">
+</form>
+<pre id="out"></pre>
+<script>
+// [label, options, description]
+const Q = [
+  ["Were you previously employed by Northwind?", ["Yes", "No"]],                          // work history: Yes (not the learned No)
+  ["Are you a previous Acme employee?", ["Yes", "No"]],                                   // work history: No
+  ["Have you worked for Northwind since January 2020?", ["Yes", "No"]],                   // a time window: yours
+  ["Do you know anyone who currently works at Acme?", ["Yes", "No"]],                     // SageWell's No isn't Acme's
+  ["Do you have any relatives employed by Acme?", ["Yes", "No"]],                         // neither BoFL's nor the [company] one
+  ["If you do not live in NYC or Chicago, are you open to moving to one of them?", ["Yes", "No"]], // never a learned answer
+  ["Point of Data Transfer", ["Acknowledge", "Do not acknowledge"], "Your personal data will be transferred to the United States for processing. Please acknowledge."],
+  ["Interview Recording Consent", ["Yes, I consent to be recorded", "No, I do not consent"]],
+  ["Do you consent to Acme retaining your application to consider you for future job opportunities?", ["I do not consent", "I consent"]],
+  ["Do you consent to the use of AI to create notes and transcripts during your interviews?", ["No", "Yes"]],
+  ["Have you ever been subject to disciplinary action at work?", ["Yes", "No"]],          // a general learned No: reused
+];
+const form = document.getElementById("application-form");
+Q.forEach(([label, opts, desc], i) => {
+  const fs = document.createElement("fieldset");
+  fs.className = "field-wrapper";
+  fs.innerHTML = `<legend>${label}</legend>${desc ? `<p class="desc">${desc}</p>` : ""}` + opts.map((o) => `<label><input type="radio" name="q${i}" value="${o}"> ${o}</label>`).join(" ");
+  form.appendChild(fs);
+});
+</script>
+<!--SCRIPTS-->
+<script>
+setTimeout(async () => {
+  let stats;
+  try { stats = await window.__runFill(); } catch (e) { window.__errors.push("run: " + e.stack); }
+  const R = globalThis.AAF_LEARN_RULES;
+  // The regression the review asked for: a learned "previous Unison employee: No" never answers Northwind's question.
+  const northwind = AAF.adapter.discoverFields().find((f) => /Northwind\?$/.test(f.label));
+  const unityOnly = AAF.findLearnedFor(northwind, [{ q: "Please select if you were a previous Unison employee.", a: "No", type: "radio" }].filter(AAF.usableLearned));
+  // Your answers by hand (learn() is called directly; headless can't make trusted events).
+  const byLabel = (rx) => AAF.adapter.discoverFields().find((f) => rx.test(f.label));
+  const learnedBefore = STORE.learned.length;
+  for (const [rx, v] of [[/Point of Data Transfer/, "Acknowledge"], [/open to moving/, "Yes"], [/anyone who currently works at Acme/, "No"], [/previously employed by Northwind/, "Yes"], [/Interview Recording/, "Yes, I consent to be recorded"]]) {
+    const f = byLabel(rx);
+    if (f) await AAF.learn(f, v); else window.__errors.push("no field " + rx);
+  }
+  const fields = [...document.querySelectorAll(".field-wrapper")].map((w) => {
+    const lab = w.querySelector("legend").textContent.trim();
+    const marked = w.closest("[data-wdaf]") || w.querySelector("[data-wdaf]");
+    return lab.slice(0, 60) + " = " + JSON.stringify(w.querySelector("input:checked")?.value || "") + " mark=" + ((marked && marked.dataset.wdaf) || "-");
+  });
+  const cats = ["Do you know anyone who currently works for SageWell?", "Have you ever been subject to disciplinary action at work?",
+    "Are you currently, or have you within the last two years, been employed by the federal government, including federal service at Mototron Solutions Government?",
+    "Are you an immediate family member of a non-US government official?", "Within the last 24 months, have you worked with an Initech engagement team as a client?",
+    "Do you own, control, or have an economic interest in any intellectual property rights?", "Which best describes the current or most recent industry in which you work?",
+    "Do you have a close personal relationship with an Initech partner, principal, or employee?", "Please select if you were a previous Unison employee.",
+    "If you do not live in NYC or Chicago, are you open to moving to one of them?", "This role requires 3 days/week in our NYC office. Are you able to meet this requirement?",
+    "Point of Data Transfer", "Do you consent to Initech retaining your application to consider you for future job opportunities?", "Do you have experience with AWS?"]
+    .map((q) => q + " -> " + JSON.stringify(R.categoryOf(q, "radio", "No")) + " companies " + JSON.stringify(R.companiesIn(q)));
+  // The background purge's backfill, on the stored entries (shared/learnrules.js backfillScope).
+  const backfill = JSON.parse(JSON.stringify(STORE.learned)).map((x) => { const s = R.backfillScope(x); return x.q.slice(0, 60) + " -> " + (s ? s.company : "(unchanged)"); });
+  // A category you pick in Options: a non-blocking one changes the tag only; a blocking one stops reuse.
+  const pick = (category) => JSON.stringify(R.entryCategory({ q: "Have you ever been subject to disciplinary action at work?", a: "No", type: "radio", category }));
+  document.getElementById("out").textContent = "@@BEGIN\n" + [
+    "STATS " + JSON.stringify(stats), "TOAST " + JSON.stringify((document.getElementById("aaf-done-toast")?.shadowRoot?.querySelector(".box")?.innerText || "").replace(/\n/g, " | ")),
+    "AI " + JSON.stringify((window.__aiPayload || []).map((q) => q.question)),
+    "UNISON-LEARNED-FOR-NORTHWIND " + JSON.stringify(unityOnly),
+    "LEARNED NEW " + JSON.stringify(STORE.learned.slice(learnedBefore).map((x) => x.q + " = " + x.a + (x.company ? " [" + x.company + "]" : "") + (x.pending ? " [pending]" : ""))),
+    ...cats.map((c) => "CATEGORY " + c),
+    ...backfill.map((b) => "BACKFILL " + b),
+    "PICK legal / background " + pick("legal / background"), "PICK location / attendance " + pick("location / attendance"),
+    ...window.__errors.map((e) => "ERR " + e),
+    ...window.__logs.map((l) => "LOG " + l),
+    ...fields.map((f) => "FIELD " + f),
+  ].join("\n") + "\n@@END";
+}, 500);
+</script>
+</body>
+</html>

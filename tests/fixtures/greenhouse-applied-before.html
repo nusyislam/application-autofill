@@ -1,0 +1,130 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Job Application for Software Engineer Intern at Point99</title>
+<style>
+  body { font: 14px sans-serif; }
+  .field-wrapper { margin: 10px 0; }
+</style>
+<script>
+// ---- stub chrome API (test only)
+window.__logs = [];
+window.__errors = [];
+const origLog = console.log;
+console.log = (...a) => {
+  if (a[0] === "[autofill]") window.__logs.push(a.slice(1).map((x) => (typeof x === "string" ? x : x && x.nodeType ? "<" + x.tagName + ">" : JSON.stringify(x))).join(" "));
+  origLog(...a);
+};
+window.addEventListener("error", (e) => window.__errors.push("error: " + e.message + " @ " + (e.filename || "").split("/").pop() + ":" + e.lineno));
+window.addEventListener("unhandledrejection", (e) => window.__errors.push("rejection: " + (e.reason && e.reason.stack || e.reason)));
+const STORE = {
+  profile: {
+    firstName: "Test", lastName: "Applicant", email: "test@example.com", phone: "6465550100",
+    city: "Springfield", state: "New York", country: "United States of America",
+    expectedGraduation: "05/2027", education: [],
+    experiences: [
+      { company: "Contoso", title: "Software Engineer Intern", current: true, startMonth: "6", startYear: "2026", endMonth: "", endYear: "" },
+      { company: "Northwind", title: "AI Engineer Intern", current: false, startMonth: "6", startYear: "2025", endMonth: "8", endYear: "2025" },
+    ],
+    answers: { workAuth: "Yes", sponsorship: "No" },
+    eeo: {}, api: { key: "test-key", model: "stub" },
+  },
+  settings: { useAI: true, learn: true, threshold: 0.75 },
+  // A previous-application answer learned for Point99 only, a qualified employer count (both blue, can go stale), and an ordinary
+  // learned answer (no outline).
+  // Contoso is the current job ("I currently work here"), Northwind ended in August 2025.
+  learned: [
+    { q: "Have you previously applied to work at Point99?", a: "Yes", type: "radio", company: "point99" },
+    { q: "How many companies have you worked for since you graduated your first undergraduate degree?", a: "0", type: "radio" },
+    { q: "Have you ever been subject to disciplinary action at work?", a: "No", type: "radio" },
+  ],
+};
+let onMsg = null;
+// Location settings have no default in Options: the New York values these tests were written with (settings a fixture
+// sets itself are kept; a blank search took the old default search, and the default list when the list was blank too).
+{ const P = STORE.profile, AL = (P.applicationLocation ||= {}), A = (P.answers ||= {}), blank = !String(AL.search || "").trim();
+  if (blank) AL.search = "New York";
+  if (blank && !String(AL.matches || "").trim()) AL.matches = "New York City, New York, United States | New York, New York, United States | New York, NY, United States | New York, NY | New York City | New York, NY, USA | New York, USA";
+  if (!String(A.officeMetro || "").trim()) A.officeMetro = "New York City | NYC | New York, NY | New York, New York | Manhattan | Brooklyn | Queens | Bronx | Staten Island | Long Island | Jersey City | Hoboken | Newark | Westchester | Stamford"; }
+window.chrome = {
+  storage: {
+    local: {
+      get: async (keys) => {
+        const ks = typeof keys === "string" ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys || {});
+        const out = {};
+        for (const k of ks) if (STORE[k] !== undefined) out[k] = JSON.parse(JSON.stringify(STORE[k]));
+        return out;
+      },
+      set: async (o) => Object.assign(STORE, o),
+    },
+    onChanged: { addListener: () => {} },
+  },
+  runtime: { id: "test-extension",
+    onMessage: { addListener: (fn) => (onMsg = fn) },
+    sendMessage: async (msg) => {
+      if (msg.type === "ASK_AI") {
+        window.__aiPayload = msg.questions;
+        return { model: "stub-model", answers: msg.questions.map((q) => ({ id: q.id, answer: null, confidence: 0 })) };
+      }
+      return {};
+    },
+  },
+};
+window.__runFill = () => new Promise((res) => onMsg({ type: "FILL" }, {}, res));
+</script>
+</head>
+<body>
+<h1>Software Engineer Intern</h1>
+<div class="job__location">New York, NY</div>
+<form id="application-form" class="application--form">
+</form>
+<pre id="out"></pre>
+<script>
+// [label, options, description]
+const Q = [
+  ["Have you previously applied to work at Point99?", ["Yes", "No"]], // your learned answer for Point99: Yes, blue (can go stale)
+  ["Have you interviewed with us before?", ["Yes", "No"]],            // nothing learned: yellow, never Claude
+  ["How many companies have you worked for?", ["0", "1", "2", "3 or more"]], // computed: Contoso, Northwind = 2 (never the learned 0)
+  ["How many companies have you worked for since you graduated your first undergraduate degree?", ["0", "1", "2", "3 or more"]], // learned 0, blue
+  ["How many companies have you worked for since graduating?", ["0", "1", "2", "3 or more"]], // another qualifier: yellow
+  ["How many companies have you worked for, excluding internships?", ["0", "1", "2", "3 or more"]], // never computed: yellow
+  ["Have you ever been subject to disciplinary action at work?", ["Yes", "No"]], // learned: no outline
+];
+const form = document.getElementById("application-form");
+Q.forEach(([label, opts, desc], i) => {
+  const fs = document.createElement("fieldset");
+  fs.className = "field-wrapper";
+  fs.innerHTML = `<legend>${label}</legend>${desc ? `<p class="desc">${desc}</p>` : ""}` + opts.map((o) => `<label><input type="radio" name="q${i}" value="${o}"> ${o}</label>`).join(" ");
+  form.appendChild(fs);
+});
+</script>
+<!--SCRIPTS-->
+<script>
+setTimeout(async () => {
+  let stats;
+  try { stats = await window.__runFill(); } catch (e) { window.__errors.push("run: " + e.stack); }
+  // Your answer to the second one by hand: stored for this application's company only.
+  const learnedBefore = STORE.learned.length;
+  const iv = AAF.adapter.discoverFields().find((f) => /interviewed with us/.test(f.label));
+  if (iv) await AAF.learn(iv, "No"); else window.__errors.push("no interviewed field");
+  // The plain employer count is computed, never learned.
+  const pc = AAF.adapter.discoverFields().find((f) => f.label === "How many companies have you worked for?");
+  if (pc) await AAF.learn(pc, "5"); else window.__errors.push("no plain count field");
+  const fields = [...document.querySelectorAll(".field-wrapper")].map((w) => {
+    const lab = w.querySelector("legend").textContent.trim();
+    const marked = w.closest("[data-wdaf]") || w.querySelector("[data-wdaf]");
+    return lab.slice(0, 60) + " = " + JSON.stringify(w.querySelector("input:checked")?.value || "") + " mark=" + ((marked && marked.dataset.wdaf) || "-");
+  });
+  document.getElementById("out").textContent = "@@BEGIN\n" + [
+    "STATS " + JSON.stringify(stats), "TOAST " + JSON.stringify((document.getElementById("aaf-done-toast")?.shadowRoot?.querySelector(".box")?.innerText || "").replace(/\n/g, " | ")),
+    "AI " + JSON.stringify((window.__aiPayload || []).map((q) => q.question)),
+    "LEARNED NEW " + JSON.stringify(STORE.learned.slice(learnedBefore).map((x) => x.q + " = " + x.a + (x.company ? " [" + x.company + "]" : "") + (x.pending ? " [pending]" : ""))),
+    ...window.__errors.map((e) => "ERR " + e),
+    ...window.__logs.map((l) => "LOG " + l),
+    ...fields.map((f) => "FIELD " + f),
+  ].join("\n") + "\n@@END";
+}, 500);
+</script>
+</body>
+</html>

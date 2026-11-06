@@ -1,0 +1,272 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Job Application for Software Engineer Intern at Acme</title>
+<style>
+  body { font: 14px sans-serif; }
+  .field-wrapper { margin: 10px 0; }
+  .select__control { border: 1px solid #999; min-height: 30px; width: 320px; position: relative; }
+  .select__menu { position: absolute; background: #fff; border: 1px solid #999; width: 320px; z-index: 5; }
+  .select__option { padding: 4px; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+</style>
+<script>
+// ---- stub chrome API (test only)
+window.__logs = [];
+window.__errors = [];
+const origLog = console.log;
+console.log = (...a) => {
+  if (a[0] === "[autofill]") window.__logs.push(a.slice(1).map((x) => (typeof x === "string" ? x : x && x.nodeType ? "<" + x.tagName + ">" : JSON.stringify(x))).join(" "));
+  origLog(...a);
+};
+window.addEventListener("error", (e) => window.__errors.push("error: " + e.message + " @ " + (e.filename || "").split("/").pop() + ":" + e.lineno));
+window.addEventListener("unhandledrejection", (e) => window.__errors.push("rejection: " + (e.reason && e.reason.stack || e.reason)));
+const STORE = {
+  profile: {
+    firstName: "Test", lastName: "Applicant", preferredName: "Tess", email: "test@example.com", phone: "6465550100",
+    phoneCountry: "United States of America", country: "United States of America", city: "Springfield", state: "New York",
+    address1: "1 Test Street", zip: "10001",
+    applicationLocation: { search: "New York", matches: "New York, New York, United States | New York, NY, United States | New York, NY | New York City" },
+    linkedin: "https://www.linkedin.com/in/test/", github: "https://github.com/test", website: "https://test.dev",
+    source: "LinkedIn", expectedGraduation: "05/21/2027",
+    experiences: [{ company: "Northwind", title: "AI Engineer Intern" }],
+    education: [{ school: "Lakeview University", schoolAliases: "LSU Lakeview University | Lakeland State University at Lakeview | Lakeland State University-Lakeview | Lsu Lakeview University", schoolSearch: "Lakeview",
+      degreeOptions: "Bachelor of Engineering | BEng | B.E. | BE\nBachelor's Degree | Bachelor's | Bachelors | Bachelor Degree\nBachelor of Science | BS | B.S. | BSc\nUndergraduate",
+      field: "Computer Engineering", gpa: "", startYear: "2023", endYear: "2027" }],
+    answers: { workAuth: "Yes", sponsorship: "No", over18: "Yes", previousEmployers: "Northwind", travel: "Maximum", restrictions: "None" },
+    eeo: { gender: "Female", hispanic: "No", race: "Two or More Races", veteran: "Decline", disability: "Decline" },
+    api: { key: "test-key", model: "stub" },
+  },
+  settings: { useAI: true, learn: true, threshold: 0.75 },
+  learned: [],
+  resumeFile: { name: "resume-test.pdf", type: "application/pdf", dataUrl: "data:application/pdf;base64,JVBERi0xLjQK" },
+};
+let onMsg = null;
+// Location settings have no default in Options: the New York values these tests were written with (settings a fixture
+// sets itself are kept; a blank search took the old default search, and the default list when the list was blank too).
+{ const P = STORE.profile, AL = (P.applicationLocation ||= {}), A = (P.answers ||= {}), blank = !String(AL.search || "").trim();
+  if (blank) AL.search = "New York";
+  if (blank && !String(AL.matches || "").trim()) AL.matches = "New York City, New York, United States | New York, New York, United States | New York, NY, United States | New York, NY | New York City | New York, NY, USA | New York, USA";
+  if (!String(A.officeMetro || "").trim()) A.officeMetro = "New York City | NYC | New York, NY | New York, New York | Manhattan | Brooklyn | Queens | Bronx | Staten Island | Long Island | Jersey City | Hoboken | Newark | Westchester | Stamford"; }
+window.chrome = {
+  storage: {
+    local: {
+      get: async (keys) => {
+        const ks = typeof keys === "string" ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys || {});
+        const out = {};
+        for (const k of ks) if (STORE[k] !== undefined) out[k] = JSON.parse(JSON.stringify(STORE[k]));
+        return out;
+      },
+      set: async (o) => Object.assign(STORE, o),
+    },
+    onChanged: { addListener: () => {} },
+  },
+  runtime: { id: "test-extension",
+    onMessage: { addListener: (fn) => (onMsg = fn) },
+    sendMessage: async (msg) => {
+      if (msg.type === "DRAFT") {
+        window.__draft = msg;
+        return { model: "stub-draft-model", included: { linkedinChars: 0, resumeChars: 0, notesChars: 0, descriptionChars: (msg.job.description || "").length }, answers: msg.questions.map((q) => ({ id: q.id, answer: "I enjoy building tools." })) };
+      }
+      if (msg.type === "ASK_AI") {
+        window.__aiPayload = msg.questions;
+        return { model: "stub-model", answers: msg.questions.map((q) => ({ id: q.id, answer: q.type === "textarea" ? "I enjoy building tools." : null, confidence: 0.9 })) };
+      }
+      return {};
+    },
+  },
+};
+window.__runFill = () => new Promise((res) => onMsg({ type: "FILL" }, {}, res));
+</script>
+</head>
+<body>
+<h1>Software Engineer Intern</h1>
+<button type="button" id="apply_button" onclick="window.__nav = (window.__nav || []).concat('Apply')">Apply for this job</button>
+
+<form id="application-form" class="application--form">
+  <div class="field-wrapper"><label for="first_name" id="first_name-label">First Name<span>*</span></label><input id="first_name" type="text" aria-required="true"></div>
+  <div class="field-wrapper"><label for="last_name" id="last_name-label">Last Name<span>*</span></label><input id="last_name" type="text" aria-required="true"></div>
+  <div class="field-wrapper"><label for="preferred_name" id="preferred_name-label">Preferred First Name</label><input id="preferred_name" type="text"></div>
+  <div class="field-wrapper"><label for="email" id="email-label">Email<span>*</span></label><input id="email" type="text" aria-required="true"></div>
+  <div class="field-wrapper phone-input">
+    <div class="react-select" data-display="code" data-opts="Canada +1|India +91|United Kingdom +44|United States +1"><label id="country-label" for="country">Country<span>*</span></label></div>
+    <div><label for="phone" id="phone-label">Phone<span>*</span></label><input id="phone" type="tel" aria-required="true"></div>
+  </div>
+  <div class="field-wrapper"><div class="react-select" data-async="New York Mills, Minnesota, United States|West New York, New Jersey, United States|New York, New York, United States|Springfield, Michigan, United States|Springfield, New York, United States"><label id="candidate-location-label" for="candidate-location">Location (City)<span>*</span></label></div></div>
+
+  <div class="field-wrapper file-upload"><div id="upload-label-resume" class="label">Resume/CV<span>*</span></div>
+    <button type="button" class="secondary-button">Attach</button><input id="resume" class="visually-hidden" type="file"><div class="file-upload__filename"></div></div>
+  <div class="field-wrapper file-upload"><div id="upload-label-cover_letter" class="label">Cover Letter</div>
+    <button type="button" class="secondary-button">Attach</button><input id="cover_letter" class="visually-hidden" type="file"><div class="file-upload__filename"></div></div>
+
+  <div class="field-wrapper"><label for="question_100" id="question_100-label">Current Mailing Address<span>*</span></label><input id="question_100" type="text" aria-required="true"></div>
+  <div class="field-wrapper"><label for="question_101" id="question_101-label">LinkedIn Profile</label><input id="question_101" type="text"></div>
+  <div class="field-wrapper"><div class="react-select" data-opts="No travel|Up to 25%|Up to 50%|Up to 75%|100%"><label id="question_111-label" for="question_111">What percentage of travel are you willing to do?<span>*</span></label></div></div>
+  <div class="field-wrapper"><div class="react-select" data-opts="Yes|No"><label id="question_112-label" for="question_112">Do you have any employment restrictions such as a non-compete?<span>*</span></label></div></div>
+  <div class="field-wrapper"><label for="question_113" id="question_113-label">When are you available for employment?<span>*</span></label><input id="question_113" type="text" aria-required="true"></div>
+  <div class="field-wrapper"><label for="question_114" id="question_114-label">What is your preferred first name?</label><input id="question_114" type="text"></div>
+  <div class="field-wrapper"><div class="react-select" data-opts="Fall 2025|Spring 2026|Summer 2026|Fall 2026|Spring 2027|Summer 2027|Fall 2027"><label id="question_115-label" for="question_115">When is your anticipated graduation date?<span>*</span></label></div></div>
+  <div class="field-wrapper"><div class="react-select" data-opts="Yes|No"><label id="question_116-label" for="question_116">Are you currently enrolled in a graduate program (Master's or Ph.D.) in Data Science, Statistics, or a related field with an anticipated graduation date around May 2028?<span>*</span></label></div></div>
+  <div class="field-wrapper"><label for="question_102" id="question_102-label">Website</label><input id="question_102" type="text"></div>
+  <div class="field-wrapper"><div class="react-select" data-opts="Company Website|Indeed|LinkedIn|Referral|Other"><label id="question_103-label" for="question_103">How did you hear about this job?<span>*</span></label></div></div>
+  <div class="field-wrapper"><label for="question_117" id="question_117-label">Where did you first hear about Acme?</label><textarea id="question_117"></textarea></div>
+  <div class="field-wrapper"><label for="question_118" id="question_118-label">How did you hear about us? If referred, who referred you?</label><input id="question_118" type="text"></div>
+  <div class="field-wrapper"><div class="react-select" data-opts="Yes|No"><label id="question_104-label" for="question_104">Are you legally authorized to work in the United States?<span>*</span></label></div></div>
+  <div class="field-wrapper"><div class="react-select" data-opts="Yes|No"><label id="question_105-label" for="question_105">Will you now or in the future require sponsorship for employment visa status?<span>*</span></label></div></div>
+  <div class="field-wrapper"><div class="react-select" data-opts="Yes|No"><label id="question_106-label" for="question_106">Have you previously been employed by Acme Corp or any of its subsidiaries?<span>*</span></label></div></div>
+  <fieldset class="field-wrapper"><legend>Are you at least 18 years of age?<span>*</span></legend>
+    <label><input type="radio" name="question_107" value="1"> Yes</label> <label><input type="radio" name="question_107" value="0"> No</label></fieldset>
+  <fieldset class="field-wrapper checkbox"><legend>Which office locations are you open to?</legend>
+    <div><input type="checkbox" id="q108_1" name="question_108[]"><label for="q108_1">New York</label></div>
+    <div><input type="checkbox" id="q108_2" name="question_108[]"><label for="q108_2">San Francisco</label></div>
+    <div><input type="checkbox" id="q108_3" name="question_108[]"><label for="q108_3">Remote</label></div></fieldset>
+  <div class="field-wrapper"><label for="question_109" id="question_109-label">Why do you want to work at Acme?<span>*</span></label><textarea id="question_109" aria-required="true"></textarea></div>
+  <div class="field-wrapper"><input type="checkbox" id="question_110"><label for="question_110">I agree to the Acme privacy policy<span>*</span></label></div>
+
+  <div class="education--container"><h3>Education</h3><div class="education--form">
+    <div class="field-wrapper"><div class="react-select" data-async="Lakeland State University-Lakeview|Lsu Lakeview University|Lakeview School|Other" data-maxwords="2"><label id="school--0-label" for="school--0">School<span>*</span></label></div></div>
+    <div class="field-wrapper"><div class="react-select" data-opts="High School|Associate’s Degree|Bachelor’s Degree|Master’s Degree|Doctor of Philosophy (Ph.D.)|Other"><label id="degree--0-label" for="degree--0">Degree<span>*</span></label></div></div>
+    <div class="field-wrapper"><div class="react-select" data-opts="Computer Science|Computer Engineering|Electrical Engineering|Mathematics"><label id="discipline--0-label" for="discipline--0">Discipline</label></div></div>
+    <div class="field-wrapper"><label for="start-year--0" id="start-year--0-label">Start date year</label><input id="start-year--0" type="text"></div>
+    <div class="field-wrapper"><div class="react-select" data-opts="January|February|March|April|May|June|July|August|September|October|November|December"><label id="end-month--0-label" for="end-month--0">End date month</label></div></div>
+    <div class="field-wrapper"><label for="end-year--0" id="end-year--0-label">End date year</label><input id="end-year--0" type="text"></div>
+  </div></div>
+
+  <div class="eeoc__container"><h3>Voluntary Self-Identification</h3>
+    <div class="field-wrapper"><div class="react-select" data-opts="Male|Female|Decline To Self Identify"><label id="gender-label" for="gender">Gender</label></div></div>
+    <div class="field-wrapper"><div class="react-select" data-opts="Yes|No|Decline To Self Identify"><label id="hispanic_ethnicity-label" for="hispanic_ethnicity">Are you Hispanic/Latino?</label></div></div>
+    <div class="field-wrapper"><div class="react-select" data-opts="I am a veteran|I am not a protected veteran|I don't wish to answer"><label id="veteran_status-label" for="veteran_status">Veteran Status</label></div></div>
+    <div class="field-wrapper"><div class="react-select" data-opts="Yes, I have a disability (or previously had a disability)|No, I do not have a disability|I do not want to answer"><label id="disability_status-label" for="disability_status">Disability Status</label></div></div>
+  </div>
+  <button type="submit" id="submit" onclick="event.preventDefault(); window.__nav = (window.__nav || []).concat('Submit')">Submit Application</button>
+</form>
+<pre id="out"></pre>
+
+<script>
+// ---- react-select look-alike (test only): mousedown on the control opens the menu; typing filters
+// (data-async lists show nothing until typed, then results after 600 ms); clicking an option sets the
+// single value; Escape closes. Picking Hispanic "No" reveals a Race field, like Greenhouse.
+let rs = 0;
+function makeSelect(wrap) {
+  const label = wrap.querySelector("label");
+  const id = label.getAttribute("for");
+  const all = (wrap.dataset.opts || wrap.dataset.async).split("|");
+  const isAsync = !!wrap.dataset.async;
+  const lbId = "react-select-" + ++rs + "-listbox";
+  wrap.classList.add("select__container");
+  wrap.insertAdjacentHTML("beforeend",
+    `<div class="select-shell"><div class="select__control"><div class="select__value-container"><div class="select__placeholder">Select...</div>` +
+    `<div class="select__input-container"><input class="select__input" role="combobox" aria-expanded="false" aria-haspopup="true" aria-autocomplete="list" id="${id}" aria-labelledby="${id}-label" type="text"></div></div></div></div>`);
+  const control = wrap.querySelector(".select__control");
+  const input = wrap.querySelector("input");
+  let menu = null;
+  let timer = null;
+  const close = () => { menu?.remove(); menu = null; input.setAttribute("aria-expanded", "false"); input.removeAttribute("aria-controls"); };
+  const render = (list) => {
+    if (!menu) {
+      menu = document.createElement("div"); menu.className = "select__menu";
+      control.after(menu);
+      input.setAttribute("aria-expanded", "true"); input.setAttribute("aria-controls", lbId);
+    }
+    menu.innerHTML = `<div class="select__menu-list" role="listbox" id="${lbId}"></div>`;
+    const lb = menu.firstChild;
+    if (!list.length) lb.innerHTML = `<div class="select__menu-notice">${isAsync && !input.value ? "Type to search" : "No options"}</div>`;
+    for (const t of list) {
+      const o = document.createElement("div"); o.className = "select__option"; o.setAttribute("role", "option"); o.textContent = t;
+      o.addEventListener("click", () => {
+        const vc = wrap.querySelector(".select__value-container");
+        vc.querySelector(".select__placeholder, .select__single-value")?.remove();
+        vc.insertAdjacentHTML("afterbegin", `<div class="select__single-value">${wrap.dataset.display === "code" ? t.split(" ").pop() : t}</div>`);
+        input.value = ""; close();
+        if (id === "hispanic_ethnicity" && t === "No" && !document.getElementById("race")) addRace();
+      });
+      lb.appendChild(o);
+    }
+  };
+  // Exact-substring filter (straight vs curly apostrophes differ); data-maxwords: the async search
+  // only answers short queries (the real school search found nothing for full names).
+  const filtered = () =>
+    wrap.dataset.maxwords && input.value.trim().split(/\s+/).length > +wrap.dataset.maxwords
+      ? []
+      : all.filter((t) => !input.value || t.toLowerCase().includes(input.value.toLowerCase()));
+  // Like react-select: a control mousedown only opens the menu once the input has seen focus events.
+  let focused = false;
+  input.addEventListener("focusin", () => (focused = true));
+  input.addEventListener("focusout", () => { focused = false; close(); });
+  control.addEventListener("mousedown", () => { if (!focused) return; menu ? close() : render(isAsync ? [] : filtered()); });
+  input.addEventListener("input", () => {
+    clearTimeout(timer);
+    if (isAsync) { render([]); timer = setTimeout(() => render(input.value ? filtered() : []), 600); }
+    else render(filtered());
+  });
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") close();
+    if (e.key === "ArrowDown" && !menu) render(isAsync ? [] : filtered());
+  });
+}
+function addRace() {
+  const w = document.createElement("div");
+  w.className = "field-wrapper";
+  w.innerHTML = `<div class="react-select" data-opts="American Indian or Alaskan Native|Asian|Black or African American|White|Two or More Races|Decline To Self Identify"><label id="race-label" for="race">Race</label></div>`;
+  document.querySelector("[for=hispanic_ethnicity]").closest(".field-wrapper").after(w);
+  makeSelect(w.firstChild);
+}
+// Like Greenhouse parsing an uploaded resume: 1.5 s after the upload, the education block is
+// re-rendered with brand-new elements, so fields described before then are detached.
+const eduForm = document.querySelector(".education--form");
+const eduTemplate = eduForm.innerHTML;
+document.querySelectorAll(".react-select").forEach(makeSelect);
+for (const id of ["resume", "cover_letter"]) {
+  const inp = document.getElementById(id);
+  inp.addEventListener("change", () => (inp.parentElement.querySelector(".file-upload__filename").textContent = inp.files[0]?.name || ""));
+}
+// A second re-render DURING the school search (first keystroke), renumbering ids again (--1 -> --2):
+// the field must be re-found by id base + position, not by its old exact id.
+let typedRerender = false;
+document.addEventListener("input", (e) => {
+  if (typedRerender || !/^school--/.test(e.target.id || "")) return;
+  typedRerender = true;
+  setTimeout(() => {
+    eduForm.innerHTML = eduTemplate.replace(/--0/g, "--2");
+    eduForm.querySelectorAll(".react-select").forEach(makeSelect);
+  }, 200);
+}, true);
+document.getElementById("resume").addEventListener("change", () =>
+  setTimeout(() => {
+    eduForm.innerHTML = eduTemplate.replace(/--0/g, "--1"); // Greenhouse renumbers ids on re-render
+    eduForm.querySelectorAll(".react-select").forEach(makeSelect);
+  }, 1500)
+);
+</script>
+<!--SCRIPTS-->
+<script>
+setTimeout(async () => {
+  let stats;
+  try { stats = await window.__runFill(); } catch (e) { window.__errors.push("run: " + e.stack); }
+  const val = (w) => {
+    const sv = w.querySelector(".select__single-value"); if (sv) return sv.textContent;
+    const checked = [...w.querySelectorAll("input:checked")].map((i) => (w.querySelector(`label[for="${i.id}"]`) || i.closest("label") || {}).textContent?.trim() || i.value);
+    if (w.querySelector("input[type=radio], input[type=checkbox]")) return "checked:" + checked.join(",");
+    const f = w.querySelector("input[type=file]"); if (f) return "file:" + (f.files[0]?.name || "");
+    const c = w.querySelector("input:not([role=combobox]), textarea"); return c ? c.value : "";
+  };
+  const fields = [...document.querySelectorAll(".field-wrapper")].map((w) => {
+    const lab = (w.querySelector("label, legend, .label")?.textContent || "").replace(/\*/g, "").trim();
+    const marked = w.closest("[data-wdaf]") || w.querySelector("[data-wdaf]");
+    return lab.slice(0, 50) + " = " + JSON.stringify(val(w)) + " mark=" + ((marked && marked.dataset.wdaf) || "-");
+  });
+  document.getElementById("out").textContent = "@@BEGIN\n" + [
+    "STATS " + JSON.stringify(stats), "TOAST " + JSON.stringify((document.getElementById("aaf-done-toast")?.shadowRoot?.querySelector(".box")?.innerText || "").replace(/\n/g, " | ")),
+    "NAV " + JSON.stringify(window.__nav || []),
+    "GUARD " + JSON.stringify(["apply_button", "submit"].map((id) => [id, AAF.click(document.getElementById(id))])),
+    "NAV-AFTER-GUARD " + JSON.stringify(window.__nav || []),
+    "AI " + JSON.stringify((window.__aiPayload || []).map((q) => [q.question, q.type, q.options])),
+    ...window.__errors.map((e) => "ERR " + e),
+    ...window.__logs.map((l) => "LOG " + l),
+    ...fields.map((f) => "FIELD " + f),
+  ].join("\n") + "\n@@END";
+}, 500);
+</script>
+</body>
+</html>

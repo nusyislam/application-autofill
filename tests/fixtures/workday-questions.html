@@ -1,0 +1,140 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Careers</title>
+<style>
+  body { font: 14px sans-serif; }
+  [role=listbox] { background: #fff; border: 1px solid #999; width: 320px; z-index: 5; }
+  [role=option] { padding: 4px; min-height: 20px; }
+  .ff { margin: 10px 0; }
+</style>
+<script>
+window.__logs = [];
+window.__errors = [];
+const origLog = console.log;
+console.log = (...a) => {
+  if (a[0] === "[autofill]") window.__logs.push(a.slice(1).map((x) => (typeof x === "string" ? x : x && x.nodeType ? "<" + x.tagName + ">" : JSON.stringify(x))).join(" "));
+  origLog(...a);
+};
+window.addEventListener("error", (e) => window.__errors.push("error: " + e.message + " @ " + (e.filename || "").split("/").pop() + ":" + e.lineno));
+window.addEventListener("unhandledrejection", (e) => window.__errors.push("rejection: " + (e.reason && e.reason.stack || e.reason)));
+const STORE = {
+  profile: {
+    firstName: "Test", lastName: "Applicant",
+    experiences: [{ title: "Engineering Intern", company: "Examplecorp" }],
+    answers: { workAuth: "Yes", sponsorship: "No", over18: "Yes", relocate: "Yes", previousEmployers: "Examplecorp" }, eeo: {}, api: { key: "" },
+  },
+  settings: { useAI: true, learn: true, threshold: 0.75 },
+  learned: [],
+};
+let onMsg = null;
+// Location settings have no default in Options: the New York values these tests were written with (settings a fixture
+// sets itself are kept; a blank search took the old default search, and the default list when the list was blank too).
+{ const P = STORE.profile, AL = (P.applicationLocation ||= {}), A = (P.answers ||= {}), blank = !String(AL.search || "").trim();
+  if (blank) AL.search = "New York";
+  if (blank && !String(AL.matches || "").trim()) AL.matches = "New York City, New York, United States | New York, New York, United States | New York, NY, United States | New York, NY | New York City | New York, NY, USA | New York, USA";
+  if (!String(A.officeMetro || "").trim()) A.officeMetro = "New York City | NYC | New York, NY | New York, New York | Manhattan | Brooklyn | Queens | Bronx | Staten Island | Long Island | Jersey City | Hoboken | Newark | Westchester | Stamford"; }
+window.chrome = {
+  storage: {
+    local: {
+      get: async (keys) => {
+        const ks = typeof keys === "string" ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys || {});
+        const out = {};
+        for (const k of ks) if (STORE[k] !== undefined) out[k] = JSON.parse(JSON.stringify(STORE[k]));
+        return out;
+      },
+      set: async (o) => Object.assign(STORE, o),
+    },
+    onChanged: { addListener: () => {} },
+  },
+  runtime: { id: "test-extension", onMessage: { addListener: (fn) => (onMsg = fn) }, sendMessage: async () => ({ model: "stub", answers: [] }) },
+};
+window.__runFill = () => new Promise((res) => onMsg({ type: "FILL" }, {}, res));
+</script>
+</head>
+<body>
+<div data-automation-id="progressBar"></div>
+<h2>Application Questions</h2>
+<!-- BoFL-like (fake data): popups have no aria-controls and stay visible 600 ms after closing; the
+     work-authorization options load 300 ms after opening; answering sponsorship resets the PcC
+     question once (a re-render; the retry pass refills it), and that second PcC answer resets the
+     work-authorization question once; that second work-authorization answer resets PcC again, after the
+     retry pass has passed it (the final verification sweep refills it); the 18+
+     question's option clicks never register; the relocate answer resets itself 1.5 s after every pick (the
+     sweep must end it yellow, "reset after fill"). -->
+<div class="ff" data-automation-id="formField-q1"><label>Do you currently or have you worked at Pinecrest Coopers LLP (PcC), the bank's independent auditor, since July 2002?<abbr>*</abbr></label>
+  <button aria-haspopup="listbox" aria-expanded="false" data-opts="Select One|Yes|No" id="q1">Select One</button></div>
+<div class="ff" data-automation-id="formField-q2"><label>Are you legally authorized to work in the United States?<abbr>*</abbr></label>
+  <button aria-haspopup="listbox" aria-expanded="false" data-opts="Select One|Yes|No" data-lazy="300" id="q2">Select One</button></div>
+<div class="ff" data-automation-id="formField-q3"><label>Will you now or in the future require sponsorship for employment visa status?<abbr>*</abbr></label>
+  <button aria-haspopup="listbox" aria-expanded="false" data-opts="Select One|Yes|No" id="q3">Select One</button></div>
+<div class="ff" data-automation-id="formField-q4"><label>Are you at least 18 years of age?<abbr>*</abbr></label>
+  <button aria-haspopup="listbox" aria-expanded="false" data-opts="Select One|Yes|No" data-dead="1" id="q4">Select One</button></div>
+<div class="ff" data-automation-id="formField-q5"><label>Are you willing to relocate?<abbr>*</abbr></label>
+  <button aria-haspopup="listbox" aria-expanded="false" data-opts="Select One|Yes|No" data-unstable="1" id="q5">Select One</button></div>
+<div id="portal"></div>
+<pre id="out"></pre>
+
+<script>
+// ---- Workday-like dropdowns without aria-controls; popups render in a portal and linger 600 ms.
+window.__clicks = [];
+let open = null;
+const closePopup = () => {
+  if (!open) return;
+  const { btn, lb } = open;
+  btn.setAttribute("aria-expanded", "false");
+  setTimeout(() => lb.remove(), 600); // closing animation: still visible, options still clickable
+  open = null;
+};
+let resetDone = false;
+for (const btn of document.querySelectorAll("button[aria-haspopup=listbox]")) {
+  btn.addEventListener("click", () => {
+    if (open && open.btn === btn) return closePopup();
+    closePopup();
+    const lb = document.createElement("div"); lb.setAttribute("role", "listbox");
+    open = { btn, lb };
+    btn.setAttribute("aria-expanded", "true");
+    const fill = () => {
+      if (!lb.isConnected) return;
+      for (const t of btn.dataset.opts.split("|")) {
+        const o = document.createElement("div"); o.setAttribute("role", "option"); o.textContent = t;
+        o.addEventListener("click", () => {
+          window.__clicks.push(btn.id + ":" + t);
+          if (!btn.dataset.dead) btn.textContent = t;
+          // An answer that never sticks: reset 1.5 s after every pick.
+          if (btn.dataset.unstable) setTimeout(() => (btn.textContent = "Select One"), 1500);
+          if (btn.id === "q3" && !resetDone) { resetDone = true; setTimeout(() => (document.getElementById("q1").textContent = "Select One"), 100); }
+          if (btn.id === "q1" && window.__clicks.filter((c) => c.startsWith("q1:")).length === 2) setTimeout(() => (document.getElementById("q2").textContent = "Select One"), 100);
+          // The retry pass's second work-authorization answer resets PcC again, after the retry pass has passed it.
+          if (btn.id === "q2" && window.__clicks.filter((c) => c.startsWith("q2:")).length === 2) setTimeout(() => (document.getElementById("q1").textContent = "Select One"), 100);
+          if (open && open.btn === btn) closePopup();
+        });
+        lb.appendChild(o);
+      }
+    };
+    document.getElementById("portal").prepend(lb);
+    if (btn.dataset.lazy) setTimeout(fill, +btn.dataset.lazy); else fill();
+  });
+}
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closePopup(); });
+document.body.addEventListener("click", (e) => { if (open && e.target === document.body) closePopup(); });
+</script>
+<!--SCRIPTS-->
+<script>
+setTimeout(async () => {
+  let stats;
+  try { stats = await window.__runFill(); } catch (e) { window.__errors.push("run: " + e.stack); }
+  const fields = [...document.querySelectorAll("[data-automation-id^=formField]")].map((c) =>
+    c.getAttribute("data-automation-id") + " = " + JSON.stringify(c.querySelector("button").textContent) + " mark=" + (c.dataset.wdaf || "-"));
+  document.getElementById("out").textContent = "@@BEGIN\n" + [
+    "STATS " + JSON.stringify(stats), "TOAST " + JSON.stringify((document.getElementById("aaf-done-toast")?.shadowRoot?.querySelector(".box")?.innerText || "").replace(/\n/g, " | ")),
+    "CLICKS " + JSON.stringify(window.__clicks),
+    ...window.__errors.map((e) => "ERR " + e),
+    ...window.__logs.map((l) => "LOG " + l),
+    ...fields.map((f) => "FIELD " + f),
+  ].join("\n") + "\n@@END";
+}, 500);
+</script>
+</body>
+</html>

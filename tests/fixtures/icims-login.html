@@ -1,0 +1,93 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Login - Acme Careers</title>
+<script>
+window.__logs = [];
+window.__errors = [];
+const origLog = console.log;
+console.log = (...a) => {
+  if (a[0] === "[autofill]") window.__logs.push(a.slice(1).map((x) => (typeof x === "string" ? x : x && x.nodeType ? "<" + x.tagName + ">" : JSON.stringify(x))).join(" "));
+  origLog(...a);
+};
+window.addEventListener("error", (e) => window.__errors.push("error: " + e.message + " @ " + (e.filename || "").split("/").pop() + ":" + e.lineno));
+window.addEventListener("unhandledrejection", (e) => window.__errors.push("rejection: " + (e.reason && e.reason.stack || e.reason)));
+const STORE = {
+  profile: { firstName: "Test", lastName: "Applicant", email: "test@example.com", phone: "6465550100", answers: {}, eeo: {}, api: { key: "test-key", model: "stub" } },
+  settings: { useAI: true, learn: true, threshold: 0.75 },
+  learned: [{ q: "Password", a: "hunter2", type: "text" }, { q: "Security Answer", a: "Fluffy", type: "text" }],
+};
+let onMsg = null;
+// Location settings have no default in Options: the New York values these tests were written with (settings a fixture
+// sets itself are kept; a blank search took the old default search, and the default list when the list was blank too).
+{ const P = STORE.profile, AL = (P.applicationLocation ||= {}), A = (P.answers ||= {}), blank = !String(AL.search || "").trim();
+  if (blank) AL.search = "New York";
+  if (blank && !String(AL.matches || "").trim()) AL.matches = "New York City, New York, United States | New York, New York, United States | New York, NY, United States | New York, NY | New York City | New York, NY, USA | New York, USA";
+  if (!String(A.officeMetro || "").trim()) A.officeMetro = "New York City | NYC | New York, NY | New York, New York | Manhattan | Brooklyn | Queens | Bronx | Staten Island | Long Island | Jersey City | Hoboken | Newark | Westchester | Stamford"; }
+window.chrome = {
+  storage: {
+    local: {
+      get: async (keys) => {
+        const ks = typeof keys === "string" ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys || {});
+        const out = {};
+        for (const k of ks) if (STORE[k] !== undefined) out[k] = JSON.parse(JSON.stringify(STORE[k]));
+        return out;
+      },
+      set: async (o) => Object.assign(STORE, o),
+    },
+    onChanged: { addListener: () => {} },
+  },
+  runtime: {
+    id: "test-extension",
+    onMessage: { addListener: (fn) => (onMsg = fn) },
+    sendMessage: async (msg) => {
+      if (msg.type === "ASK_AI") {
+        window.__aiPayload = msg.questions;
+        return { model: "stub-model", answers: msg.questions.map((q) => ({ id: q.id, answer: "anything", confidence: 0.99 })) };
+      }
+      return {};
+    },
+  },
+};
+window.__runFill = () => new Promise((res) => onMsg({ type: "FILL" }, {}, res));
+</script>
+</head>
+<body>
+<!-- iCIMS-like sign-in / create-account step (fake data; UNVERIFIED structure). Only the email may be
+     filled: passwords, security question / answer, and the name fields are the user's. -->
+<form id="loginForm" onsubmit="event.preventDefault()">
+  <h2>Create an Account</h2>
+  <table>
+    <tr><td><label for="email">Email Address *</label></td><td><input id="email" name="loginName"></td></tr>
+    <tr><td><label for="first">First Name *</label></td><td><input id="first" name="firstName"></td></tr>
+    <tr><td><label for="last">Last Name *</label></td><td><input id="last" name="lastName"></td></tr>
+    <tr><td><label for="pw">Password *</label></td><td><input id="pw" type="password" name="password"></td></tr>
+    <tr><td><label for="pw2">Confirm Password *</label></td><td><input id="pw2" type="password" name="password2"></td></tr>
+    <tr><td><label for="sq">Security Question *</label></td><td><select id="sq" name="secQ"><option value="">-- Make a Selection --</option><option>What was the name of your first pet?</option></select></td></tr>
+    <tr><td><label for="sa">Security Answer *</label></td><td><input id="sa" name="secA"></td></tr>
+  </table>
+  <button type="button" id="create">Create Account</button>
+  <button type="button" id="login">Login</button>
+</form>
+<pre id="out"></pre>
+<!--SCRIPTS-->
+<script>
+setTimeout(async () => {
+  let stats;
+  try { stats = await window.__runFill(); } catch (e) { window.__errors.push("run: " + e.stack); }
+  const fields = [...document.querySelectorAll("form input, form select")].map((el) =>
+    el.name + " = " + JSON.stringify(el.tagName === "SELECT" ? (el.selectedIndex > 0 ? el.selectedOptions[0].text : "") : el.value) + " mark=" + (el.closest("[data-wdaf]")?.dataset.wdaf || "-"));
+  document.getElementById("out").textContent = "@@BEGIN\n" + [
+    "STATS " + JSON.stringify(stats), "TOAST " + JSON.stringify((document.getElementById("aaf-done-toast")?.shadowRoot?.querySelector(".box")?.innerText || "").replace(/\n/g, " | ")),
+    "GUARD " + JSON.stringify(["create", "login"].map((id) => [id, AAF.click(document.getElementById(id))])),
+    "AI " + JSON.stringify((window.__aiPayload || []).map((q) => q.question)),
+    "LEARNED " + JSON.stringify(STORE.learned.map((x) => x.q)),
+    ...window.__errors.map((e) => "ERR " + e),
+    ...window.__logs.map((l) => "LOG " + l),
+    ...fields.map((f) => "FIELD " + f),
+  ].join("\n") + "\n@@END";
+}, 500);
+</script>
+</body>
+</html>

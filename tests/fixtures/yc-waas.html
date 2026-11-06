@@ -1,0 +1,166 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Software Engineer Intern at Samplelabs | Y Combinator</title>
+<style> body { font: 14px sans-serif; } </style>
+<script>
+// ---- stub chrome API (test only)
+window.__logs = [];
+window.__errors = [];
+const origLog = console.log;
+console.log = (...a) => {
+  if (a[0] === "[autofill]") window.__logs.push(a.slice(1).map((x) => (typeof x === "string" ? x : x && x.nodeType ? "<" + x.tagName + ">" : JSON.stringify(x))).join(" "));
+  origLog(...a);
+};
+window.addEventListener("error", (e) => window.__errors.push("error: " + e.message + " @ " + (e.filename || "").split("/").pop() + ":" + e.lineno));
+window.addEventListener("unhandledrejection", (e) => window.__errors.push("rejection: " + (e.reason && e.reason.stack || e.reason)));
+const STORE = {
+  profile: {
+    firstName: "Test", lastName: "Applicant", preferredName: "Tess", email: "test@example.com", phone: "6465550100",
+    country: "United States of America", city: "Springfield", state: "New York",
+    expectedGraduation: "05/2027",
+    experiences: [{ title: "Engineering Intern", company: "Examplecorp", current: false, startYear: "2026", endYear: "2026" }],
+    education: [{ school: "Lakeview University", field: "Computer Engineering", endYear: "2027" }],
+    answers: { workAuth: "Yes", sponsorship: "No" },
+    eeo: {}, api: { key: "test-key", model: "stub" },
+  },
+  settings: { useAI: true, learn: true, drafts: true, threshold: 0.75 },
+  learned: [],
+};
+// Canned notes, one per YC_NOTE call: an em dash to remove; one without the greeting; a too-short one.
+const NOTES = [
+  "Hi Sam,\n\nI built a data pipeline for a class project that cleaned and labeled survey data \u2014 close to the dataset work Samplelabs does. I'm looking for a software engineering internship for summer 2026 and can start after May.\n\nTess",
+  "I wrote a small tool that checks labeled examples for mistakes, which is the part of dataset work I liked most. I'm looking for an internship starting summer 2026.\n\nTess",
+  "Hi Sam, hello.",
+];
+let onMsg = null;
+window.__ycCalls = [];
+// Location settings have no default in Options: the New York values these tests were written with (settings a fixture
+// sets itself are kept; a blank search took the old default search, and the default list when the list was blank too).
+{ const P = STORE.profile, AL = (P.applicationLocation ||= {}), A = (P.answers ||= {}), blank = !String(AL.search || "").trim();
+  if (blank) AL.search = "New York";
+  if (blank && !String(AL.matches || "").trim()) AL.matches = "New York City, New York, United States | New York, New York, United States | New York, NY, United States | New York, NY | New York City | New York, NY, USA | New York, USA";
+  if (!String(A.officeMetro || "").trim()) A.officeMetro = "New York City | NYC | New York, NY | New York, New York | Manhattan | Brooklyn | Queens | Bronx | Staten Island | Long Island | Jersey City | Hoboken | Newark | Westchester | Stamford"; }
+window.chrome = {
+  storage: {
+    local: {
+      get: async (keys) => {
+        const ks = typeof keys === "string" ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys || {});
+        const out = {};
+        for (const k of ks) if (STORE[k] !== undefined) out[k] = JSON.parse(JSON.stringify(STORE[k]));
+        return out;
+      },
+      set: async (o) => Object.assign(STORE, o),
+    },
+    onChanged: { addListener: () => {} },
+  },
+  runtime: { id: "test-extension",
+    onMessage: { addListener: (fn) => (onMsg = fn) },
+    sendMessage: async (msg) => {
+      if (msg.type === "YC_NOTE") {
+        window.__ycCalls.push({ founder: msg.founder, company: msg.company, title: msg.job.title, type: msg.job.type, location: msg.job.location, descStart: msg.job.description.slice(0, 90), descChars: msg.job.description.length });
+        const answer = NOTES[Math.min(window.__ycCalls.length - 1, NOTES.length - 1)];
+        return { model: "stub-draft-model", included: { linkedinChars: 0, resumeChars: 0, notesChars: 0, descriptionChars: msg.job.description.length, highlightCount: 0 }, answers: [{ id: 0, answer, project: "survey pipeline" }] };
+      }
+      if (msg.type === "DRAFT" || msg.type === "ASK_AI") {
+        window.__unexpected = (window.__unexpected || []).concat(msg.type);
+        return { model: "stub", answers: [] };
+      }
+      return {};
+    },
+  },
+};
+window.__runFill = () => new Promise((res) => onMsg({ type: "FILL" }, {}, res));
+</script>
+</head>
+<body>
+<!-- YC Work at a Startup (fake data): the job page with its JobDetailPage props and the open apply dialog, shaped like the captured markup. -->
+<div class="mx-auto w-full max-w-6xl flex-1 px-2 sm:px-6 lg:px-8"><div class="my-3"><div class="text-beige-dark font-sans text-sm"><a class="text-linkColor" href="/companies">Companies</a><span class="mx-1">/</span><a class="text-linkColor" href="/companies/samplelabs">Samplelabs (W25)</a><span class="mx-1">/</span><span>Jobs</span></div></div>
+<div class="my-3 rounded-md border border-gray-300"><div class="flex flex-col md:flex-row md:items-start md:justify-between"><div class="flex"><div class="mr-4 shrink-0"><a href="/companies/samplelabs"><img alt="Samplelabs" class="mt-1 h-16 w-16"></a></div>
+<div class="min-w-0"><h1 class="text-xl font-medium sm:text-2xl">Software Engineer Intern at <a href="/companies/samplelabs" class="hover:underline">Samplelabs</a><span class="ml-2 text-sm text-gray-400">(W25)</span></h1><div class="mt-0.5 text-gray-500"><span>$5K - $6K / monthly</span></div><div class="mt-0.5 text-gray-700">Datasets for training and testing language models. </div>
+<div class="mt-1 flex flex-wrap"><span class="inline-flex items-center gap-1.5 rounded-md border"><svg></svg><span>New York, NY, US / Remote (US)</span></span><span class="inline-flex items-center gap-1.5 rounded-md border"><svg></svg><span>Internship</span></span><span class="inline-flex items-center gap-1.5 rounded-md border"><svg></svg><span>US citizen/visa only</span></span></div></div></div>
+<div class="mt-4 shrink-0 md:mt-0"><div class="flex"><a class="!w-fit hover:cursor-pointer inline-flex items-center" id="apply" onclick="window.__applied = true">Apply</a></div></div></div>
+<div class="mt-3 border-t border-gray-300 pt-4"><span class="text-xl">About the role</span><div class="prose mt-2 max-w-none"><p><strong>About Samplelabs:</strong></p><p>Samplelabs builds labeled datasets that teams use to train and test language models.</p><p><strong>What You'll Do</strong></p><ul><li>Build data capture tools for the web (Next.js) and desktop (Python)</li><li>Write pipelines that check and clean labeled data</li></ul><p><strong>What We're Looking For</strong></p><ul><li>One previous internship in full-stack development</li><li>JavaScript and Python</li></ul></div></div>
+<div class="mt-3 border-t border-gray-300 pt-4"><span class="text-xl">Interview Process</span><div class="prose mt-2 max-w-none"><p>Three steps over about two weeks.</p></div></div></div></div>
+<div id="jobs/public/pages/JobDetailPage-react-component-0a1b2c" data-react-props='{"job":{"title":"Software Engineer Intern","jobType":"intern","prettyLocation":"New York, NY, US / Remote (US)","visa":"US citizen/visa only","descriptionHtml":"<p><strong>About Samplelabs:</strong></p><p>Samplelabs builds labeled datasets that teams use to train and test language models.</p><ul><li>Build data capture tools (Next.js, Python)</li><li>Write pipelines that check and clean labeled data</li></ul>"},"company":{"name":"Samplelabs","batch":"W25","oneLiner":"Datasets for training and testing language models."}}'></div>
+<div id="dialog-wrap"><div class="relative inline-block transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5" id="headlessui-dialog-panel-_r_6_" data-headlessui-state="open" data-open=""><grammarly-extension data-grammarly-shadow-root="true" style="position: absolute; top: 0px; left: 0px; pointer-events: none;" class="dnXmp"></grammarly-extension><div class="mb-2 border-b pb-2 text-lg"><div class="flex flex-row items-center"><img alt="hiring manager" class="mr-4 inline-block h-16 w-16 rounded-full"><div>Reach out to Sam at Samplelabs</div></div></div><div><p class="mb-2 text-sm" id="intro"> Start a conversation with the team at Samplelabs. Share something about you, what you're looking for, or why Samplelabs interests you. Human-written messages are more likely to get a response.</p><textarea rows="7" class="mt-1 w-full rounded border border-gray-300 p-2 text-sm placeholder-gray-400" placeholder="Hi! My name is Test Applicant and here's a little bit about me and what I'm looking for..." spellcheck="false"></textarea><p class="my-2 text-sm text-orange-500">Note: It looks to us like your qualifications might not match this job. We recommend double-checking the qualifications and using your best judgement about whether it makes sense to apply anyway.</p></div><div class="mt-2 flex flex-row justify-between border-t border-gray-300 pt-3"><p class="my-2 mr-10 text-sm text-red-500" id="minmsg">Please write at least 50 characters.</p><div class="flex flex-row gap-x-3"><button id="close" class="inline-flex items-center border" onclick="window.__closed = true">Close</button><button id="send" class="inline-flex items-center border bg-orange-500 text-white" disabled="" onclick="window.__sent = true">Send</button></div></div><p class="mt-3 text-xs text-gray-400">By applying, you acknowledge that your application may be evaluated using AI-assisted tools. <a href="/terms" target="_blank" rel="noreferrer" class="underline">Learn more</a></p><grammarly-extension-vbars data-grammarly-shadow-root="true" style="display: contents;" class="dnXmp"></grammarly-extension-vbars></div></div>
+<script>
+(() => {
+  const ta = document.querySelector("#headlessui-dialog-panel-_r_6_ textarea");
+  const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set;
+  let state = "";
+  window.__ycSetState = (v) => { state = v; setter.call(ta, v); };
+  ta.addEventListener("input", () => (state = ta.value));
+  setInterval(() => {
+    if (ta.value !== state) setter.call(ta, state);
+    const send = document.getElementById("send");
+    send.disabled = state.trim().length < 50;
+    document.getElementById("minmsg").style.display = state.trim().length < 50 ? "" : "none";
+  }, 100);
+})();
+</script>
+<pre id="out"></pre>
+<!--SCRIPTS-->
+<script>
+// The progress panel's note line (main.js calls the panel with { step, note }).
+const panel = globalThis.AAF_PROGRESS_PANEL;
+globalThis.AAF_PROGRESS_PANEL = (data, opts) => { if (data && data.note) window.__panelNote = data.note; return panel(data, opts); };
+setTimeout(async () => {
+  const ta = document.querySelector("#headlessui-dialog-panel-_r_6_ textarea");
+  const toastText = () => (document.getElementById("aaf-done-toast")?.shadowRoot?.querySelector(".box")?.innerText || "").replace(/\n/g, " | ");
+  const out = [];
+  const snap = (tag, stats) => {
+    out.push(tag + " STATS " + JSON.stringify(stats));
+    out.push(tag + " TOAST " + JSON.stringify(toastText()));
+    out.push(tag + " NOTE " + JSON.stringify(ta.value) + " mark=" + ((ta.closest("[data-wdaf]") || ta.querySelector?.("[data-wdaf]"))?.dataset.wdaf || "-"));
+  };
+  let stats;
+  // 1. An empty box: drafted (the em dash removed), yellow; the qualifications note in the panel and the toast.
+  try { stats = await window.__runFill(); } catch (e) { window.__errors.push("run 1: " + e.stack); }
+  out.push("1 PANEL NOTE " + JSON.stringify(window.__panelNote || ""));
+  snap("1", stats);
+  const act = document.getElementById("aaf-done-toast")?.shadowRoot?.querySelector(".box button:not(.x)");
+  out.push("1 TOAST ACTION " + JSON.stringify(act ? act.textContent : null));
+  await new Promise((r) => setTimeout(r, 300));
+  out.push("1 SEND ENABLED " + !document.getElementById("send").disabled);
+  // 2. The box has text: kept, nothing drafted.
+  window.__logs.push("---- second fill (text in the box) ----");
+  try { stats = await window.__runFill(); } catch (e) { window.__errors.push("run 2: " + e.stack); }
+  snap("2", stats);
+  // 3. "Redraft note" on the toast: replaces it (this draft has no greeting; it's added).
+  window.__logs.push("---- redraft (the toast's button) ----");
+  try {
+    const b = document.getElementById("aaf-done-toast")?.shadowRoot?.querySelector(".box button:not(.x)");
+    if (!b) throw new Error("no Redraft button on the toast");
+    b.click();
+    await new Promise((r) => { const t0 = Date.now(); const iv = setInterval(() => { if (window.__ycCalls.length >= 2 && document.getElementById("aaf-done-toast") || Date.now() - t0 > 8000) { clearInterval(iv); r(); } }, 100); });
+  } catch (e) { window.__errors.push("run 3: " + e.stack); }
+  snap("3", null);
+  // 4. A too-short draft: left for you.
+  window.__logs.push("---- fourth fill (empty box, a too-short draft) ----");
+  window.__ycSetState("");
+  await new Promise((r) => setTimeout(r, 200));
+  try { stats = await window.__runFill(); } catch (e) { window.__errors.push("run 4: " + e.stack); }
+  snap("4", stats);
+  // 5. The dialog forbids AI-written notes: nothing drafted.
+  window.__logs.push("---- fifth fill (the dialog bans AI-written notes) ----");
+  document.getElementById("intro").insertAdjacentHTML("afterend", '<p class="text-sm">Please do not use AI or ChatGPT to write this message.</p>');
+  try { stats = await window.__runFill(); } catch (e) { window.__errors.push("run 5: " + e.stack); }
+  snap("5", stats);
+  // The navigation guard: Send / Close / Apply are never clicked.
+  AAF.click(document.getElementById("send"));
+  AAF.click(document.getElementById("close"));
+  AAF.click(document.getElementById("apply"));
+  document.getElementById("out").textContent = "@@BEGIN\n" + [
+    ...out,
+    "YC CALLS " + JSON.stringify(window.__ycCalls),
+    "UNEXPECTED " + JSON.stringify(window.__unexpected || []),
+    "CLICKED send=" + !!window.__sent + " close=" + !!window.__closed + " apply=" + !!window.__applied,
+    ...window.__errors.map((e) => "ERR " + e),
+    ...window.__logs.map((l) => "LOG " + l),
+  ].join("\n") + "\n@@END";
+}, 500);
+</script>
+</body>
+</html>

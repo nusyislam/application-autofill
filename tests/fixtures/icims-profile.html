@@ -1,0 +1,163 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Candidate Profile - Acme Careers</title>
+<style>
+  body { font: 14px sans-serif; }
+  td { padding: 4px; vertical-align: top; }
+  fieldset { margin: 10px 0; }
+  .select2-container { display: inline-block; border: 1px solid #999; min-width: 200px; padding: 2px; }
+</style>
+<script>
+window.__logs = [];
+window.__errors = [];
+const origLog = console.log;
+console.log = (...a) => {
+  if (a[0] === "[autofill]") window.__logs.push(a.slice(1).map((x) => (typeof x === "string" ? x : x && x.nodeType ? "<" + x.tagName + ">" : JSON.stringify(x))).join(" "));
+  origLog(...a);
+};
+window.addEventListener("error", (e) => window.__errors.push("error: " + e.message + " @ " + (e.filename || "").split("/").pop() + ":" + e.lineno));
+window.addEventListener("unhandledrejection", (e) => window.__errors.push("rejection: " + (e.reason && e.reason.stack || e.reason)));
+const STORE = {
+  profile: {
+    firstName: "Test", lastName: "Applicant", email: "test@example.com", phone: "6465550100",
+    country: "United States of America", city: "Springfield",
+    experiences: [
+      { title: "Engineering Intern", company: "Examplecorp", location: "Riverton, NJ", startMonth: "6", startYear: "2026", endMonth: "8", endYear: "2026" },
+      { title: "Software Intern", company: "Samplesoft", location: "", startMonth: "6", startYear: "2024", endMonth: "10", endYear: "2024" },
+    ],
+    education: [{ school: "Lakeview University", schoolAliases: "LSU Lakeview University", degreeOptions: "Bachelor of Engineering | BEng\nBachelor's Degree", field: "Computer Engineering", endYear: "2027" }],
+    expectedGraduation: "05/2027",
+    answers: { workAuth: "Yes", sponsorship: "No", over18: "Yes", previousEmployers: "Examplecorp" },
+    eeo: { gender: "Male" },
+    api: { key: "test-key", model: "stub" },
+  },
+  settings: { useAI: true, learn: true, threshold: 0.75 },
+  learned: [],
+};
+let onMsg = null;
+// Location settings have no default in Options: the New York values these tests were written with (settings a fixture
+// sets itself are kept; a blank search took the old default search, and the default list when the list was blank too).
+{ const P = STORE.profile, AL = (P.applicationLocation ||= {}), A = (P.answers ||= {}), blank = !String(AL.search || "").trim();
+  if (blank) AL.search = "New York";
+  if (blank && !String(AL.matches || "").trim()) AL.matches = "New York City, New York, United States | New York, New York, United States | New York, NY, United States | New York, NY | New York City | New York, NY, USA | New York, USA";
+  if (!String(A.officeMetro || "").trim()) A.officeMetro = "New York City | NYC | New York, NY | New York, New York | Manhattan | Brooklyn | Queens | Bronx | Staten Island | Long Island | Jersey City | Hoboken | Newark | Westchester | Stamford"; }
+window.chrome = {
+  storage: {
+    local: {
+      get: async (keys) => {
+        const ks = typeof keys === "string" ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys || {});
+        const out = {};
+        for (const k of ks) if (STORE[k] !== undefined) out[k] = JSON.parse(JSON.stringify(STORE[k]));
+        return out;
+      },
+      set: async (o) => Object.assign(STORE, o),
+    },
+    onChanged: { addListener: () => {} },
+  },
+  runtime: {
+    id: "test-extension",
+    onMessage: { addListener: (fn) => (onMsg = fn) },
+    sendMessage: async (msg) => {
+      if (msg.type === "DRAFT") {
+        window.__draft = msg;
+        return { model: "stub-draft-model", included: { linkedinChars: 0, resumeChars: 0, notesChars: 0, descriptionChars: 0 }, answers: msg.questions.map((q) => ({ id: q.id, answer: "A draft answer from my real background." })) };
+      }
+      if (msg.type === "ASK_AI") {
+        window.__aiPayload = msg.questions;
+        return { model: "stub-model", answers: msg.questions.map((q) => ({ id: q.id, answer: "Test Applicant", confidence: 0.99 })) };
+      }
+      return {};
+    },
+  },
+};
+window.__runFill = () => new Promise((res) => onMsg({ type: "FILL" }, {}, res));
+</script>
+</head>
+<body>
+<!-- iCIMS-like candidate profile step (fake data; UNVERIFIED structure): the content of icims_content_iframe.
+     Labels in table cells, values prefilled by the resume parse, a hidden native select behind a
+     select2-like widget, repeated experience blocks (one matching, one not), an education block, questions,
+     EEO, an e-signature, and Previous / Save / Next. -->
+<div class="iCIMS_MainWrapper">
+<form id="profileForm" onsubmit="event.preventDefault()">
+  <h2>Contact Information</h2>
+  <table class="contact">
+    <tr><td>First Name *</td><td><input name="PersonProfileFields.FirstName" value="Test"></td></tr>
+    <tr><td>Last Name *</td><td><input name="PersonProfileFields.LastName" value="APPLICANT"></td></tr>
+    <tr><td>Email *</td><td><input name="PersonProfileFields.Email" value="TEST@EXAMPLE.COM"></td></tr>
+    <tr><td>Phone *</td><td><input name="PersonProfileFields.Phone" value="(646) 555-0100"></td></tr>
+    <tr><td>Country</td><td><select name="PersonProfileFields.Country" style="display:none" id="country"><option value="">-- Make a Selection --</option><option value="CA">Canada</option><option value="US">United States of America</option></select><span class="select2-container" id="s2-country">-- Make a Selection --</span></td></tr>
+  </table>
+
+  <h2>Work Experience</h2>
+  <fieldset class="exp"><legend>Work Experience 1</legend>
+    <label>Employer <input name="Exp1.Employer" value="Examplecorp Inc."></label>
+    <label>Title <input name="Exp1.Title" value="Intern"></label>
+    <label>Start Date <input name="Exp1.Start" value="06/2026"></label>
+    <label>End Date <input name="Exp1.End" value="08/2026"></label></fieldset>
+  <fieldset class="exp"><legend>Work Experience 2</legend>
+    <label>Employer <input name="Exp2.Employer" value="Trader Joe's"></label>
+    <label>Title <input name="Exp2.Title" value="Crew Member"></label>
+    <label>Start Date <input name="Exp2.Start" value="01/2023"></label>
+    <label>End Date <input name="Exp2.End" value="05/2023"></label></fieldset>
+  <button type="button" class="addExp">Add Another Work Experience</button>
+
+  <h2>Education</h2>
+  <fieldset class="edu"><legend>Education 1</legend>
+    <label>School <input name="Edu1.School" value="Lakeview University"></label>
+    <label>Degree <select name="Edu1.Degree"><option value="">-- Make a Selection --</option><option>Bachelor of Science</option><option>Bachelor of Engineering</option></select></label>
+    <label>Major <input name="Edu1.Major" value=""></label></fieldset>
+
+  <h2>Questions</h2>
+  <fieldset><legend>Are you legally authorized to work in the United States? *</legend>
+    <label><input type="radio" name="Q1" value="Yes"> Yes</label> <label><input type="radio" name="Q1" value="No"> No</label></fieldset>
+  <table class="questions">
+    <tr><td>Will you now or in the future require sponsorship for employment visa status? *</td><td><select name="Q2"><option value="">-- Make a Selection --</option><option>Yes</option><option>No</option></select></td></tr>
+    <tr><td>When can you start? *</td><td><input name="Q3"></td></tr>
+    <tr><td>Why are you interested in this role? *</td><td><textarea name="Q4"></textarea></td></tr>
+    <tr><td>Gender</td><td><select name="EEO.Gender"><option value="">-- Make a Selection --</option><option>Female</option><option>Male</option><option>I do not wish to self-identify</option></select></td></tr>
+    <tr><td>Electronic Signature: type your full name to certify the information above is accurate *</td><td><input name="ESig"></td></tr>
+  </table>
+  <button type="button" id="prev">Previous</button>
+  <button type="button" id="save">Save</button>
+  <button type="submit" id="next">Next</button>
+</form>
+</div>
+<pre id="out"></pre>
+<script>
+// select2-like widget: mirrors the hidden select on change.
+const sel = document.getElementById("country");
+sel.addEventListener("change", () => (document.getElementById("s2-country").textContent = sel.selectedOptions[0]?.text || ""));
+</script>
+<!--SCRIPTS-->
+<script>
+setTimeout(async () => {
+  let stats;
+  try { stats = await window.__runFill(); } catch (e) { window.__errors.push("run: " + e.stack); }
+  const val = (el) => (el.tagName === "SELECT" ? (el.selectedIndex > 0 ? el.selectedOptions[0].text : "") : el.value);
+  const fields = [...document.querySelectorAll("form input:not([type=radio]), form select, form textarea, fieldset:has(input[type=radio])")].map((el) => {
+    const radio = el.tagName === "FIELDSET";
+    const name = radio ? el.querySelector("legend").textContent.replace("*", "").trim() : el.name;
+    const v = radio ? (el.querySelector("input:checked")?.value || "") : val(el);
+    const box = radio ? el : el.closest("tr, label, fieldset");
+    const mark = (radio ? el.dataset.wdaf : el.closest("[data-wdaf]")?.dataset.wdaf) || "-";
+    return name.slice(0, 50) + " = " + JSON.stringify(v) + " mark=" + mark;
+  });
+  const blocks = [...document.querySelectorAll("fieldset.exp, fieldset.edu")].map((f) => "BLOCK " + f.querySelector("legend").textContent + " mark=" + (f.dataset.wdaf || "-"));
+  document.getElementById("out").textContent = "@@BEGIN\n" + [
+    "STATS " + JSON.stringify(stats), "TOAST " + JSON.stringify((document.getElementById("aaf-done-toast")?.shadowRoot?.querySelector(".box")?.innerText || "").replace(/\n/g, " | ")),
+    "WIDGET " + JSON.stringify(document.getElementById("s2-country").textContent),
+    "GUARD " + JSON.stringify(["prev", "save", "next"].map((id) => [id, AAF.click(document.getElementById(id))])),
+    "AI " + JSON.stringify((window.__aiPayload || []).map((q) => q.question)),
+    "DRAFT " + JSON.stringify(window.__draft ? window.__draft.questions.map((q) => q.question) : null),
+    ...window.__errors.map((e) => "ERR " + e),
+    ...window.__logs.map((l) => "LOG " + l),
+    ...blocks,
+    ...fields.map((f) => "FIELD " + f),
+  ].join("\n") + "\n@@END";
+}, 500);
+</script>
+</body>
+</html>

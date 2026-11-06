@@ -1,0 +1,155 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Careers</title>
+<style>
+  body { font: 14px sans-serif; }
+  [role=listbox] { position: absolute; background: #fff; border: 1px solid #999; width: 320px; max-height: 200px; overflow: auto; z-index: 5; }
+  [role=option] { padding: 4px; min-height: 20px; }
+  .ff { margin: 10px 0; }
+  section { border: 1px solid #ccc; margin: 12px 0; padding: 8px; }
+</style>
+<script>
+window.__logs = [];
+window.__errors = [];
+const origLog = console.log;
+console.log = (...a) => {
+  if (a[0] === "[autofill]") window.__logs.push(a.slice(1).map((x) => (typeof x === "string" ? x : x && x.nodeType ? "<" + x.tagName + ">" : JSON.stringify(x))).join(" "));
+  origLog(...a);
+};
+window.addEventListener("error", (e) => window.__errors.push("error: " + e.message + " @ " + (e.filename || "").split("/").pop() + ":" + e.lineno));
+window.addEventListener("unhandledrejection", (e) => window.__errors.push("rejection: " + (e.reason && e.reason.stack || e.reason)));
+const STORE = {
+  profile: {
+    firstName: "Test", lastName: "Applicant",
+    linkedin: "https://www.linkedin.com/in/test/", github: "https://github.com/test", website: "https://test.dev",
+    skills: "Python, Microsoft Visual Studio C++, C++ Programming Language | C++, Example Cloud AI, Git",
+    experiences: [], education: [], languages: [],
+    answers: {}, eeo: {}, api: { key: "" },
+  },
+  settings: { useAI: true, learn: true, threshold: 0.75 },
+  learned: [],
+};
+let onMsg = null;
+// Location settings have no default in Options: the New York values these tests were written with (settings a fixture
+// sets itself are kept; a blank search took the old default search, and the default list when the list was blank too).
+{ const P = STORE.profile, AL = (P.applicationLocation ||= {}), A = (P.answers ||= {}), blank = !String(AL.search || "").trim();
+  if (blank) AL.search = "New York";
+  if (blank && !String(AL.matches || "").trim()) AL.matches = "New York City, New York, United States | New York, New York, United States | New York, NY, United States | New York, NY | New York City | New York, NY, USA | New York, USA";
+  if (!String(A.officeMetro || "").trim()) A.officeMetro = "New York City | NYC | New York, NY | New York, New York | Manhattan | Brooklyn | Queens | Bronx | Staten Island | Long Island | Jersey City | Hoboken | Newark | Westchester | Stamford"; }
+window.chrome = {
+  storage: {
+    local: {
+      get: async (keys) => {
+        const ks = typeof keys === "string" ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys || {});
+        const out = {};
+        for (const k of ks) if (STORE[k] !== undefined) out[k] = JSON.parse(JSON.stringify(STORE[k]));
+        return out;
+      },
+      set: async (o) => Object.assign(STORE, o),
+    },
+    onChanged: { addListener: () => {} },
+  },
+  runtime: { id: "test-extension", onMessage: { addListener: (fn) => (onMsg = fn) }, sendMessage: async () => ({ model: "stub", answers: [] }) },
+};
+window.__runFill = () => new Promise((res) => onMsg({ type: "FILL" }, {}, res));
+// A LinkedIn field was seen on an earlier page (My Information): the section here still asks for LinkedIn.
+try { sessionStorage.setItem("wdaf-linkedin-field:" + location.hostname, "1"); } catch {}
+</script>
+</head>
+<body>
+<h2>My Experience</h2>
+<!-- Fortuna renamed the Websites section; its first URL panel is already rendered and required. -->
+<section id="sec-web"><h3>LinkedIn Profile</h3><p>Add any relevant websites. Please share your LinkedIn/ professional portfolio.</p>
+  <div class="panels"><div class="panel"><h4>LinkedIn Profile 1</h4>
+    <div class="ff" data-automation-id="formField-url"><label>URL<abbr>*</abbr></label><input type="text"></div></div></div>
+  <button type="button" data-tpl="web">Add Another</button></section>
+
+<div class="ff" data-automation-id="formField-skills"><label>Type to Add Skills</label>
+  <div data-automation-id="multiselectInputContainer"><input type="text" data-items="Python|Microsoft Visual Studio C|Microsoft Visual Studio C++|Microsoft Visual Studio Code|C Programming Language|C++ Programming Language|Claude|Claude Code|Anthropic API|Git|GitHub"></div></div>
+
+<pre id="out"></pre>
+
+<template id="web"><div class="panel">
+  <div class="ff" data-automation-id="formField-url"><label>URL<abbr>*</abbr></label><input type="text"></div>
+</div></template>
+
+<script>
+// ---- Workday-like skills search (test only). Like Fortuna's: "+" in the query acts as a space, and
+// results are items holding every query word as a whole word ("c" is not "c++"); with none, items
+// holding any query word.
+function wireSearch(root) {
+  for (const inp of root.querySelectorAll("[data-automation-id=multiselectInputContainer] input")) {
+    if (inp.dataset.wired) continue;
+    inp.dataset.wired = "1";
+    const field = inp.closest("[data-automation-id^=formField]");
+    inp.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") { document.querySelectorAll("[data-automation-id=activeListContainer]").forEach((x) => x.remove()); return; }
+      if (e.key !== "Enter") return;
+      document.querySelectorAll("[data-automation-id=activeListContainer]").forEach((x) => x.remove());
+      const words = inp.value.toLowerCase().replace(/\+/g, " ").split(/\s+/).filter(Boolean);
+      const all = inp.dataset.items.split("|");
+      const has = (t, w) => t.toLowerCase().split(/\s+/).includes(w);
+      let items = words.length ? all.filter((t) => words.every((w) => has(t, w))) : [];
+      if (!items.length && words.length) items = all.filter((t) => words.some((w) => has(t, w)));
+      const lb = document.createElement("div");
+      lb.setAttribute("data-automation-id", "activeListContainer"); lb.setAttribute("role", "listbox");
+      for (const t of items.length ? items : ["No Items."]) {
+        const row = document.createElement("div"); row.setAttribute("role", "option"); row.setAttribute("data-automation-id", "menuItem");
+        const leaf = document.createElement("div"); leaf.setAttribute("data-automation-id", "promptLeafNode");
+        if (items.length) {
+          const cb = document.createElement("input"); cb.type = "checkbox"; cb.setAttribute("data-automation-id", "checkboxPanel");
+          cb.addEventListener("click", () => {
+            if (!cb.checked) return;
+            const chip = document.createElement("div"); chip.setAttribute("data-automation-id", "selectedItem"); chip.textContent = t;
+            field.appendChild(chip);
+          });
+          leaf.appendChild(cb);
+        }
+        const po = document.createElement("div"); po.setAttribute("data-automation-id", "promptOption"); po.textContent = t;
+        if (items.length) po.addEventListener("click", () => { const chip = document.createElement("div"); chip.setAttribute("data-automation-id", "selectedItem"); chip.textContent = t; field.appendChild(chip); });
+        leaf.appendChild(po); row.appendChild(leaf); lb.appendChild(row);
+      }
+      field.appendChild(lb);
+    });
+  }
+}
+for (const btn of document.querySelectorAll("button[data-tpl]")) {
+  btn.addEventListener("click", () => {
+    const panel = document.getElementById(btn.dataset.tpl).content.firstElementChild.cloneNode(true);
+    btn.closest("section").querySelector(".panels").appendChild(panel);
+  });
+}
+wireSearch(document);
+</script>
+<!--SCRIPTS-->
+<script>
+setTimeout(async () => {
+  let stats;
+  try { stats = await window.__runFill(); } catch (e) { window.__errors.push("run: " + e.stack); }
+  const fields = [...document.querySelectorAll("[data-automation-id^=formField]")].map((c) => {
+    const ctrl = c.querySelector("input:not([type=radio]):not([type=file]),textarea,button");
+    const chips = [...c.querySelectorAll("[data-automation-id=selectedItem]")].map((x) => x.textContent);
+    const val = chips.length ? "chips:" + chips.join(",") : ctrl ? ctrl.value : "";
+    return c.getAttribute("data-automation-id") + " = " + JSON.stringify(val) + " mark=" + (c.dataset.wdaf || "-");
+  });
+  // After an extension reload the old content script is orphaned: chrome.runtime.id is gone and
+  // chrome.storage throws. learn() must return quietly.
+  let dead;
+  if (typeof AAF !== "undefined" && AAF.alive) {
+    chrome.runtime.id = undefined;
+    chrome.storage.local.get = () => { throw new Error("Extension context invalidated."); };
+    dead = await AAF.learn({ nl: "a long enough question label", label: "A long enough question label", type: "text", c: document.body }, "x").then(() => "quiet", (e) => "threw: " + e.message);
+  } else dead = "n/a (no AAF.alive in this tree)";
+  document.getElementById("out").textContent = "@@BEGIN\n" + [
+    "STATS " + JSON.stringify(stats), "TOAST " + JSON.stringify((document.getElementById("aaf-done-toast")?.shadowRoot?.querySelector(".box")?.innerText || "").replace(/\n/g, " | ")),
+    "DEAD-CONTEXT learn: " + dead,
+    ...window.__errors.map((e) => "ERR " + e),
+    ...window.__logs.map((l) => "LOG " + l),
+    ...fields.map((f) => "FIELD " + f),
+  ].join("\n") + "\n@@END";
+}, 500);
+</script>
+</body>
+</html>

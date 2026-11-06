@@ -1,0 +1,157 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Bank of Fictionland Careers</title>
+<style>
+  body { font: 14px sans-serif; }
+  [role=listbox] { position: absolute; background: #fff; border: 1px solid #999; width: 300px; max-height: 200px; overflow: auto; }
+  [role=option] { padding: 4px; height: 20px; }
+  .ff { margin: 12px 0; }
+</style>
+<script>
+// ---- stub chrome API (test only)
+window.__logs = [];
+window.__errors = [];
+const origLog = console.log;
+console.log = (...a) => {
+  if (a[0] === "[autofill]") window.__logs.push(a.slice(1).map((x) => (typeof x === "string" ? x : x && x.nodeType ? "<" + x.tagName + ">" : JSON.stringify(x))).join(" "));
+  origLog(...a);
+};
+window.addEventListener("error", (e) => window.__errors.push("error: " + e.message + " @ " + (e.filename || "").split("/").pop() + ":" + e.lineno));
+window.addEventListener("unhandledrejection", (e) => window.__errors.push("rejection: " + (e.reason && e.reason.stack || e.reason)));
+const STORE = {
+  profile: {
+    firstName: "Test", lastName: "Applicant", preferredName: "", email: "test@example.com",
+    state: "New York", country: "United States of America", linkedin: "https://www.linkedin.com/in/test/",
+    expectedGraduation: "05/21/2027", skills: "",
+    experiences: [{ company: "Northwind", title: "AI Engineer Intern" }],
+    answers: { workAuth: "Yes", sponsorship: "No", previousEmployers: "Northwind" },
+    eeo: {}, api: { key: "test-key", model: "stub" },
+  },
+  settings: { useAI: true, learn: true, threshold: 0.75 },
+  learned: [],
+};
+let onMsg = null;
+// Location settings have no default in Options: the New York values these tests were written with (settings a fixture
+// sets itself are kept; a blank search took the old default search, and the default list when the list was blank too).
+{ const P = STORE.profile, AL = (P.applicationLocation ||= {}), A = (P.answers ||= {}), blank = !String(AL.search || "").trim();
+  if (blank) AL.search = "New York";
+  if (blank && !String(AL.matches || "").trim()) AL.matches = "New York City, New York, United States | New York, New York, United States | New York, NY, United States | New York, NY | New York City | New York, NY, USA | New York, USA";
+  if (!String(A.officeMetro || "").trim()) A.officeMetro = "New York City | NYC | New York, NY | New York, New York | Manhattan | Brooklyn | Queens | Bronx | Staten Island | Long Island | Jersey City | Hoboken | Newark | Westchester | Stamford"; }
+window.chrome = {
+  storage: {
+    local: {
+      get: async (keys) => {
+        const ks = typeof keys === "string" ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys || {});
+        const out = {};
+        for (const k of ks) if (STORE[k] !== undefined) out[k] = JSON.parse(JSON.stringify(STORE[k]));
+        return out;
+      },
+      set: async (o) => Object.assign(STORE, o),
+    },
+    onChanged: { addListener: () => {} },
+  },
+  runtime: { id: "test-extension",
+    onMessage: { addListener: (fn) => (onMsg = fn) },
+    sendMessage: async (msg) => {
+      if (msg.type === "DRAFT") {
+        window.__draft = msg;
+        return { model: "stub-draft-model", included: { linkedinChars: 0, resumeChars: 0, notesChars: 0, descriptionChars: (msg.job.description || "").length }, answers: msg.questions.map((q) => ({ id: q.id, answer: "I like building data tools." })) };
+      }
+      if (msg.type === "ASK_AI") {
+        window.__aiPayload = msg.questions;
+        return { model: "stub-model", answers: msg.questions.map((q) => ({ id: q.id, answer: q.type === "textarea" ? "I like building data tools." : null, confidence: 0.9 })) };
+      }
+      return {};
+    },
+  },
+};
+window.__runFill = () =>
+  new Promise((res) => onMsg({ type: "FILL" }, {}, res));
+</script>
+</head>
+<body>
+<h2>My Information</h2>
+
+<div class="ff" data-automation-id="formField-legalName--firstName"><label for="fn">First Name<abbr>*</abbr></label><input id="fn" type="text"></div>
+<div class="ff" data-automation-id="formField-legalName--lastName"><label for="ln">Last Name<abbr>*</abbr></label><input id="ln" type="text"></div>
+<div class="ff" data-automation-id="formField-email"><label for="em">Email Address<abbr>*</abbr></label><input id="em" type="text"></div>
+
+<div class="ff" data-automation-id="formField-countryRegion"><label id="stl">State<abbr>*</abbr></label>
+  <button aria-haspopup="listbox" aria-expanded="false" aria-labelledby="stl" data-opts="Select One|Alabama|Alaska|Arizona|New Jersey|New Mexico|New York|Texas">Select One</button></div>
+
+<div class="ff" data-automation-id="formField-candidateIsPreviousWorker"><fieldset><legend><label id="rl4"><span>Have you ever worked as an employee or contractor for Bank of Fictionland Corporation or any of its related companies, affiliates or subsidiaries, including any predecessor organizations (including but not limited to NationsTrust, Fleet, MBNA, LaSalle, UX Trust, Countrywide and Merrow Lynde)?<abbr>*</abbr></span></label></legend>
+  <div aria-required="true"><div><input id="r1" name="pw" type="radio" aria-checked="false" value="true"><label for="r1">Yes</label></div>
+  <div><input id="r2" name="pw" type="radio" aria-checked="false" value="false"><label for="r2">No</label></div></div></fieldset></div>
+
+<div class="ff" data-automation-id="formField-pwcQuestion"><label id="pwl">Do you currently or have you worked at Pinecrest Coopers LLP (PcC), the bank's independent auditor, since July 2002?<abbr>*</abbr></label>
+  <button aria-haspopup="listbox" aria-expanded="false" aria-labelledby="pwl" data-opts="Select One|Yes|No">Select One</button></div>
+
+<div class="ff" data-automation-id="formField-govOfficial"><fieldset><legend><label>Are you currently or have you previously been a non-US government official?<abbr>*</abbr></label></legend>
+  <div><input id="g1" name="gov" type="radio" aria-checked="false" value="y"><label for="g1">Yes</label></div>
+  <div><input id="g2" name="gov" type="radio" aria-checked="false" value="n"><label for="g2">No</label></div></fieldset></div>
+
+<div class="ff" data-automation-id="formField-gradDate"><label>Expected graduation date</label>
+  <input data-automation-id="dateSectionMonth-input"> <input data-automation-id="dateSectionDay-input"> <input data-automation-id="dateSectionYear-input"></div>
+
+<div class="ff" data-automation-id="formField-terms"><label for="tc">I agree to the terms and conditions</label><input id="tc" type="checkbox"></div>
+
+<div class="ff" data-automation-id="formField-why"><label for="why">Why are you interested in this role at our company?<abbr>*</abbr></label><textarea id="why"></textarea></div>
+
+<div class="ff" data-automation-id="formField-password"><label for="pwd">Password<abbr>*</abbr></label><input id="pwd" type="password"></div>
+
+<div class="ff" data-automation-id="formField-linkedin"><label for="li">LinkedIn Profile</label><input id="li" type="text"></div>
+
+<pre id="out"></pre>
+
+<script>
+// ---- minimal Workday-like listbox dropdowns and aria-checked radios (test only)
+let n = 0;
+for (const btn of document.querySelectorAll("button[aria-haspopup=listbox]")) {
+  const id = "lb" + n++;
+  btn.setAttribute("aria-controls", id);
+  btn.addEventListener("click", () => {
+    let lb = document.getElementById(id);
+    if (btn.getAttribute("aria-expanded") === "true") { lb && lb.remove(); btn.setAttribute("aria-expanded", "false"); return; }
+    lb = document.createElement("div");
+    lb.id = id; lb.setAttribute("role", "listbox");
+    for (const t of btn.dataset.opts.split("|")) {
+      const o = document.createElement("div"); o.setAttribute("role", "option"); o.textContent = t;
+      o.addEventListener("click", () => { btn.textContent = t; lb.remove(); btn.setAttribute("aria-expanded", "false"); });
+      lb.appendChild(o);
+    }
+    btn.after(lb);
+    btn.setAttribute("aria-expanded", "true");
+  });
+}
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  for (const b of document.querySelectorAll("button[aria-expanded=true]")) { document.getElementById(b.getAttribute("aria-controls"))?.remove(); b.setAttribute("aria-expanded", "false"); }
+});
+for (const r of document.querySelectorAll("input[type=radio]"))
+  r.addEventListener("change", () => document.querySelectorAll(`input[name=${r.name}]`).forEach((x) => x.setAttribute("aria-checked", String(x.checked))));
+</script>
+<!--SCRIPTS-->
+<script>
+setTimeout(async () => {
+  let stats;
+  try { stats = await window.__runFill(); } catch (e) { window.__errors.push("run: " + e.stack); }
+  const fields = [...document.querySelectorAll("[data-automation-id^=formField]")].map((c) => {
+    const ctrl = c.querySelector("input:not([type=radio]),textarea,button");
+    const radio = c.querySelector("input[type=radio]:checked");
+    const val = radio ? "radio:" + radio.value : ctrl ? (ctrl.type === "checkbox" ? "checked:" + ctrl.checked : ctrl.tagName === "BUTTON" ? ctrl.textContent : ctrl.value) : "";
+    const dates = [...c.querySelectorAll("[data-automation-id^=dateSection]")].map((i) => i.value).join("/");
+    return c.getAttribute("data-automation-id") + " = " + JSON.stringify(dates || val) + " mark=" + (c.dataset.wdaf || "-");
+  });
+  document.getElementById("out").textContent = "@@BEGIN\n" + [
+    "STATS " + JSON.stringify(stats), "TOAST " + JSON.stringify((document.getElementById("aaf-done-toast")?.shadowRoot?.querySelector(".box")?.innerText || "").replace(/\n/g, " | ")),
+    "AI " + JSON.stringify((window.__aiPayload || []).map((q) => [q.question, q.type, q.options])),
+    ...window.__errors.map((e) => "ERR " + e),
+    ...window.__logs.map((l) => "LOG " + l),
+    ...fields.map((f) => "FIELD " + f),
+  ].join("\n") + "\n@@END";
+}, 500);
+</script>
+</body>
+</html>

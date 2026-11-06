@@ -1,0 +1,127 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Software Engineer @ Remedy AI</title>
+<style>
+  body { font: 14px sans-serif; }
+  .ashby-application-form-field-entry { margin: 10px 0; position: relative; }
+  .ashby-application-form-input-yesno { display: flex; gap: 4px; position: relative; }
+  .ashby-application-form-input-yesno-option[aria-pressed="true"] { background: #333; color: #fff; }
+  /* Real Ashby: the mirror checkbox is NOT hidden (it has client rects). */
+  ._input_1svni_78 { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .combo-list { position: absolute; background: #fff; border: 1px solid #999; width: 320px; z-index: 5; }
+  .combo-list [role=option] { padding: 4px; }
+</style>
+<script>
+// ---- stub chrome API (test only)
+window.__logs = [];
+window.__errors = [];
+const origLog = console.log;
+console.log = (...a) => {
+  if (a[0] === "[autofill]") window.__logs.push(a.slice(1).map((x) => (typeof x === "string" ? x : x && x.nodeType ? "<" + x.tagName + ">" : JSON.stringify(x))).join(" "));
+  origLog(...a);
+};
+window.addEventListener("error", (e) => window.__errors.push("error: " + e.message + " @ " + (e.filename || "").split("/").pop() + ":" + e.lineno));
+window.addEventListener("unhandledrejection", (e) => window.__errors.push("rejection: " + (e.reason && e.reason.stack || e.reason)));
+const STORE = {
+  profile: {
+    firstName: "Test", lastName: "Applicant", preferredName: "Tess", email: "test@example.com", phone: "6465550100",
+    phoneCountry: "United States of America", country: "United States of America", city: "Springfield", state: "New York",
+    address1: "1 Test Street", zip: "10001",
+    // applicationLocation not set here: the New York values set below (before the chrome stub) apply.
+    linkedin: "https://www.linkedin.com/in/test/", github: "https://github.com/test", website: "https://test.dev",
+    source: "LinkedIn", expectedGraduation: "05/2027",
+    experiences: [{ company: "Examplecorp", title: "Engineering Intern" }],
+    education: [{ school: "Lakeview University", schoolAliases: "LSU Lakeview University | Lakeland State University at Lakeview", schoolSearch: "Lakeview",
+      degreeOptions: "Bachelor of Engineering | BEng | B.E. | BE\nBachelor's Degree | Bachelor's | Bachelors | Bachelor Degree\nBachelor of Science | BS | B.S. | BSc\nUndergraduate",
+      field: "Computer Engineering", gpa: "", startYear: "2023", endYear: "2027" }],
+    answers: { workAuth: "Yes", sponsorship: "No", over18: "Yes", previousEmployers: "Examplecorp", travel: "Maximum", restrictions: "None" },
+    eeo: { gender: "Female", hispanic: "No", race: "Native Hawaiian or Other Pacific Islander", veteran: "Decline", disability: "Decline" },
+    api: { key: "test-key", model: "stub" },
+  },
+  settings: { useAI: true, learn: true, threshold: 0.75 },
+  learned: [],
+};
+let onMsg = null;
+// Location settings have no default in Options: the New York values these tests were written with (settings a fixture
+// sets itself are kept; a blank search took the old default search, and the default list when the list was blank too).
+{ const P = STORE.profile, AL = (P.applicationLocation ||= {}), A = (P.answers ||= {}), blank = !String(AL.search || "").trim();
+  if (blank) AL.search = "New York";
+  if (blank && !String(AL.matches || "").trim()) AL.matches = "New York City, New York, United States | New York, New York, United States | New York, NY, United States | New York, NY | New York City | New York, NY, USA | New York, USA";
+  if (!String(A.officeMetro || "").trim()) A.officeMetro = "New York City | NYC | New York, NY | New York, New York | Manhattan | Brooklyn | Queens | Bronx | Staten Island | Long Island | Jersey City | Hoboken | Newark | Westchester | Stamford"; }
+window.chrome = {
+  storage: {
+    local: {
+      get: async (keys) => {
+        const ks = typeof keys === "string" ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys || {});
+        const out = {};
+        for (const k of ks) if (STORE[k] !== undefined) out[k] = JSON.parse(JSON.stringify(STORE[k]));
+        return out;
+      },
+      set: async (o) => Object.assign(STORE, o),
+    },
+    onChanged: { addListener: () => {} },
+  },
+  runtime: { id: "test-extension",
+    onMessage: { addListener: (fn) => (onMsg = fn) },
+    sendMessage: async (msg) => {
+      if (msg.type === "DRAFT") {
+        window.__draft = msg;
+        return { model: "stub-draft-model", included: { linkedinChars: 0, resumeChars: 0, notesChars: 0, descriptionChars: (msg.job.description || "").length }, answers: msg.questions.map((q) => ({ id: q.id, answer: "I built a small tool that fills forms from a saved profile." + (q.asksForLink ? "\nhttps://github.com/test" : ""), project: "Form tool" })) };
+      }
+      if (msg.type === "CLASSIFY_ASK") return { model: "stub-haiku", categories: msg.questions.map((q) => ({ id: q.id, category: "relocation / office" })) };
+      if (msg.type === "ASK_AI") {
+        window.__aiPayload = msg.questions;
+        return { model: "stub-model", answers: msg.questions.map((q) => ({ id: q.id, answer: q.type === "textarea" ? "I enjoy building tools." : null, confidence: 0.9 })) };
+      }
+      return {};
+    },
+  },
+};
+window.__runFill = () => new Promise((res) => onMsg({ type: "FILL" }, {}, res));
+</script>
+</head>
+<body>
+<h1>Software Engineer</h1>
+<!-- Remedy AI-like Ashby page (fake data; the real markup wasn't pasted): the question is the label; the field's description is
+     an in-office note (label + description is over 260 characters, which the attendance branch skipped silently). Job location from the app data: "New York, NY". -->
+<script>window.__appData = {"posting":{"locationName":"New York, NY","secondaryLocations":[],"descriptionPlainText":"Remedy AI builds AI agents for production engineering."}};</script>
+<div class="ashby-application-form-container">
+<div class="ashby-application-form-section-container" id="sec">
+  <div class="ashby-application-form-field-entry" data-field-path="o1"><label class="ashby-application-form-question-title _required_x" for="o1">This role is based out of our San Francisco or New York office and is required to be onsite. Will you be able to accommodate this?</label><div class="ashby-application-form-question-description"><p>Remedy AI is an in-person company. Our teams work onsite five days a week from our offices, because we have found that we build faster together. Please answer honestly.</p></div><div class="ashby-application-form-input-yesno"><button class="ashby-application-form-input-yesno-option" aria-pressed="false" data-option="yes">Yes</button><button class="ashby-application-form-input-yesno-option" aria-pressed="false" data-option="no">No</button><input type="checkbox" class="_input_1svni_78" tabindex="-1" name="o1"></div></div>
+  <div class="ashby-application-form-field-entry" data-field-path="o2"><label class="ashby-application-form-question-title _required_x" for="o2">Working together</label><div class="ashby-application-form-question-description"><p>We believe great products come from teams that sit together, debate ideas in person, and ship quickly. Our engineering, product and go-to-market teams share one floor, and we host weekly demos, lunches and planning sessions there. Are you able to work from our New York office four days a week? We are happy to talk through any questions about this during your first call.</p></div><div class="ashby-application-form-input-yesno"><button class="ashby-application-form-input-yesno-option" aria-pressed="false" data-option="yes">Yes</button><button class="ashby-application-form-input-yesno-option" aria-pressed="false" data-option="no">No</button><input type="checkbox" class="_input_1svni_78" tabindex="-1" name="o2"></div></div>
+</div>
+</div>
+<button id="submit" type="submit">Submit Application</button>
+<pre id="out"></pre>
+<script>
+document.querySelectorAll(".ashby-application-form-input-yesno").forEach((g) =>
+  g.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
+    g.querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+    g.querySelector("input[type=checkbox]").checked = b.dataset.option === "yes";
+  })));
+</script>
+<!--SCRIPTS-->
+<script>
+setTimeout(async () => {
+  let stats;
+  try { stats = await window.__runFill(); } catch (e) { window.__errors.push("run: " + e.stack); }
+  const fields = [...document.querySelectorAll("[data-field-path]")].map((e) => {
+    const lab = e.querySelector("label").textContent.trim();
+    const g = e.querySelector(".ashby-application-form-input-yesno");
+    const v = g ? ([...g.querySelectorAll("button[aria-pressed=true]")].map((b) => b.textContent).join(",") || "-") + ", mirror " + g.querySelector("input").checked : JSON.stringify(e.querySelector("input").value);
+    return lab.slice(0, 60) + " = " + v + " mark=" + (e.closest("[data-wdaf]")?.dataset.wdaf || e.querySelector("[data-wdaf]")?.dataset.wdaf || "-");
+  });
+  document.getElementById("out").textContent = "@@BEGIN\n" + [
+    "STATS " + JSON.stringify(stats), "TOAST " + JSON.stringify((document.getElementById("aaf-done-toast")?.shadowRoot?.querySelector(".box")?.innerText || "").replace(/\n/g, " | ")),
+    "AI " + JSON.stringify((window.__aiPayload || []).map((q) => q.question)),
+    "DRAFT " + JSON.stringify((window.__draft?.questions || []).map((q) => q.question)),
+    ...window.__errors.map((e) => "ERR " + e),
+    ...window.__logs.map((l) => "LOG " + l),
+    ...fields.map((f) => "FIELD " + f),
+  ].join("\n") + "\n@@END";
+}, 500);
+</script>
+</body>
+</html>

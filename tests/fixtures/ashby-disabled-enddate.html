@@ -1,0 +1,223 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Software Engineer Intern @ Old Harbor</title>
+<style>
+  body { font: 14px sans-serif; }
+  .ashby-application-form-field-entry { margin: 10px 0; position: relative; }
+  .ashby-application-form-input-yesno { display: flex; gap: 4px; position: relative; }
+  .ashby-application-form-input-yesno-option[aria-pressed="true"] { background: #333; color: #fff; }
+  /* Real Ashby: the mirror checkbox is NOT hidden (it has client rects). */
+  ._input_1svni_78 { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .combo-list { position: absolute; background: #fff; border: 1px solid #999; width: 320px; z-index: 5; }
+  .combo-list [role=option] { padding: 4px; }
+  .ashby-select[data-disabled="true"] { opacity: 0.5; }
+</style>
+<script>
+// ---- stub chrome API (test only)
+window.__logs = [];
+window.__errors = [];
+const origLog = console.log;
+console.log = (...a) => {
+  if (a[0] === "[autofill]") window.__logs.push(a.slice(1).map((x) => (typeof x === "string" ? x : x && x.nodeType ? "<" + x.tagName + ">" : JSON.stringify(x))).join(" "));
+  origLog(...a);
+};
+window.addEventListener("error", (e) => window.__errors.push("error: " + e.message + " @ " + (e.filename || "").split("/").pop() + ":" + e.lineno));
+window.addEventListener("unhandledrejection", (e) => window.__errors.push("rejection: " + (e.reason && e.reason.stack || e.reason)));
+const STORE = {
+  profile: {
+    firstName: "Test", lastName: "Applicant", preferredName: "Tess", email: "test@example.com", phone: "6465550100",
+    phoneCountry: "United States of America", country: "United States of America", city: "Springfield", state: "New York",
+    address1: "1 Test Street", zip: "10001",
+    linkedin: "https://www.linkedin.com/in/test/", github: "https://github.com/test", website: "https://test.dev",
+    source: "LinkedIn", expectedGraduation: "05/2027",
+    experiences: [{ company: "Examplecorp", title: "Engineering Intern" }],
+    education: [{ school: "Lakeview University", schoolAliases: "LSU Lakeview University", schoolSearch: "Lakeview",
+      degreeOptions: "Bachelor of Engineering | BEng\nBachelor's Degree | Bachelor's", field: "Computer Engineering", startMonth: "8", startYear: "2023", endYear: "2027" }],
+    answers: { workAuth: "Yes", sponsorship: "No", over18: "Yes", previousEmployers: "Examplecorp", travel: "Maximum", restrictions: "None" },
+    eeo: { gender: "Male", hispanic: "No", race: "Hispanic or Latino", veteran: "Decline", disability: "Decline" },
+    api: { key: "test-key", model: "stub" },
+  },
+  settings: { useAI: true, learn: true, threshold: 0.75 },
+  learned: [],
+};
+let onMsg = null;
+// Location settings have no default in Options: the New York values these tests were written with (settings a fixture
+// sets itself are kept; a blank search took the old default search, and the default list when the list was blank too).
+{ const P = STORE.profile, AL = (P.applicationLocation ||= {}), A = (P.answers ||= {}), blank = !String(AL.search || "").trim();
+  if (blank) AL.search = "New York";
+  if (blank && !String(AL.matches || "").trim()) AL.matches = "New York City, New York, United States | New York, New York, United States | New York, NY, United States | New York, NY | New York City | New York, NY, USA | New York, USA";
+  if (!String(A.officeMetro || "").trim()) A.officeMetro = "New York City | NYC | New York, NY | New York, New York | Manhattan | Brooklyn | Queens | Bronx | Staten Island | Long Island | Jersey City | Hoboken | Newark | Westchester | Stamford"; }
+window.chrome = {
+  storage: {
+    local: {
+      get: async (keys) => {
+        const ks = typeof keys === "string" ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys || {});
+        const out = {};
+        for (const k of ks) if (STORE[k] !== undefined) out[k] = JSON.parse(JSON.stringify(STORE[k]));
+        return out;
+      },
+      set: async (o) => Object.assign(STORE, o),
+    },
+    onChanged: { addListener: () => {} },
+  },
+  runtime: { id: "test-extension",
+    onMessage: { addListener: (fn) => (onMsg = fn) },
+    sendMessage: async (msg) => {
+      if (msg.type === "ASK_AI") {
+        window.__aiPayload = msg.questions;
+        return { model: "stub-model", answers: msg.questions.map((q) => ({ id: q.id, answer: null, confidence: 0.9 })) };
+      }
+      return {};
+    },
+  },
+};
+window.__runFill = () => new Promise((res) => onMsg({ type: "FILL" }, {}, res));
+</script>
+</head>
+<body>
+<!-- Old Harbor (oldmissioncapital.com) embeds the Ashby form in an iframe from jobs.ashbyhq.com; this page stands for
+     that frame's document (fake data; the real markup wasn't available). Two failures from the real page:
+     1. "Invalid value: Education History": checking "Still Student?" disables End Date (here: aria-disabled and the
+        wrapper's data-disabled="true", and the values are cleared, as on the real page the clicks still land), but the
+        fill set End Date first and the final sweep refilled the disabled month / year.
+     2. "Missing entry: Do you now or in the future require visa sponsorship ...?" showed "No" selected. The real cause
+        isn't known; this stand-in registers a Yes / No answer only through the hidden checkbox's own events (its
+        change event), while a button click sets aria-pressed and the checkbox's checked property without an event,
+        so the old code ends with both buttons looking answered and nothing registered.
+     The report's VALIDATE line is what submit would say. -->
+<h1>Software Engineer Intern</h1>
+<div class="_jobPostingForm_5yu8i_402 ashby-application-form-container  _container_f7cvd_28">
+<div class="_section_5yu8i_86 ashby-application-form-section-container">
+  <div class="_fieldEntry_1e3gg_28 ashby-application-form-field-entry" data-field-path="_systemfield_name"><label class="_heading_f7cvd_52 _required_f7cvd_91 _label_1e3gg_42 ashby-application-form-question-title" for="_systemfield_name">Name</label><div><input placeholder="Type here..." name="_systemfield_name" required="" id="_systemfield_name" type="text" class="ashby-application-form-input-text" value=""></div></div>
+  <div class="_fieldEntry_1e3gg_28 ashby-application-form-field-entry" data-field-path="_systemfield_email"><label class="_heading_f7cvd_52 _required_f7cvd_91 _label_1e3gg_42 ashby-application-form-question-title" for="_systemfield_email">Email</label><div><input placeholder="hello@example.com..." name="_systemfield_email" required="" id="_systemfield_email" type="email" class="ashby-application-form-input-text" value=""></div></div>
+  <div class="ashby-application-form-field-entry" data-field-path="edu-entry"><label class="ashby-application-form-question-title">Education History</label>
+    <div class="edu-entry">
+      <div class="ashby-application-form-field-entry" data-field-path="edu-school"><label class="ashby-application-form-question-title" for="edu-school">School</label><input id="edu-school" class="ashby-application-form-input-autocomplete" placeholder="Start typing..." aria-autocomplete="list" aria-expanded="false" aria-haspopup="listbox" role="combobox" value=""></div>
+      <div class="ashby-application-form-field-entry" data-field-path="edu-degree"><label class="ashby-application-form-question-title" for="edu-degree">Degree</label><input id="edu-degree" type="text" class="ashby-application-form-input-text"></div>
+      <div class="edu-dates"><div class="edu-date"><label class="ashby-application-form-question-title">Start Date</label><div class="date-pair"><div class="ashby-select" data-disabled="false"><div class="_placeholder_x1 select-placeholder">Month...</div><input role="combobox" aria-haspopup="listbox" aria-expanded="false" class="date-combo" name="edu-start-month" data-kind="month" value=""></div><div class="ashby-select" data-disabled="false"><div class="_placeholder_x1 select-placeholder">Year...</div><input role="combobox" aria-haspopup="listbox" aria-expanded="false" class="date-combo" name="edu-start-year" data-kind="year" value=""></div></div></div>
+      <div class="edu-date"><label class="ashby-application-form-question-title">End Date</label><div class="date-pair"><div class="ashby-select" data-disabled="false"><div class="_placeholder_x1 select-placeholder">Month...</div><input role="combobox" aria-haspopup="listbox" aria-expanded="false" class="date-combo" name="edu-end-month" data-kind="month" value=""></div><div class="ashby-select" data-disabled="false"><div class="_placeholder_x1 select-placeholder">Year...</div><input role="combobox" aria-haspopup="listbox" aria-expanded="false" class="date-combo" name="edu-end-year" data-kind="year" value=""></div></div></div></div>
+      <label class="edu-current"><input type="checkbox" name="edu-current"> Still Student?</label>
+    </div>
+  </div>
+  <div class="_fieldEntry_1e3gg_28 ashby-application-form-field-entry" data-field-path="0b1d-auth"><label class="_heading_f7cvd_52 _required_f7cvd_91 _label_1e3gg_42 ashby-application-form-question-title" for="0b1d-auth">Are you legally authorized to work in the United States?</label><div class="_container_1svni_28 _yesno_1e3gg_148  ashby-application-form-input-yesno"><button class="_container_pjyt6_1 _option_1svni_32  ashby-application-form-input-yesno-option" aria-pressed="false" data-option="yes">Yes</button><button class="_container_pjyt6_1 _option_1svni_32  ashby-application-form-input-yesno-option" aria-pressed="false" data-option="no">No</button><input type="checkbox" class="_input_1svni_78" tabindex="-1" name="0b1d-auth"></div></div>
+  <div class="_fieldEntry_1e3gg_28 ashby-application-form-field-entry" data-field-path="0b1d-sponsor"><label class="_heading_f7cvd_52 _required_f7cvd_91 _label_1e3gg_42 ashby-application-form-question-title" for="0b1d-sponsor">Do you now or in the future require visa sponsorship to work in the United States?</label><div class="_container_1svni_28 _yesno_1e3gg_148  ashby-application-form-input-yesno"><button class="_container_pjyt6_1 _option_1svni_32  ashby-application-form-input-yesno-option" aria-pressed="false" data-option="yes">Yes</button><button class="_container_pjyt6_1 _option_1svni_32  ashby-application-form-input-yesno-option" aria-pressed="false" data-option="no">No</button><input type="checkbox" class="_input_1svni_78" tabindex="-1" name="0b1d-sponsor"></div></div>
+</div>
+</div>
+<button id="submit" type="submit">Submit Application</button>
+<pre id="out"></pre>
+<script>
+const setVal = (el, v) => Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(el, v);
+// Yes / No: the button sets aria-pressed and the checkbox's checked PROPERTY (no event); the form's stored answers
+// (what submit checks) change only on the checkbox's own change event.
+window.__answers = {};
+document.querySelectorAll(".ashby-application-form-input-yesno").forEach((g) => {
+  const box = g.querySelector("input[type=checkbox]");
+  g.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
+    g.querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+    box.checked = b.dataset.option === "yes";
+  }));
+  box.addEventListener("change", () => (window.__answers[box.name] = box.checked));
+});
+// Date dropdowns: the whole list on mousedown; a click puts the option in the box (also while disabled, as the real
+// page let the fill's clicks through).
+const MONTHS = "January February March April May June July August September October November December".split(" ");
+const YEARS = Array.from({ length: 14 }, (_, i) => String(2018 + i));
+document.querySelectorAll(".date-combo").forEach((input, n) => {
+  const items = input.dataset.kind === "month" ? MONTHS : YEARS;
+  const ph = input.parentElement.querySelector(".select-placeholder");
+  let list = null;
+  const close = () => { list?.remove(); list = null; input.setAttribute("aria-expanded", "false"); input.removeAttribute("aria-controls"); };
+  input.addEventListener("mousedown", () => {
+    if (list) return close();
+    list = document.createElement("div"); list.className = "combo-list"; list.setAttribute("role", "listbox"); list.id = "date-listbox-" + n;
+    for (const t of items) {
+      const o = document.createElement("div"); o.setAttribute("role", "option"); o.textContent = t;
+      o.addEventListener("click", () => { setVal(input, t); ph.style.display = "none"; close(); });
+      list.appendChild(o);
+    }
+    document.body.appendChild(list);
+    input.setAttribute("aria-expanded", "true"); input.setAttribute("aria-controls", list.id);
+  });
+  input.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
+});
+// "Still Student?": checked = End Date cleared and disabled; unchecked = enabled again.
+(() => {
+  const cur = document.querySelector("[name=edu-current]");
+  cur.addEventListener("change", () => {
+    for (const nm of ["edu-end-month", "edu-end-year"]) {
+      const input = document.querySelector(`[name=${nm}]`);
+      const wrap = input.parentElement;
+      wrap.dataset.disabled = String(cur.checked);
+      input.setAttribute("aria-disabled", String(cur.checked));
+      if (cur.checked) { setVal(input, ""); wrap.querySelector(".select-placeholder").style.display = ""; }
+    }
+  });
+})();
+// School: results 500 ms after typing, each option three lines (name / country / domain).
+(() => {
+  const input = document.getElementById("edu-school");
+  const all = [["Lakeview University", "United States", "lakeview.edu"], ["Lakeview School", "United States", "stonybrookschool.org"]];
+  let list = null, timer = null, picked = "";
+  const close = () => { list?.remove(); list = null; input.setAttribute("aria-expanded", "false"); input.removeAttribute("aria-controls"); };
+  const render = (items) => {
+    if (!list) {
+      list = document.createElement("div"); list.className = "combo-list"; list.setAttribute("role", "listbox"); list.id = "school-listbox";
+      document.body.appendChild(list);
+      input.setAttribute("aria-expanded", "true"); input.setAttribute("aria-controls", "school-listbox");
+    }
+    list.innerHTML = "";
+    for (const [name, country, domain] of items) {
+      const o = document.createElement("div"); o.setAttribute("role", "option");
+      o.innerHTML = `<div class="name">${name}</div><div class="country">${country}</div><div class="domain">${domain}</div>`;
+      o.addEventListener("click", () => { setVal(input, name); picked = name; close(); });
+      list.appendChild(o);
+    }
+  };
+  input.addEventListener("mousedown", () => (list ? close() : render([])));
+  input.addEventListener("input", () => {
+    picked = ""; clearTimeout(timer); render([]);
+    timer = setTimeout(() => render(input.value ? all.filter((t) => t[0].toLowerCase().includes(input.value.toLowerCase())) : []), 500);
+  });
+  input.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
+  input.addEventListener("focusout", () => setTimeout(() => { close(); if (!picked) setVal(input, ""); }, 0));
+})();
+</script>
+<!--SCRIPTS-->
+<script>
+setTimeout(async () => {
+  let stats;
+  try { stats = await window.__runFill(); } catch (e) { window.__errors.push("run: " + e.stack); }
+  await new Promise((r) => setTimeout(r, 1500));
+  const out = [];
+  const mark = (el) => el.closest("[data-wdaf]")?.dataset.wdaf || el.querySelector?.("[data-wdaf]")?.dataset.wdaf || "-";
+  for (const [name, sel] of [["Name", "#_systemfield_name"], ["School", "#edu-school"], ["Degree", "#edu-degree"], ["Start month", "[name=edu-start-month]"], ["Start year", "[name=edu-start-year]"], ["End month", "[name=edu-end-month]"], ["End year", "[name=edu-end-year]"]]) {
+    const el = document.querySelector(sel);
+    out.push(name + " = " + JSON.stringify(el.value) + (el.getAttribute("aria-disabled") === "true" ? " (disabled)" : "") + " mark=" + mark(el));
+  }
+  const cur = document.querySelector("[name=edu-current]");
+  out.push("Still Student? = " + cur.checked + " mark=" + mark(cur));
+  const problems = [];
+  if (cur.checked && (document.querySelector("[name=edu-end-month]").value || document.querySelector("[name=edu-end-year]").value)) problems.push("Invalid value: Education History");
+  for (const g of document.querySelectorAll(".ashby-application-form-input-yesno")) {
+    const lab = g.closest("[data-field-path]").querySelector("label").textContent.trim();
+    const box = g.querySelector("input");
+    const shown = [...g.querySelectorAll("button[aria-pressed=true]")].map((b) => b.textContent).join(",") || "-";
+    const stored = window.__answers[box.name];
+    if (stored === undefined) problems.push("Missing entry: " + lab);
+    else if ((stored ? "Yes" : "No") !== shown) problems.push("Mismatch: " + lab);
+    out.push(lab.slice(0, 60) + " = pressed:" + shown + ", checkbox " + box.checked + ", stored " + (stored === undefined ? "none" : stored) + " mark=" + mark(g));
+  }
+  document.getElementById("out").textContent = "@@BEGIN\n" + [
+    "STATS " + JSON.stringify(stats), "TOAST " + JSON.stringify((document.getElementById("aaf-done-toast")?.shadowRoot?.querySelector(".box")?.innerText || "").replace(/\n/g, " | ")),
+    "AI " + JSON.stringify((window.__aiPayload || []).map((q) => q.question)),
+    "VALIDATE " + (problems.join("; ") || "ok"),
+    ...window.__errors.map((e) => "ERR " + e),
+    ...window.__logs.map((l) => "LOG " + l),
+    ...out.map((f) => "FIELD " + f),
+  ].join("\n") + "\n@@END";
+}, 500);
+</script>
+</body>
+</html>

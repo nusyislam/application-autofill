@@ -1,0 +1,121 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Candidate Profile - Acme Careers</title>
+<style>
+  body { font: 14px sans-serif; }
+  td { padding: 4px; vertical-align: top; }
+  fieldset { margin: 10px 0; }
+  .select2-container { display: inline-block; border: 1px solid #999; min-width: 200px; padding: 2px; }
+</style>
+<script>
+window.__logs = [];
+window.__errors = [];
+const origLog = console.log;
+console.log = (...a) => {
+  if (a[0] === "[autofill]") window.__logs.push(a.slice(1).map((x) => (typeof x === "string" ? x : x && x.nodeType ? "<" + x.tagName + ">" : JSON.stringify(x))).join(" "));
+  origLog(...a);
+};
+window.addEventListener("error", (e) => window.__errors.push("error: " + e.message + " @ " + (e.filename || "").split("/").pop() + ":" + e.lineno));
+window.addEventListener("unhandledrejection", (e) => window.__errors.push("rejection: " + (e.reason && e.reason.stack || e.reason)));
+const STORE = {
+  profile: {
+    firstName: "Test", lastName: "Applicant", email: "test@example.com", phone: "6465550100",
+    country: "United States of America", city: "Springfield",
+    experiences: [
+      { title: "Engineering Intern", company: "Examplecorp", location: "Riverton, NJ", startMonth: "6", startYear: "2026", endMonth: "8", endYear: "2026" },
+      { title: "Software Intern", company: "Samplesoft", location: "", startMonth: "6", startYear: "2024", endMonth: "10", endYear: "2024" },
+    ],
+    education: [{ school: "Lakeview University", schoolAliases: "LSU Lakeview University", degreeOptions: "Bachelor of Engineering | BEng\nBachelor's Degree", field: "Computer Engineering", endYear: "2027" }],
+    expectedGraduation: "05/2027",
+    answers: { workAuth: "Yes", sponsorship: "No", over18: "Yes", previousEmployers: "Examplecorp" },
+    eeo: { gender: "Female", veteran: "I am not a protected veteran|I am not a veteran|not a veteran", disability: "No, I do not have a disability|No" },
+    api: { key: "test-key", model: "stub" },
+  },
+  settings: { useAI: true, learn: true, threshold: 0.75 },
+  learned: [],
+};
+let onMsg = null;
+// Location settings have no default in Options: the New York values these tests were written with (settings a fixture
+// sets itself are kept; a blank search took the old default search, and the default list when the list was blank too).
+{ const P = STORE.profile, AL = (P.applicationLocation ||= {}), A = (P.answers ||= {}), blank = !String(AL.search || "").trim();
+  if (blank) AL.search = "New York";
+  if (blank && !String(AL.matches || "").trim()) AL.matches = "New York City, New York, United States | New York, New York, United States | New York, NY, United States | New York, NY | New York City | New York, NY, USA | New York, USA";
+  if (!String(A.officeMetro || "").trim()) A.officeMetro = "New York City | NYC | New York, NY | New York, New York | Manhattan | Brooklyn | Queens | Bronx | Staten Island | Long Island | Jersey City | Hoboken | Newark | Westchester | Stamford"; }
+window.chrome = {
+  storage: {
+    local: {
+      get: async (keys) => {
+        const ks = typeof keys === "string" ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys || {});
+        const out = {};
+        for (const k of ks) if (STORE[k] !== undefined) out[k] = JSON.parse(JSON.stringify(STORE[k]));
+        return out;
+      },
+      set: async (o) => Object.assign(STORE, o),
+    },
+    onChanged: { addListener: () => {} },
+  },
+  runtime: {
+    id: "test-extension",
+    onMessage: { addListener: (fn) => (onMsg = fn) },
+    sendMessage: async (msg) => {
+      if (msg.type === "DRAFT") {
+        window.__draft = msg;
+        return { model: "stub-draft-model", included: { linkedinChars: 0, resumeChars: 0, notesChars: 0, descriptionChars: 0 }, answers: msg.questions.map((q) => ({ id: q.id, answer: "A draft answer from my real background." })) };
+      }
+      if (msg.type === "ASK_AI") {
+        window.__aiPayload = msg.questions;
+        return { model: "stub-model", answers: msg.questions.map((q) => ({ id: q.id, answer: "Test Applicant", confidence: 0.99 })) };
+      }
+      return {};
+    },
+  },
+};
+window.__runFill = () => new Promise((res) => onMsg({ type: "FILL" }, {}, res));
+</script>
+</head>
+<body>
+<!-- iCIMS-like self-identification step (Perimeter-like, fake data; the real markup hasn't been seen). Radio option
+     text in three layouts: each radio alone in an empty span with its ALL CAPS text after the span (veteran: the
+     old reader fell back to the values ProtectedVeteran / NotProtectedVeteran / optout), three radios sharing one
+     cell with text nodes between them (disability: the old reader took the whole cell's text for every option),
+     and radios with no text at all (gender: the value, camelCase split). Then the signature checkbox ("checking
+     the checkbox above is equivalent to a handwritten signature") and its date. -->
+<div class="iCIMS_MainWrapper">
+<form id="profileForm" onsubmit="event.preventDefault()">
+  <h2>Voluntary Self-Identification</h2>
+  <div class="iCIMS_TableRow"><div class="iCIMS_InfoField iCIMS_TableCell">Veteran Status *</div><div class="iCIMS_InfoData iCIMS_TableCell"><span class="iCIMS_Radio"><input type="radio" name="Vet" value="ProtectedVeteran"></span> I IDENTIFY AS ONE OR MORE OF THE CLASSIFICATIONS OF PROTECTED VETERAN<br><span class="iCIMS_Radio"><input type="radio" name="Vet" value="NotProtectedVeteran"></span> I AM NOT A PROTECTED VETERAN<br><span class="iCIMS_Radio"><input type="radio" name="Vet" value="optout"></span> I DO NOT WISH TO SELF-IDENTIFY<br></div></div>
+  <div class="iCIMS_TableRow"><div class="iCIMS_InfoField iCIMS_TableCell">Disability Status *</div><div class="iCIMS_InfoData iCIMS_TableCell"><input type="radio" name="Dis" value="Yes_Disability"> YES, I HAVE A DISABILITY (OR PREVIOUSLY HAD A DISABILITY)<br><input type="radio" name="Dis" value="No_Disability"> NO, I DO NOT HAVE A DISABILITY AND HAVE NOT HAD ONE IN THE PAST<br><input type="radio" name="Dis" value="Decline_Disability"> I DO NOT WANT TO ANSWER</div></div>
+  <div class="iCIMS_TableRow"><div class="iCIMS_InfoField iCIMS_TableCell">Gender</div><div class="iCIMS_InfoData iCIMS_TableCell"><input type="radio" name="Gen" value="Male"> <input type="radio" name="Gen" value="Female"> <input type="radio" name="Gen" value="DeclineToSelfIdentify"></div></div>
+  <div class="iCIMS_TableRow"><div class="iCIMS_InfoField iCIMS_TableCell">Signature *</div><div class="iCIMS_InfoData iCIMS_TableCell"><label><input type="checkbox" name="Sig"> I acknowledge that checking the checkbox above is equivalent to a handwritten signature.</label></div></div>
+  <div class="iCIMS_TableRow"><div class="iCIMS_InfoField iCIMS_TableCell">Date</div><div class="iCIMS_InfoData iCIMS_TableCell"><input name="SigDate"></div></div>
+  <button type="button" id="prev">Previous</button>
+  <button type="submit" id="next">Next</button>
+</form>
+</div>
+<pre id="out"></pre>
+<!--SCRIPTS-->
+<script>
+setTimeout(async () => {
+  let stats;
+  try { stats = await window.__runFill(); } catch (e) { window.__errors.push("run: " + e.stack); }
+  const rows = [...document.querySelectorAll(".iCIMS_TableRow")].map((r) => {
+    const label = r.querySelector(".iCIMS_InfoField").textContent.replace("*", "").trim();
+    const radios = [...r.querySelectorAll("input[type=radio]")];
+    const box = r.querySelector("input[type=checkbox]");
+    const v = radios.length ? "options " + JSON.stringify(radios.map((i) => AAF.optionText(i))) + ", checked " + JSON.stringify(radios.some((i) => i.checked) ? AAF.optionText(radios.find((i) => i.checked)) : "")
+      : box ? "checked " + box.checked : JSON.stringify(r.querySelector("input").value);
+    return label + " = " + v + " mark=" + (r.closest("[data-wdaf]")?.dataset.wdaf || r.querySelector("[data-wdaf]")?.dataset.wdaf || "-");
+  });
+  document.getElementById("out").textContent = "@@BEGIN\n" + [
+    "STATS " + JSON.stringify(stats), "TOAST " + JSON.stringify((document.getElementById("aaf-done-toast")?.shadowRoot?.querySelector(".box")?.innerText || "").replace(/\n/g, " | ")),
+    "GUARD " + JSON.stringify(["prev", "next"].map((id) => [id, AAF.click(document.getElementById(id))])),
+    "AI " + JSON.stringify((window.__aiPayload || []).map((q) => q.question)),
+    ...window.__logs.map((l) => "LOG " + l),
+    ...rows.map((f) => "FIELD " + f),
+  ].join("\n") + "\n@@END";
+}, 500);
+</script>
+</body>
+</html>
