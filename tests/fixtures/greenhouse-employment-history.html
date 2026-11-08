@@ -1,0 +1,141 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Software Engineer Intern at Brightmoor</title>
+<style>
+  body { font: 14px sans-serif; }
+  .field-wrapper { margin: 10px 0; }
+</style>
+<script>
+// ---- stub chrome API (test only)
+window.__logs = [];
+window.__errors = [];
+const origLog = console.log;
+console.log = (...a) => {
+  if (a[0] === "[autofill]") window.__logs.push(a.slice(1).map((x) => (typeof x === "string" ? x : x && x.nodeType ? "<" + x.tagName + ">" : JSON.stringify(x))).join(" "));
+  origLog(...a);
+};
+window.addEventListener("error", (e) => window.__errors.push("error: " + e.message + " @ " + (e.filename || "").split("/").pop() + ":" + e.lineno));
+window.addEventListener("unhandledrejection", (e) => window.__errors.push("rejection: " + (e.reason && e.reason.stack || e.reason)));
+const STORE = {
+  profile: {
+    firstName: "Test", lastName: "Applicant", email: "test@example.com", phone: "6465550100",
+    city: "Springfield", state: "New York", country: "United States of America",
+    expectedGraduation: "05/2027", education: [],
+    // Contoso is the current job ("I currently work here"), Northwind ended in August 2025.
+    experiences: [
+      { company: "Contoso", title: "Software Engineer Intern", current: true, startMonth: "6", startYear: "2026", endMonth: "", endYear: "" },
+      { company: "Northwind", title: "AI Engineer Intern", current: false, startMonth: "6", startYear: "2025", endMonth: "8", endYear: "2025" },
+    ],
+    answers: { workAuth: "Yes", sponsorship: "No" },
+    eeo: {}, api: { key: "test-key", model: "stub" },
+  },
+  settings: { useAI: true, learn: true, threshold: 0.75 },
+  learned: [],
+};
+let onMsg = null;
+{ const P = STORE.profile, AL = (P.applicationLocation ||= {}), A = (P.answers ||= {}), blank = !String(AL.search || "").trim();
+  if (blank) AL.search = "New York";
+  if (blank && !String(AL.matches || "").trim()) AL.matches = "New York City, New York, United States | New York, New York, United States | New York, NY, United States | New York, NY | New York City | New York, NY, USA | New York, USA";
+  if (!String(A.officeMetro || "").trim()) A.officeMetro = "New York City | NYC | New York, NY | New York, New York | Manhattan | Brooklyn | Queens | Bronx | Staten Island | Long Island | Jersey City | Hoboken | Newark | Westchester | Stamford"; }
+window.chrome = {
+  storage: {
+    local: {
+      get: async (keys) => {
+        const ks = typeof keys === "string" ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys || {});
+        const out = {};
+        for (const k of ks) if (STORE[k] !== undefined) out[k] = JSON.parse(JSON.stringify(STORE[k]));
+        return out;
+      },
+      set: async (o) => Object.assign(STORE, o),
+    },
+    onChanged: { addListener: () => {} },
+  },
+  runtime: { id: "test-extension",
+    onMessage: { addListener: (fn) => (onMsg = fn) },
+    sendMessage: async (msg) => {
+      // The classifier says "other" for everything, as on the real page, so anything unanswered reaches Claude.
+      if (msg.type === "CLASSIFY_ASK") {
+        window.__classify = (window.__classify || []).concat(msg.questions.map((q) => q.question));
+        return { model: "stub-haiku", categories: msg.questions.map((q) => ({ id: q.id, category: q.type === "textarea" ? "open-ended" : "other" })) };
+      }
+      if (msg.type === "ASK_AI") {
+        window.__aiPayload = (window.__aiPayload || []).concat(msg.questions.map((q) => q.question));
+        return { model: "stub-model", answers: msg.questions.map((q) => ({ id: q.id, answer: null, confidence: 0 })) };
+      }
+      if (msg.type === "DRAFT") {
+        window.__draft = (window.__draft || []).concat(msg.questions.map((q) => q.question));
+        return { model: "stub-draft-model", included: {}, answers: msg.questions.map((q) => ({ id: q.id, answer: null, reason: "not drafted in tests" })) };
+      }
+      return {};
+    },
+  },
+};
+window.__runFill = () => new Promise((res) => onMsg({ type: "FILL" }, {}, res));
+</script>
+</head>
+<body>
+<h1>Software Engineer Intern</h1>
+<div class="job__location">New York, NY</div>
+<!-- Brightmoor-like Greenhouse page (fake data). Reported: "Please indicate your Brightmoor employment history." (dropdown:
+     "I have never worked for ...", "I currently work ...", "I previously worked ...") went to Haiku instead of the named-
+     employer rule. Controls: the same wording for the current job (Contoso) and an ended one (Northwind), an "employment
+     history with" radio group, a company named only in the options, and a free-text "describe your employment history"
+     (not this rule: open-ended). -->
+<form id="application-form" class="application--form">
+  <div class="field-wrapper"><label for="q_eh">Please indicate your Brightmoor employment history.*</label>
+    <select id="q_eh" name="q_eh" required><option value="">--</option><option>I have never worked for Brightmoor, Brightmoor Labs or Brightmoor Capital</option><option>I currently work for Brightmoor, Brightmoor Labs or Brightmoor Capital</option><option>I previously worked for Brightmoor, Brightmoor Labs or Brightmoor Capital</option></select></div>
+  <div class="field-wrapper"><label for="q_eh2">Please indicate your Contoso employment history.</label>
+    <select id="q_eh2" name="q_eh2"><option value="">--</option><option>I have never worked for Contoso</option><option>I currently work for Contoso</option><option>I previously worked for Contoso</option></select></div>
+  <div class="field-wrapper"><label for="q_eh3">Please indicate your Northwind employment history.</label>
+    <select id="q_eh3" name="q_eh3"><option value="">--</option><option>I have never worked for Northwind</option><option>I currently work for Northwind</option><option>I previously worked for Northwind</option></select></div>
+  <div class="field-wrapper"><label for="q_eh4">Employment history (select one)</label>
+    <select id="q_eh4" name="q_eh4"><option value="">--</option><option>I have never been employed by Brightmoor or its subsidiaries</option><option>I am currently employed by Brightmoor or a subsidiary</option><option>I was previously employed by Brightmoor or a subsidiary</option></select></div>
+  <div class="field-wrapper"><label for="q_eh5">Please indicate your Northwind Systems employment history.</label>
+    <select id="q_eh5" name="q_eh5"><option value="">--</option><option>No prior employment</option><option>Current employee</option><option>Former employee</option></select></div>
+</form>
+<pre id="out"></pre>
+<script>
+// Radio controls: [label, options]
+const Q = [
+  ["Employment history with Brightmoor", ["Never worked for Brightmoor", "Current employee", "Former employee"]], // never
+  ["Work history at Contoso", ["Never", "Currently employed", "Previously employed"]],                          // current
+];
+const form = document.getElementById("application-form");
+Q.forEach(([label, opts], i) => {
+  const fs = document.createElement("fieldset");
+  fs.className = "field-wrapper";
+  fs.innerHTML = `<legend>${label}</legend>` + opts.map((o) => `<label><input type="radio" name="r${i}" value="${o}"> ${o}</label>`).join(" ");
+  form.appendChild(fs);
+});
+const ta = document.createElement("div");
+ta.className = "field-wrapper";
+ta.innerHTML = `<label for="q_free">Please describe your employment history.</label><textarea id="q_free" name="q_free"></textarea>`;
+form.appendChild(ta);
+</script>
+<!--SCRIPTS-->
+<script>
+setTimeout(async () => {
+  let stats;
+  try { stats = await window.__runFill(); } catch (e) { window.__errors.push("run: " + e.stack); }
+  const fields = [...document.querySelectorAll(".field-wrapper")].map((w) => {
+    const lab = (w.querySelector("legend") || w.querySelector("label")).textContent.replace(/\*/g, "").trim();
+    const marked = w.closest("[data-wdaf]") || w.querySelector("[data-wdaf]");
+    const c = w.querySelector("select, textarea");
+    const v = c ? c.value : w.querySelector("input:checked")?.value || "";
+    return lab.slice(0, 60) + " = " + JSON.stringify(v) + " mark=" + ((marked && marked.dataset.wdaf) || "-");
+  });
+  document.getElementById("out").textContent = "@@BEGIN\n" + [
+    "STATS " + JSON.stringify(stats), "TOAST " + JSON.stringify((document.getElementById("aaf-done-toast")?.shadowRoot?.querySelector(".box")?.innerText || "").replace(/\n/g, " | ")),
+    "CLASSIFY " + JSON.stringify(window.__classify || []),
+    "AI " + JSON.stringify(window.__aiPayload || []),
+    "DRAFT " + JSON.stringify(window.__draft || []),
+    ...window.__errors.map((e) => "ERR " + e),
+    ...window.__logs.map((l) => "LOG " + l),
+    ...fields.map((f) => "FIELD " + f),
+  ].join("\n") + "\n@@END";
+}, 500);
+</script>
+</body>
+</html>

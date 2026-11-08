@@ -581,3 +581,15 @@ greenhouse-state-links-rerun-plain :: rerun: Country => = "+1" mark=-
 greenhouse-state-links-rerun-plain :: Which U.S. State or Canadian Province do you resid => = "New York" mark=review
 greenhouse-state-links-rerun-plain :: !LOG => rerun: ok   [dropdown] Country
 greenhouse-state-links-rerun-plain :: !LOG => classified
+# Brightmoor (Greenhouse): "Please indicate your Brightmoor employment history." (dropdown: never / currently / previously worked)
+# went to Haiku; now the named-employer rule picks the option by meaning from the work history.
+greenhouse-employment-history :: Please indicate your Brightmoor employment history. => = "I have never worked for Brightmoor, Brightmoor Labs or Brightmoor Capital" mark=review
+greenhouse-employment-history :: Please indicate your Contoso employment history. => = "I currently work for Contoso" mark=review
+greenhouse-employment-history :: Please indicate your Northwind employment history. => = "I previously worked for Northwind" mark=review
+greenhouse-employment-history :: Employment history (select one) => = "I have never been employed by Brightmoor or its subsidiaries" mark=review
+greenhouse-employment-history :: Please indicate your Northwind Systems employment history. => = "Former employee" mark=review
+greenhouse-employment-history :: Employment history with Brightmoor => = "Never worked for Brightmoor" mark=review
+greenhouse-employment-history :: Work history at Contoso => = "Currently employed" mark=review
+greenhouse-employment-history :: Please describe your employment history. => = "" mark=needs
+greenhouse-employment-history :: !LOG => sent, model stub-model
+greenhouse-employment-history :: !LOG => classified

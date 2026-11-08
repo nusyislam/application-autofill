@@ -412,6 +412,21 @@
         return { value: { steps: [["No"], ["Never Employed", "Never"], ["I have not", "I have never", "Not a"]], what: "named employer" }, review: true };
       }
     }
+    // "Please indicate your Brightmoor employment history." / "Employment history with Brightmoor" (Brightmoor, Greenhouse: a
+    // dropdown "I have never worked for X, Y or Z" / "I currently work for ..." / "I previously worked for ..." went to
+    // Haiku): the company after "your" or "with / at / for", plus any the options name. None in your work history = the
+    // option meaning never worked there; a current job there = the current option; an ended one = the former option, all
+    // by meaning (`employmentHistoryChoice`). Blue, never Claude. Not "describe / list your employment history" (free text).
+    const ehRaw = String(f.label || "").replace(/[*✱]/g, " ");
+    if (/\b(employment|work|employee) history\b/.test(L) && !/\b(describe|tell us|explain|list|summari[sz]e|upload|attach|resume|cv|verify|verification|check|background)\b/.test(L) && !GOV_ATTEST.test(L) && !/government|military|armed forces|\bdod\b|federal/.test(L)) {
+      const ehM = ehRaw.match(/\b(?:your|the)\s+(.+?)\s+(?:employment|work|employee)\s+history\b/i) || ehRaw.match(/\b(?:employment|work|employee)\s+history\s+(?:with|at|for)\s+(.+?)(?:\s*[(.?:;,]|$)/i);
+      const named = ehM ? [ehM[1].trim().replace(/^(the|a|an)\s+/i, "")].filter((s) => s.length >= 2 && s.length <= 60 && !NOT_A_COMPANY.test(s) && !/^(complete|full|prior|previous|past|relevant|recent|current|entire|own|detailed|professional)$/i.test(s)) : [];
+      if (!namedLogged.has("eh|" + f.label)) {
+        namedLogged.add("eh|" + f.label);
+        dbg(`employment history question (the named-employer rule, by meaning): ${named.length ? `the company named is ${show(named)}` : "no company in the label; reading the options"}: ${f.label.slice(0, 80)}`);
+      }
+      return { value: { choose: employmentHistoryChoice(named, p, f), text: "No", what: "employment history" }, review: true };
+    }
     if (!ASKS_EMPLOYMENT.test(L)) return undefined;
     // Government / DoD / military employment stays with the attestation guard.
     if (GOV_ATTEST.test(L) || /government|military|armed forces|\bdod\b|department of defense|federal|public official/.test(L)) return undefined;
@@ -480,6 +495,44 @@
     const asCurrent = tense === "current" || (tense === "either" && current);
     if (once) dbg(`named employer: ${status}; the question asks about ${tense === "either" ? "now or the past" : tense === "current" ? "now" : "the past"} -> Yes (blue)`);
     return { value: { steps: [["Yes"], asCurrent ? CUR : FORMER, ["I have", "I am"]], what: "named employer" }, review: true };
+  }
+
+  // The option meaning never / currently / previously worked there (Brightmoor's employment-history dropdown): the
+  // companies are the one the question names plus those the options name ("worked for X, Y or Z", "employed by X");
+  // none in your work history = the option meaning never; a current job at one = the current option; an ended one = the
+  // former option. No company anywhere, a time window in the question, or no option with that meaning = null (yellow).
+  function employmentHistoryChoice(named, p, f) {
+    const kindOf = (t) => {
+      const n = norm(t);
+      if (/\b(never|no prior|no previous|have not|havent|did not|didnt|not been|none|not applicable|n a)\b/.test(n)) return "never";
+      if (/\b(currently|presently|current|now)\b/.test(n)) return "current";
+      if (/\b(previously|formerly|former|past|used to|was|have worked|worked)\b/.test(n)) return "former";
+      return "";
+    };
+    return (texts) => {
+      const ts = (texts || []).map(String);
+      const fromOpts = ts.flatMap((t) => {
+        const m = t.match(/\b(?:work(?:ed|ing)?|employed|employee|employment|contractor|intern)\s+(?:for|at|by|with|of)\s+(.+)$/i);
+        return m ? m[1].split(/\s*,\s*|\s+or\s+|\s+and\s+|\s*\/\s*/) : [];
+      }).map((s) => s.trim().replace(/^(the|a|an)\s+/i, "").replace(/[.,;:]+$/, "")).filter((s) => s.length >= 2 && s.length <= 60 && !NOT_A_COMPANY.test(s) && !/\b(subsidiar|affiliat|parent compan|its |their )/i.test(s));
+      const companies = [...new Set([...named, ...fromOpts].map((s) => s.trim()))].filter((s, i, a) => a.findIndex((x) => sameCompany(x, s)) === i);
+      const once = !namedLogged.has("ehc|" + f.label) && namedLogged.add("ehc|" + f.label);
+      if (!companies.length) {
+        if (once) dbg(`employment history: no company named in the question or its options; left for you (never sent to Claude): ${f.label.slice(0, 80)}`);
+        return null;
+      }
+      const jobs = historyJobs(p);
+      const hits = companies.filter((c) => jobs.some((x) => sameCompany(c, x.company)));
+      const current = jobs.some((x) => x.current && hits.some((h) => sameCompany(h, x.company)));
+      if (hits.length && TIME_WINDOW.test(f.nl)) {
+        if (once) dbg(`employment history: ${show(hits)} is in your work history, but the question has a time window; left for you`);
+        return null;
+      }
+      const want = !hits.length ? "never" : current ? "current" : "former";
+      const pick = ts.find((t) => kindOf(t) === want) || null;
+      if (once) dbg(`employment history: companies ${show(companies)}; ${hits.length ? `${show(hits)} in your work history (${current ? "current job" : "ended"})` : "none in your work history"} -> ${pick ? `"${pick}" (blue)` : `no option means "${want}"; options ${show(ts)}; left for you`}`);
+      return pick;
+    };
   }
 
   // ---- Field of study (every portal): the entry's field, then its "Field of study fallbacks" (Options,
