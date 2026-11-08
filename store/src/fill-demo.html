@@ -1,0 +1,134 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Software Engineer Intern at Kestrel Labs</title>
+<!-- Store screenshot source (fake data, a fictional company). A Greenhouse-shaped application page filled by the
+     extension in headless Edge (tools/screenshots.ps1): plain profile fields filled, blue outlines for rule answers and
+     the draft, yellow for the compensation question (always yours), red for the AI-usage question, and the Done toast.
+     The chrome API is stubbed like the test fixtures'. Not a test fixture: nothing here is compared or asserted. -->
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; color: #111827; background: #f3f4f6; }
+  .top { background: #0f172a; color: #fff; padding: 14px 0; }
+  .wrap { width: 860px; margin: 0 auto; padding: 0 20px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 15px; letter-spacing: .2px; }
+  .brand i { display: inline-block; width: 22px; height: 22px; border-radius: 6px; background: #2563eb; }
+  .head { background: #fff; border-bottom: 1px solid #e5e7eb; padding: 16px 0 14px; }
+  h1 { margin: 0 0 3px; font-size: 21px; }
+  .job__location { color: #6b7280; font-size: 13px; }
+  main { padding: 16px 0 40px; }
+  form { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 18px 20px 16px; }
+  h2 { font-size: 15px; margin: 0 0 10px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px; }
+  .field-wrapper { margin: 0; padding: 4px 6px 5px; border-radius: 8px; }
+  .full { grid-column: 1 / -1; }
+  label, .label { display: block; font-size: 12.5px; font-weight: 600; color: #374151; margin-bottom: 4px; }
+  label span, .label span { color: #b91c1c; margin-left: 2px; }
+  input[type=text], input[type=email], input[type=tel], select, textarea { width: 100%; font: inherit; padding: 7px 9px; border: 1px solid #d1d5db; border-radius: 7px; background: #fff; color: #111827; }
+  textarea { min-height: 84px; resize: vertical; }
+  .file-row { display: flex; align-items: center; gap: 10px; }
+  .secondary-button { font: inherit; font-size: 13px; padding: 6px 12px; border: 1px solid #d1d5db; border-radius: 7px; background: #f9fafb; }
+  .file-upload__filename { font-size: 13px; color: #374151; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .actions { margin-top: 12px; display: flex; justify-content: flex-end; }
+  .actions button { font: inherit; font-weight: 600; padding: 9px 18px; border: 0; border-radius: 8px; background: #2563eb; color: #fff; }
+</style>
+<script>
+// ---- stub chrome API (screenshot only): the fake profile, a canned classifier and draft reply.
+const STORE = {
+  profile: {
+    firstName: "Test", lastName: "Applicant", email: "test@example.com", phone: "6465550100",
+    linkedin: "https://www.linkedin.com/in/test-applicant", github: "https://github.com/test-applicant",
+    address1: "1 Test Street", city: "Springfield", state: "New York", zip: "10001", country: "United States of America",
+    expectedGraduation: "05/2027",
+    experiences: [
+      { title: "Software Engineer Intern", company: "Contoso", current: false, startMonth: "6", startYear: "2026", endMonth: "8", endYear: "2026" },
+      { title: "AI Engineer Intern", company: "Northwind", current: false, startMonth: "6", startYear: "2025", endMonth: "8", endYear: "2025" },
+    ],
+    education: [{ school: "Lakeview University", schoolSearch: "Lakeview", field: "Computer Engineering", endYear: "2027" }],
+    answers: { workAuth: "Yes", sponsorship: "No", over18: "Yes", restrictions: "None" },
+    applicationLocation: { search: "New York", matches: "New York, NY | New York, NY, USA" },
+    eeo: {}, api: { key: "test-key", model: "stub" },
+  },
+  settings: { useAI: true, learn: true, drafts: true, threshold: 0.75 },
+  learned: [],
+  resumeFile: { name: "Test_Applicant_Resume.pdf", type: "application/pdf", dataUrl: "data:application/pdf;base64,JVBERi0xLjQK" },
+};
+let onMsg = null;
+window.chrome = {
+  storage: {
+    local: {
+      get: async (keys) => {
+        const ks = typeof keys === "string" ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys || {});
+        const out = {};
+        for (const k of ks) if (STORE[k] !== undefined) out[k] = JSON.parse(JSON.stringify(STORE[k]));
+        return out;
+      },
+      set: async (o) => Object.assign(STORE, o),
+    },
+    onChanged: { addListener: () => {} },
+  },
+  runtime: {
+    id: "screenshot",
+    onMessage: { addListener: (fn) => (onMsg = fn) },
+    sendMessage: async (msg) => {
+      if (msg.type === "CLASSIFY_ASK") return { model: "stub", categories: msg.questions.map((q) => ({ id: q.id, category: q.type === "textarea" ? "open-ended" : "other" })) };
+      if (msg.type === "ASK_AI") return { model: "stub", answers: msg.questions.map((q) => ({ id: q.id, answer: null, confidence: 0 })) };
+      if (msg.type === "DRAFT") {
+        const text = "I want to work at Kestrel Labs because you build developer tools that teams rely on every day, and fast feedback loops are what I enjoy building most. Last summer at Contoso I wrote an internal CLI that cut a new service's deploy setup from about an hour to a few minutes, and I would like to bring that same focus to your platform team. I graduate in May 2027 and am looking for a summer internship.";
+        return { model: "stub", included: {}, answers: msg.questions.map((q) => ({ id: q.id, answer: text, project: "Deploy CLI" })) };
+      }
+      return {};
+    },
+  },
+};
+window.__runFill = () => new Promise((res) => onMsg({ type: "FILL" }, {}, res));
+</script>
+</head>
+<body>
+<div class="top"><div class="wrap brand"><i></i>Kestrel Labs</div></div>
+<div class="head"><div class="wrap"><h1>Software Engineer Intern (Summer 2027)</h1><div class="job__location">New York, NY · Hybrid</div></div></div>
+<main><div class="wrap">
+<form id="application-form" class="application--form">
+  <h2>Apply for this job</h2>
+  <div class="grid">
+    <div class="field-wrapper"><label for="first_name">First Name<span>*</span></label><input id="first_name" name="job_application[first_name]" type="text"></div>
+    <div class="field-wrapper"><label for="last_name">Last Name<span>*</span></label><input id="last_name" name="job_application[last_name]" type="text"></div>
+    <div class="field-wrapper"><label for="email">Email<span>*</span></label><input id="email" name="job_application[email]" type="email"></div>
+    <div class="field-wrapper"><label for="phone">Phone<span>*</span></label><input id="phone" name="job_application[phone]" type="tel" placeholder="(555) 555-5555"></div>
+    <div class="field-wrapper file-upload"><div id="upload-label-resume" class="label">Resume/CV<span>*</span></div>
+      <div class="file-row"><button type="button" class="secondary-button">Attach</button><input id="resume" class="visually-hidden" type="file"><div class="file-upload__filename"></div></div></div>
+    <div class="field-wrapper"><label for="question_101">LinkedIn Profile</label><input id="question_101" type="text"></div>
+    <div class="field-wrapper"><label for="question_201">Are you legally authorized to work in the United States?<span>*</span></label>
+      <select id="question_201"><option value="">Select...</option><option>Yes</option><option>No</option></select></div>
+    <div class="field-wrapper"><label for="question_202">Will you now or in the future require sponsorship for employment visa status?<span>*</span></label>
+      <select id="question_202"><option value="">Select...</option><option>Yes</option><option>No</option></select></div>
+    <div class="field-wrapper"><label for="question_203">What are your salary expectations?</label><input id="question_203" type="text"></div>
+    <div class="field-wrapper"><label for="question_204">Did you use AI to write your answers?<span>*</span></label>
+      <select id="question_204"><option value="">Select...</option><option>Yes</option><option>No</option></select></div>
+    <div class="field-wrapper full"><label for="question_205">Why do you want to work at Kestrel Labs?<span>*</span></label><textarea id="question_205"></textarea></div>
+  </div>
+  <div class="actions"><button type="submit" onclick="event.preventDefault()">Submit Application</button></div>
+</form>
+</div></main>
+<script>
+// Like Greenhouse: the chosen file's name appears next to the Attach button.
+const inp = document.getElementById("resume");
+inp.addEventListener("change", () => (inp.parentElement.querySelector(".file-upload__filename").textContent = inp.files[0]?.name || ""));
+</script>
+<!--SCRIPTS-->
+<script>
+// Run the fill, then keep the Done toast on screen for the screenshot (it closes itself after 10 s, and the headless
+// run's virtual time would pass that before the shot is taken).
+setTimeout(async () => {
+  try { await window.__runFill(); } catch (e) { console.error(e); }
+  const orig = window.setTimeout;
+  window.setTimeout = (fn, ms, ...a) => (ms >= 9000 ? 0 : orig(fn, ms, ...a));
+  if (window.__toastData && window.__toastFn) window.__toastFn(window.__toastData, { local: true });
+  window.scrollTo(0, 0); // typing into the textarea scrolled the page a little
+  document.body.dataset.shotReady = "1";
+}, 300);
+</script>
+</body>
+</html>

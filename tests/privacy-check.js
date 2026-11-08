@@ -1,6 +1,9 @@
 // Privacy check: no file in the repository may hold your personal data.
 //   node tests/privacy-check.js            every tracked file plus untracked, not ignored ones (the working tree)
 //   node tests/privacy-check.js --staged   the staged content only (the pre-commit hook, tests/hooks/pre-commit)
+//   node tests/privacy-check.js --paths <file or folder>...   exactly these files (folders recursively), whether or not
+//                                           git knows them: tools/build.js runs it on the files going into the store zip
+//                                           and on store/ (the listing and the screenshot sources)
 // The strings to look for live in tests/private-patterns.txt (git-ignored, one per line; "#" starts a comment), so the
 // check itself never publishes them, and a hit is reported by file, line and pattern NUMBER, never the text.
 // Matched as whole words, case-insensitive; a line starting with "=" is matched case-sensitively (company names that are
@@ -39,11 +42,22 @@ const allow = fs.existsSync(allowFile)
 const allowed = (f, line) => allow.some((a) => a.file === f && line.includes(a.text));
 
 const staged = process.argv.includes("--staged");
+const pathsAt = process.argv.indexOf("--paths");
+const givenPaths = pathsAt >= 0 ? process.argv.slice(pathsAt + 1) : null;
 const SELF = new Set(["tests/private-patterns.txt", "tests/privacy-allowlist.txt"]);
-const BINARY = /\.(png|jpe?g|gif|ico|pdf|zip|crx|woff2?)$/i;
-const files = (staged
-  ? git(["diff", "--cached", "--name-only", "--diff-filter=ACMR", "-z"]).toString("utf8").split("\0")
-  : git(["ls-files", "-c", "-o", "--exclude-standard", "-z"]).toString("utf8").split("\0")
+const BINARY = /.(png|jpe?g|gif|ico|pdf|zip|crx|woff2?)$/i;
+// --paths: the given files, and every file under the given folders (never .git), as repo-relative names.
+function walk(p) {
+  const abs = path.isAbsolute(p) ? p : path.join(root, p);
+  if (!fs.existsSync(abs)) throw new Error(`--paths: ${p} doesn't exist`);
+  if (fs.statSync(abs).isFile()) return [path.relative(root, abs).split(path.sep).join("/")];
+  return fs.readdirSync(abs, { withFileTypes: true }).filter((d) => d.name !== ".git").flatMap((d) => walk(path.join(abs, d.name)));
+}
+const files = (givenPaths
+  ? givenPaths.flatMap(walk)
+  : staged
+    ? git(["diff", "--cached", "--name-only", "--diff-filter=ACMR", "-z"]).toString("utf8").split("\0")
+    : git(["ls-files", "-c", "-o", "--exclude-standard", "-z"]).toString("utf8").split("\0")
 ).filter((f) => f && !SELF.has(f) && !BINARY.test(f));
 
 const hits = [];
@@ -64,7 +78,7 @@ for (const f of files) {
     });
   });
 }
-const where = staged ? "the staged files" : "the working tree";
+const where = givenPaths ? (givenPaths.length > 6 ? `the ${givenPaths.length} given paths` : givenPaths.join(", ")) : staged ? "the staged files" : "the working tree";
 if (hits.length) {
   console.log(`PRIVACY CHECK FAILED: personal data in ${where} (${hits.length} line${hits.length === 1 ? "" : "s"}; replace it with fake data):`);
   for (const h of hits) console.log(h);

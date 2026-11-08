@@ -9,3 +9,7 @@ tests/private-patterns.txt
 # YC Work at a Startup captures (personal data)
 tests/fixtures/yc-waas-raw.html
 tests/fixtures/yc-waas-job-raw.html
+
+# Chrome Web Store zips (tools/build.js) and the screenshot build pages (tools/screenshots.ps1)
+dist/
+store/.build/

@@ -64,6 +64,9 @@ git config core.hooksPath tests/hooks
 
 `CLAUDE.md` holds the detailed design notes: every rule, why it exists, and the fixture that covers it.
 
+## Packaging for the Chrome Web Store
+`node tools/build.js` writes `dist/application-autofill-<version>.zip` with only the files the extension needs (the manifest, its scripts, the popup and options pages, the icons), after running the privacy check on them and on `store/`. `powershell -ExecutionPolicy Bypass -File tools\screenshots.ps1` renders the store screenshots, promo tile and icon sizes from the fake-data pages in `store/src/`. The listing text and permission justifications are in `store/listing.md`; the privacy policy is [PRIVACY.md](PRIVACY.md).
+
 ## Limitations
 - Not affiliated with, endorsed by, or supported by Workday, Greenhouse, Ashby, Lever, Gem, iCIMS, Rippling, Y Combinator or Anthropic.
 - Portals change their markup; a field can be missed or filled wrong. You review every answer before submitting: the outlines show what was filled and what needs you.

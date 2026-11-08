@@ -1,0 +1,30 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>icon sizes</title>
+<!-- Store build source: scales icons/icon128.png to 16, 32 and 48 px on a canvas and prints the PNGs as data URLs
+     (one per line, "size data:..."), read with --dump-dom by tools/screenshots.ps1 and written to icons/. -->
+</head>
+<body>
+<img id="src" src="../../icons/icon128.png">
+<pre id="out"></pre>
+<script>
+const img = document.getElementById("src");
+const go = () => {
+  const lines = [];
+  for (const size of [16, 32, 48]) {
+    const c = document.createElement("canvas");
+    c.width = c.height = size;
+    const ctx = c.getContext("2d");
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(img, 0, 0, size, size);
+    lines.push(size + " " + c.toDataURL("image/png"));
+  }
+  document.getElementById("out").textContent = "@@BEGIN\n" + lines.join("\n") + "\n@@END";
+};
+if (img.complete && img.naturalWidth) go(); else img.addEventListener("load", go);
+</script>
+</body>
+</html>

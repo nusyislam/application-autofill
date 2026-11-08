@@ -23,7 +23,9 @@
   .check{flex-direction:row;align-items:center;gap:6px}
   table{width:100%;border-collapse:collapse;font-size:13px}
   td{border-top:1px solid var(--b);padding:6px 4px;vertical-align:top}
-  td textarea{width:100%;min-height:38px;box-sizing:border-box}
+  td textarea{width:100%;min-width:120px;min-height:38px;box-sizing:border-box}
+  /* Learned answers: the category picker beside the tag must not squeeze the answer box to a few characters. */
+  td select{max-width:190px;font-size:12px}
   /* Recently deleted: Restore above Delete permanently, one column, the same width (the cell is only as wide as its
      longest button, so the question / answer columns keep their room). */
   td.del-actions{width:1%}
