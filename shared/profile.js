@@ -1760,14 +1760,33 @@
     const cityStateAsk = ["text", "textarea"].includes(f.type) && L.length <= 160 && !/\blocation\b/.test(L) && !/^(are|do|have|will|is|would|can|could|were) you\b/.test(L) &&
       ((cityWord && placeCtx) || (stateWord && /\b(state|province) (where|in which|you)\b|\b(your|current|home) (state|province)\b|\b(state|province) of residence\b/.test(L)) ||
         (ctx.category === "residence" && /\b(city|town|state|province|where|based|located|reside|live)\b/.test(L)));
-    if (cityStateAsk) {
+    // The same on a dropdown / radio (Vantora, Greenhouse: "Which U.S. State or Canadian Province do you reside in?" was
+    // "classified residence: left for you"): "which / what state | province | country | city do you reside / live / are
+    // you located in", "state / country of residence". The options are matched by meaning: the state as its name, its
+    // abbreviation or "New York (NY)"; the country as any of its names; the city by name or the same city. A city asked
+    // with "located / based" stays with the application-location rule (your accepted names). Yes / no residence
+    // questions keep the residence rule below.
+    const resideWord = /\b(reside|residing|live|living|residence|resident)\b/.test(L);
+    const placeChoiceKind = ["dropdown", "radio"].includes(f.type) && L.length <= 160 && !/\blocation\b/.test(L) && !/^(are|do|have|will|is|would|can|could|were) you\b/.test(L) &&
+      ((L.match(/\b(?:which|what) (?:u s |us |canadian |american |home )*(state|province|country|city|town)\b.{0,60}\b(?:reside|residing|live|living|located|based)\b/) || L.match(/\b(state|province|country|city|town) of (?:current |your |primary )?residence\b/) || [])[1] || "");
+    const placeChoice = placeChoiceKind && (placeChoiceKind !== "city" && placeChoiceKind !== "town" ? placeChoiceKind : resideWord ? "city" : "");
+    if (cityStateAsk || placeChoice) {
       const others = /\b(employer|company|organi[sz]ation|school|university|college|office|headquarters|hq|job|position|role|contact|reference|relative|parent|spouse|manager|recruiter|born|birth|previous|prior|former|last)\b/.test(L);
       const st = STATE_ABBR[norm(p.state || "")] || p.state || "";
-      const want = cityWord && stateWord ? "city and state" : cityWord ? "city" : "state";
-      const v = others ? "" : want === "city and state" ? (p.city && st ? `${p.city}, ${st}` : "") : want === "city" ? p.city || "" : p.state || "";
+      const want = placeChoice ? (placeChoice === "province" ? "state" : placeChoice) : cityWord && stateWord ? "city and state" : cityWord ? "city" : "state";
+      let v;
+      if (others) v = "";
+      else if (placeChoice) {
+        // Choice fields: ordered alternatives, exact or whole-phrase matches ("New York (NY)" holds "New York").
+        if (want === "state") v = p.state ? { steps: [[p.state, st, `${p.state} (${st})`, `${st} ${p.state}`, `${p.state} ${st}`].filter((x, i, a) => x && a.indexOf(x) === i)], what: "state of residence" } : "";
+        else if (want === "country") v = p.country ? { steps: [countryAlts(p).map(String)], what: "country of residence" } : "";
+        else v = p.city ? { steps: [[p.city]], near: p.city, what: "city of residence" } : "";
+      }
+      else v = want === "city and state" ? (p.city && st ? `${p.city}, ${st}` : "") : want === "city" ? p.city || "" : p.state || "";
       if (!namedLogged.has("citystate|" + f.label)) {
         namedLogged.add("citystate|" + f.label);
-        dbg(`current city / state: ${others ? "the question asks for someone else's place (an employer's, a school's, a contact's), not where you live: left for you (never sent to Claude)" : v ? `"${v}" from your address (the question asks for the ${want}), blue` : `your address has no ${want} in Options, left for you (never sent to Claude)`}: ${f.label.slice(0, 80)}`);
+        const shownV = typeof v === "object" ? v.steps[0][0] : v;
+        dbg(`current city / state: ${others ? "the question asks for someone else's place (an employer's, a school's, a contact's), not where you live: left for you (never sent to Claude)" : v ? `"${shownV}" from your address (the question asks for the ${want}${typeof v === "object" ? ", matched by meaning among the options" : ""}), blue` : `your address has no ${want} in Options, left for you (never sent to Claude)`}: ${f.label.slice(0, 80)}`);
       }
       return v ? FIX(v) : NEEDS;
     }
@@ -2020,8 +2039,10 @@
     // first unused one; a textarea gets them all, one per line. None left = yellow, never Claude.
     const GENERIC_LINK = /^(additional|other|any|relevant|more|extra|supporting|optional|personal)( (relevant|professional|online|personal))? (links?|urls?)\b|^(links?|urls?)( optional)?$|\b(additional|other|any|more|extra) (relevant |professional |online |personal )?(links|urls|websites|profiles)\b|^(personal )?(website|portfolio)( url| link)? ?(\/|or|and) ?(personal )?(portfolio|website)\b/;
     const descGeneric = !!f.desc && /\b(any|other|additional) (relevant |professional |online )?(links|urls|profiles)\b|\bsuch as your (github|git hub|website|personal website|portfolio)\b/.test(norm(f.desc));
-    if (["text", "textarea"].includes(f.type) && !/\blinkedin\b/.test(L) && !LR?.ESSAY_PROMPT?.test(L) && L.length <= 120 &&
-      (GENERIC_LINK.test(L) || (isLinkBox(f) && descGeneric))) {
+    // Which of your links another field on this form already holds (`shown`: that URL in another field's value) or has a
+    // field of its own for (`ownField`: a LinkedIn / GitHub / website box, filled or not). Vantora: "Portfolio" got the
+    // GitHub link next to a "GitHub URL" field; a link is never used twice on one form.
+    const linkUse = () => {
       const url = (x) => String(x || "").trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/+$/, "");
       const others = (ctx.fieldValues?.() || []).filter((x) => x.c !== f.c);
       const shown = new Set(others.flatMap((x) => String(x.v || "").split(/\s+/)).map(url).filter(Boolean));
@@ -2029,6 +2050,11 @@
         const n = norm(x.label || "");
         return n.length <= 60 && rx.test(n) && !GENERIC_LINK.test(n);
       });
+      return { url, shown, ownField };
+    };
+    if (["text", "textarea"].includes(f.type) && !/\blinkedin\b/.test(L) && !LR?.ESSAY_PROMPT?.test(L) && L.length <= 120 &&
+      (GENERIC_LINK.test(L) || (isLinkBox(f) && descGeneric))) {
+      const { url, shown, ownField } = linkUse();
       const cands = [
         ["GitHub", p.github, /\bgit ?hub\b/],
         ["your website", p.website, /\b(personal )?(website|portfolio)\b/],
@@ -2066,7 +2092,29 @@
     const notLinkAsk = /^(do|does|did|have|has|are|is|were|was|will|would|can|could|how|what|which|why|when|describe|tell|explain)\b/.test(L) && !/\b(url|link|profile|handle|username|page)\b/.test(L);
     if (!openP && !notLinkAsk && M(/linkedin/)) return p.linkedin;
     if (!openP && !notLinkAsk && M(/github/)) return p.github;
-    if (!openP && !notLinkAsk && (M(/portfolio|personal website/) || /^(other |personal )?website( url| link)?$/.test(L))) return p.website || p.github;
+    // Portfolio / website: your website, else GitHub as the substitute (blue), but never a link another field on this
+    // form already holds or has its own field for (Vantora: "Portfolio" got GitHub next to "GitHub URL"). No unused
+    // link: left blank (yellow only when required), never Claude.
+    if (!openP && !notLinkAsk && (M(/portfolio|personal website/) || /^(other |personal )?website( url| link)?$/.test(L))) {
+      const { url, shown, ownField } = linkUse();
+      const why = [];
+      let v = "", from = "";
+      if (String(p.website || "").trim()) {
+        if (shown.has(url(p.website))) why.push("your website (already on this form)");
+        else { v = p.website.trim(); from = "your website"; }
+      } else why.push("your website (none in your profile)");
+      if (!v && String(p.github || "").trim()) {
+        if (shown.has(url(p.github))) why.push("GitHub (already on this form)");
+        else if (ownField(/\bgit ?hub\b/)) why.push("GitHub (has its own field)");
+        else { v = p.github.trim(); from = "GitHub, as a substitute"; }
+      }
+      if (!namedLogged.has("portfolio|" + f.label)) {
+        namedLogged.add("portfolio|" + f.label);
+        dbg(`link field (website / portfolio): ${v ? `"${v}" (${from}${from === "your website" ? "" : ", blue"})` : `no unused link in your profile, left ${f.required ? "for you (yellow, required)" : "blank"}, never Claude`}${why.length ? `; not used: ${why.join(", ")}` : ""}: ${f.label.slice(0, 80)}`);
+      }
+      if (!v) return f.required ? NEEDS : SKIP;
+      return from === "your website" ? v : FIX(v);
+    }
 
     // Previous worker
     // "ever worked with / on / in / using ..." is experience, not employment ("Have you ever worked with Kubernetes?" got
@@ -2811,6 +2859,21 @@
     const url = (x) => String(x).trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/+$/, "");
     if (/\.[a-z]{2,}/i.test(b) && url(a) === url(b)) return true;
     if (/company|employer|organi[sz]ation|^org$/.test(`${f.nl || ""} ${f.nid || ""}`) && sameCompany(a, b)) return true;
+    // A country with its phone code ("United States +1", "+1 US", "United States of America (+1)") against the country
+    // or phone country in any of its names, with or without the code; the same code with one side's name missing ("+1"
+    // against "United States (+1)") counts too (Vantora, Greenhouse: the phone Country was re-filled on every rerun).
+    const codeOf = (x) => (String(x).match(/\+\s?(\d{1,3})\b/) || [])[1] || "";
+    const ca = codeOf(a), cb = codeOf(b);
+    if (ca || cb) {
+      const name = (x) => norm(String(x).replace(/\(?\+\s?\d{1,3}\)?/g, " ")).replace(/\bu s a?\b/g, (m) => (m === "u s" ? "us" : "usa"));
+      const US = /^(united states( of america)?|usa|us|america)$/;
+      const sa = name(a), sb = name(b);
+      const sameName = !!sa && !!sb && (sa === sb || (US.test(sa) && US.test(sb)));
+      // A bare "+1" (Greenhouse shows only the code once picked) is the United States.
+      const bareUS = (!sa && US.test(sb) && ca === "1") || (!sb && US.test(sa) && cb === "1");
+      if (ca && cb) { if (ca === cb && (!sa || !sb || sameName)) return true; }
+      else if (sameName || bareUS) return true;
+    }
     return false;
   }
   // Does a field's current value already satisfy the profile value `v` (whatever shape a rule returned)?
@@ -2833,7 +2896,8 @@
         return k === 0 ? true : k > 0 ? null : false;
       }
       const steps = v.steps || v.degreeSteps;
-      if (steps) return steps.flat().some((a) => norm(a) === norm(c) || hasPosPhrase(c, a) || AAF.sameField(c, a)) || (!!v.near && !!inMetro(c, v.near));
+      // samePrefill too: a phone Country showing "+1" against the country steps (United States | USA | US ...).
+      if (steps) return steps.flat().some((a) => norm(a) === norm(c) || hasPosPhrase(c, a) || AAF.sameField(c, a) || samePrefill(c, a, f)) || (!!v.near && !!inMetro(c, v.near));
       if (typeof v.choose === "function") return v.choose([c]) === c;
       return null; // dates and other shapes
     }

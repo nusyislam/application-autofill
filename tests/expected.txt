@@ -557,3 +557,27 @@ workday-grad-parts :: Expected graduation year => = "2027" mark=review
 workday-grad-parts :: !LOG => classified
 workday-grad-parts :: !LOG => FAIL
 workday-grad-parts :: !LOG => questions sent, model
+# Vantora (Greenhouse, filled twice): "Which U.S. State or Canadian Province do you reside in?" (dropdown) was classified residence
+# and left yellow; "Portfolio" got the GitHub link next to a GitHub field; the phone Country (shown as "+1" once picked) was
+# re-filled on every rerun. The -plain variant saves the country as a plain "United States".
+greenhouse-state-links-rerun :: Country => = "+1" mark=-
+greenhouse-state-links-rerun :: GitHub URL => = "https://github.com/test"
+greenhouse-state-links-rerun :: Portfolio => = "" mark=-
+greenhouse-state-links-rerun :: Personal website => = "" mark=needs
+greenhouse-state-links-rerun :: Which U.S. State or Canadian Province do you resid => = "New York" mark=review
+greenhouse-state-links-rerun :: Which state do you live in? => = "NY" mark=review
+greenhouse-state-links-rerun :: State of residence => = "New York (NY)" mark=review
+greenhouse-state-links-rerun :: Which country do you currently reside in? => = "United States" mark=review
+greenhouse-state-links-rerun :: Which city do you reside in? => = "Springfield" mark=review
+greenhouse-state-links-rerun :: Do you currently reside in New York? => = "Yes" mark=review
+greenhouse-state-links-rerun :: rerun: Country => = "+1" mark=-
+greenhouse-state-links-rerun :: rerun: Portfolio => = "" mark=-
+greenhouse-state-links-rerun :: !LOG => rerun: ok   [dropdown] Country
+greenhouse-state-links-rerun :: !LOG => rerun: replaced
+greenhouse-state-links-rerun :: !LOG => classified
+greenhouse-state-links-rerun :: !LOG => questions sent, model
+greenhouse-state-links-rerun-plain :: Country => = "+1" mark=-
+greenhouse-state-links-rerun-plain :: rerun: Country => = "+1" mark=-
+greenhouse-state-links-rerun-plain :: Which U.S. State or Canadian Province do you resid => = "New York" mark=review
+greenhouse-state-links-rerun-plain :: !LOG => rerun: ok   [dropdown] Country
+greenhouse-state-links-rerun-plain :: !LOG => classified
