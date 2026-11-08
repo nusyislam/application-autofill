@@ -39,7 +39,9 @@ const allow = fs.existsSync(allowFile)
     return { file: file.trim(), text: (text || "").trim() };
   }).filter((a) => a.file && a.text)
   : [];
-const allowed = (f, line) => allow.some((a) => a.file === f && line.includes(a.text));
+// A copy of an allowlisted file elsewhere (the extracted store zip, checked with --paths) is the same file: the
+// allowlist entry applies when the path ends with the listed file, and the line still has to hold the listed text.
+const allowed = (f, line) => allow.some((a) => (a.file === f || f.endsWith("/" + a.file)) && line.includes(a.text));
 
 const staged = process.argv.includes("--staged");
 const pathsAt = process.argv.indexOf("--paths");

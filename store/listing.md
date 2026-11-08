@@ -17,7 +17,7 @@ fake-data pages in `src/` by `tools/screenshots.ps1`. The package is `dist/appli
 
 **Long description**:
 
-> Application Autofill fills job application forms from a profile you keep in the extension's Options page: contact details, work experience, education, links, your resume, and your fixed answers to the questions every application asks (work authorization, sponsorship, relocation, start of employment, clearance, how you heard about the job, and more).
+> Application Autofill fills job application forms from a profile you keep in the extension's Options page: contact details, work experience, education, links, your resume, and your fixed answers to the questions every application asks (work authorization, sponsorship, relocation, clearance, how you heard about the job, and more). Start dates, pay and other questions that are yours alone are always left for you.
 >
 > It works on Workday, Greenhouse, Ashby, Lever, Gem, iCIMS and Rippling, including application forms embedded on a company's own careers site. On YC Work at a Startup it drafts the note to the founder for you to rewrite.
 >
@@ -85,5 +85,5 @@ fake-data pages in `src/` by `tools/screenshots.ps1`. The package is `dist/appli
 
 - The AI part is optional and needs the user's own Anthropic API key (Options, "Claude API"). Without a key the rules still fill everything they can and the rest is outlined yellow.
 - To test: open a public posting on any supported portal (for example a job-boards.greenhouse.io posting), fill the profile in Options, then click the floating "Autofill page" button, the popup's "Fill this page", or press Alt+Shift+F. The extension outlines what it filled and never clicks Submit, Next or Save.
-- The only external request the extension itself makes is to `https://api.anthropic.com/v1/messages`. Reading a job posting's location uses the portal's own public job-board API from the page's origin (Greenhouse, Lever).
+- The background service worker makes one kind of network request: `https://api.anthropic.com/v1/messages` (host permission `api.anthropic.com`). The content scripts read the job posting's location and description from the portal they run on: the posting page (same origin) and, on Greenhouse and Lever, the portal's public, CORS-enabled job-board API (`boards-api.greenhouse.io/v1/boards/<board>/jobs/<id>`, `api.lever.co/v0/postings/<company>/<id>` or `api.eu.lever.co`). Those public APIs allow cross-origin reads, so no host permission is needed for them, and the requests carry no user data; a failed read just leaves the location unknown.
 - The test pages and screenshots use fake data and fictional companies.

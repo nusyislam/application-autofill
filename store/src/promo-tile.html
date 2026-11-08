@@ -7,18 +7,18 @@
 <style>
   html, body { margin: 0; width: 440px; height: 280px; overflow: hidden; }
   body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #0f172a; color: #fff; position: relative; }
-  .icon { position: absolute; left: 32px; top: 36px; width: 72px; height: 72px; border-radius: 16px; background: #111827; border: 1px solid #334155; }
-  .icon i { position: absolute; left: 18px; right: 18px; top: 33px; height: 6px; border-radius: 3px; background: #2563eb; }
+  .icon { position: absolute; left: 32px; top: 36px; width: 72px; height: 72px; border-radius: 16px; overflow: hidden; border: 1px solid #334155; }
+  .icon img { display: block; width: 72px; height: 72px; }
   h1 { position: absolute; left: 124px; top: 40px; margin: 0; font-size: 27px; font-weight: 700; letter-spacing: -.2px; }
   p { position: absolute; left: 124px; top: 82px; margin: 0; font-size: 14.5px; line-height: 1.4; color: #cbd5e1; width: 290px; }
   .legend { position: absolute; left: 32px; right: 32px; bottom: 28px; display: flex; flex-direction: column; gap: 8px; font-size: 13.5px; color: #e2e8f0; }
   .legend div { display: flex; align-items: center; gap: 9px; }
   .dot { width: 11px; height: 11px; border-radius: 50%; flex: none; }
-  .foot { position: absolute; left: 124px; right: 12px; top: 134px; font-size: 11.5px; color: #94a3b8; line-height: 1.5; white-space: nowrap; }
+  .foot { position: absolute; left: 124px; right: 28px; top: 132px; font-size: 12px; color: #94a3b8; line-height: 1.45; }
 </style>
 </head>
 <body>
-  <div class="icon"><i></i></div>
+  <div class="icon"><img src="../../icons/icon128.png" alt=""></div>
   <h1>Application Autofill</h1>
   <p>Fills job applications from a profile on your device. You review every field, you submit.</p>
   <div class="legend">
@@ -26,6 +26,6 @@
     <div><span class="dot" style="background:#f59e0b"></span>Yellow: needs you</div>
     <div><span class="dot" style="background:#dc2626"></span>Red: AI-usage questions, answer yourself</div>
   </div>
-  <div class="foot">Workday · Greenhouse · Ashby · Lever · Gem · iCIMS · Rippling</div>
+  <div class="foot">Workday · Greenhouse · Ashby · Lever<br>Gem · iCIMS · Rippling</div>
 </body>
 </html>

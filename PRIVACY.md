@@ -57,10 +57,10 @@ How Anthropic handles API inputs is governed by Anthropic's own terms and privac
 (https://www.anthropic.com/legal/privacy), under the account that owns your key. You can revoke the key at any time in
 your Anthropic console.
 
-The extension also reads the job posting from the portal you are on (the posting page, or the portal's public
-job-board API, such as Greenhouse's or Lever's) to learn the job's location and description. These are requests to
-the portal itself, carry none of your data, and happen only when a question on the page needs the job's location or
-when there are drafts to write.
+The extension also reads the job posting from the portal you are on (the posting page, or on Greenhouse and Lever
+the portal's public job-board API: boards-api.greenhouse.io, api.lever.co / api.eu.lever.co) to learn the job's
+location and description. These requests are made by the page's content script to the portal itself, carry none of
+your data, and happen only when a question on the page needs the job's location or when there are drafts to write.
 
 ## What the extension does not do
 
