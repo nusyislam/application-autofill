@@ -1,0 +1,145 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Software Engineer Intern | Hollowgate Careers</title>
+<style>
+  body { font: 14px sans-serif; }
+  [role=listbox] { background: #fff; border: 1px solid #999; width: 320px; z-index: 5; }
+  [role=option] { padding: 4px; min-height: 20px; }
+  .ff { margin: 10px 0; }
+</style>
+<script>
+window.__logs = [];
+window.__errors = [];
+const origLog = console.log;
+console.log = (...a) => {
+  if (a[0] === "[autofill]") window.__logs.push(a.slice(1).map((x) => (typeof x === "string" ? x : x && x.nodeType ? "<" + x.tagName + ">" : JSON.stringify(x))).join(" "));
+  origLog(...a);
+};
+window.addEventListener("error", (e) => window.__errors.push("error: " + e.message + " @ " + (e.filename || "").split("/").pop() + ":" + e.lineno));
+window.addEventListener("unhandledrejection", (e) => window.__errors.push("rejection: " + (e.reason && e.reason.stack || e.reason)));
+const STORE = {
+  profile: {
+    firstName: "Test", lastName: "Applicant", country: "United States of America", city: "Springfield", state: "New York", zip: "10001",
+    experiences: [{ title: "Engineering Intern", company: "Examplecorp" }],
+    expectedGraduation: "05/21/2027",
+    applicationLocation: { search: "New York", matches: "New York, NY | New York City, New York, United States" },
+    answers: { workAuth: "Yes", sponsorship: "No", over18: "Yes", relocate: "Yes", citizen: "Yes", usPerson: "Yes", previousEmployers: "Examplecorp" }, eeo: {}, api: { key: "test-key", model: "stub" },
+  },
+  settings: { useAI: true, learn: true, threshold: 0.75 },
+  learned: [],
+};
+let onMsg = null;
+// Location settings have no default in Options: the New York values these tests were written with (settings a fixture
+// sets itself are kept; a blank search took the old default search, and the default list when the list was blank too).
+{ const P = STORE.profile, AL = (P.applicationLocation ||= {}), A = (P.answers ||= {}), blank = !String(AL.search || "").trim();
+  if (blank) AL.search = "New York";
+  if (blank && !String(AL.matches || "").trim()) AL.matches = "New York City, New York, United States | New York, New York, United States | New York, NY, United States | New York, NY | New York City | New York, NY, USA | New York, USA";
+  if (!String(A.officeMetro || "").trim()) A.officeMetro = "New York City | NYC | New York, NY | New York, New York | Manhattan | Brooklyn | Queens | Bronx | Staten Island | Long Island | Jersey City | Hoboken | Newark | Westchester | Stamford"; }
+window.chrome = {
+  storage: {
+    local: {
+      get: async (keys) => {
+        const ks = typeof keys === "string" ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys || {});
+        const out = {};
+        for (const k of ks) if (STORE[k] !== undefined) out[k] = JSON.parse(JSON.stringify(STORE[k]));
+        return out;
+      },
+      set: async (o) => Object.assign(STORE, o),
+    },
+    onChanged: { addListener: () => {} },
+  },
+  runtime: { id: "test-extension", onMessage: { addListener: (fn) => (onMsg = fn) }, sendMessage: async (msg) => {
+    // Claude would answer everything: what reaches it shows in the AI line.
+    if (msg.type === "ASK_AI") { window.__ai = (window.__ai || []).concat(msg.questions.map((q) => q.question)); return { model: "stub", answers: msg.questions.map((q) => ({ id: q.id, answer: q.type === "text" ? "New York, NY; open to relocating" : "Yes", confidence: 0.95 })) }; }
+    return {};
+  } },
+};
+window.__runFill = () => new Promise((res) => onMsg({ type: "FILL" }, {}, res));
+</script>
+</head>
+<body>
+<div data-automation-id="progressBar"></div>
+<h2>Application Questions</h2>
+<!-- Hollowgate-like questions (fake data) as Workday dropdowns / text boxes: the three Ashby misses (a work-authorization
+     validity dropdown that got the work-authorization "Yes", a city-and-state text box classified residence, graduation
+     month / year dropdowns no education rule took) through the main-pass rules (Workday has no education step for custom
+     questions), plus a term dropdown, a text month / year, the employer's city (left for you) and the plain year. -->
+<!-- Claude's stub answers "Yes" to everything (and adds "open to relocating" to text): anything it gets shows in AI. -->
+<div class="ff" data-automation-id="formField-q1"><label>Approximately how long is your current work authorization valid?<abbr>*</abbr></label>
+  <button aria-haspopup="listbox" aria-expanded="false" data-opts="Select One|Less than 1 year|1-2 years|2+ years" id="q1">Select One</button></div>
+<div class="ff" data-automation-id="formField-q2"><label>How long is your work authorization valid for?<abbr>*</abbr></label>
+  <button aria-haspopup="listbox" aria-expanded="false" data-opts="Select One|6 months|12 months|18 months or more|Permanent / no expiration" id="q2">Select One</button></div>
+<div class="ff" data-automation-id="formField-q3"><label for="tq3">Please list the city and state/province that you are located in today.<abbr>*</abbr></label><input id="tq3" type="text"></div>
+<div class="ff" data-automation-id="formField-q4"><label for="tq4">Please list the city and state where your current employer is located<abbr>*</abbr></label><input id="tq4" type="text"></div>
+<div class="ff" data-automation-id="formField-q5"><label>Please select your graduation month<abbr>*</abbr></label>
+  <button aria-haspopup="listbox" aria-expanded="false" data-opts="Select One|January|February|March|April|May|June|July|August|September|October|November|December" id="q5">Select One</button></div>
+<div class="ff" data-automation-id="formField-q6"><label>Please select your graduation year<abbr>*</abbr></label>
+  <button aria-haspopup="listbox" aria-expanded="false" data-opts="Select One|2025|2026|2027|2028|2029" id="q6">Select One</button></div>
+<div class="ff" data-automation-id="formField-q7"><label>Select your expected graduation term<abbr>*</abbr></label>
+  <button aria-haspopup="listbox" aria-expanded="false" data-opts="Select One|Fall 2026|Spring 2027|Summer 2027|Fall 2027|Spring 2028" id="q7">Select One</button></div>
+<div class="ff" data-automation-id="formField-q8"><label for="tq8">What is your graduation month?<abbr>*</abbr></label><input id="tq8" type="text"></div>
+<div class="ff" data-automation-id="formField-q9"><label for="tq9">Enter your expected graduation year<abbr>*</abbr></label><input id="tq9" type="text"></div>
+<div class="ff" data-automation-id="formField-q10"><label>Expected graduation year<abbr>*</abbr></label>
+  <button aria-haspopup="listbox" aria-expanded="false" data-opts="Select One|2026|2027|2028" id="q10">Select One</button></div>
+<div id="portal"></div>
+<pre id="out"></pre>
+
+
+<script>
+// ---- Workday-like dropdowns without aria-controls; popups render in a portal and linger 600 ms.
+window.__clicks = [];
+let open = null;
+const closePopup = () => {
+  if (!open) return;
+  const { btn, lb } = open;
+  btn.setAttribute("aria-expanded", "false");
+  setTimeout(() => lb.remove(), 600); // closing animation: still visible, options still clickable
+  open = null;
+};
+let resetDone = false;
+for (const btn of document.querySelectorAll("button[aria-haspopup=listbox]")) {
+  btn.addEventListener("click", () => {
+    if (open && open.btn === btn) return closePopup();
+    closePopup();
+    const lb = document.createElement("div"); lb.setAttribute("role", "listbox");
+    open = { btn, lb };
+    btn.setAttribute("aria-expanded", "true");
+    const fill = () => {
+      if (!lb.isConnected) return;
+      for (const t of btn.dataset.opts.split("|")) {
+        const o = document.createElement("div"); o.setAttribute("role", "option"); o.textContent = t;
+        o.addEventListener("click", () => {
+          window.__clicks.push(btn.id + ":" + t);
+          if (!btn.dataset.dead) btn.textContent = t;
+          if (open && open.btn === btn) closePopup();
+        });
+        lb.appendChild(o);
+      }
+    };
+    document.getElementById("portal").prepend(lb);
+    if (btn.dataset.lazy) setTimeout(fill, +btn.dataset.lazy); else fill();
+  });
+}
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closePopup(); });
+document.body.addEventListener("click", (e) => { if (open && e.target === document.body) closePopup(); });
+</script>
+<!--SCRIPTS-->
+<script>
+setTimeout(async () => {
+  let stats;
+  try { stats = await window.__runFill(); } catch (e) { window.__errors.push("run: " + e.stack); }
+  const fields = [...document.querySelectorAll("[data-automation-id^=formField]")].map((c) =>
+    c.querySelector("label").textContent.replace(/\*$/, "").slice(0, 60) + " = " + JSON.stringify((c.querySelector("button") || c.querySelector("input")).textContent || c.querySelector("input")?.value || "") + " mark=" + (c.dataset.wdaf || "-"));
+  document.getElementById("out").textContent = "@@BEGIN\n" + [
+    "STATS " + JSON.stringify(stats), "TOAST " + JSON.stringify((document.getElementById("aaf-done-toast")?.shadowRoot?.querySelector(".box")?.innerText || "").replace(/\n/g, " | ")),
+    "CLICKS " + JSON.stringify(window.__clicks), "AI " + JSON.stringify(window.__ai || []),
+    ...window.__errors.map((e) => "ERR " + e),
+    ...window.__logs.map((l) => "LOG " + l),
+    ...fields.map((f) => "FIELD " + f),
+  ].join("\n") + "\n@@END";
+}, 500);
+</script>
+</body>
+</html>

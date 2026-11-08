@@ -254,7 +254,7 @@
   // yellow): School, Degree, Major, Field of study, Discipline, GPA, Graduation date and their split date parts. These
   // go straight to the education step and never through the classifier. Read without a hint in parentheses and
   // without a trailing date part ("Graduation Date (Month / Day / Year) - Month").
-  const EDU_FIXED = /^((current |most recent )?(school|university|college|institution)( name| attended)?|name of (your )?(school|university|college)|(highest |current )?degree( type| level| earned| obtained)?|(intended |primary )?major|(primary )?field of study|area of study|discipline|concentration|minor|(cumulative |overall |undergraduate )?gpa|grade point average|(expected |anticipated )?(graduation|completion) (date|month|year)|(expected |anticipated )?graduation|(expected |anticipated )?date of graduation|year of graduation|(class|degree) year|other (college|school|university|institution)( high school| or high school)?|other school name|other (college|school) high school)$/;
+  const EDU_FIXED = /^((current |most recent )?(school|university|college|institution)( name| attended)?|name of (your )?(school|university|college)|(highest |current )?degree( type| level| earned| obtained)?|(intended |primary )?major|(primary )?field of study|area of study|discipline|concentration|minor|(cumulative |overall |undergraduate )?gpa|grade point average|(expected |anticipated |intended |projected |estimated )?(graduation|grad|completion) (date|month|year|term|semester)|(expected |anticipated )?graduation|(month|year|term|semester|date) of (expected |anticipated )?graduation|(expected |anticipated )?date of graduation|year of graduation|(class|degree) year|other (college|school|university|institution)( high school| or high school)?|other school name|other (college|school) high school)$/;
   // The same asked as a question (Dodecal: "What degree are you pursuing?", "What is your graduation date?", "What is your
   // GPA?" were classified "education status" and left yellow).
   const EDU_QUESTION = /^(what|which) (degree|major|field of study|area of study|concentration) (are|were|did|do|will|have) you (currently )?(pursuing|pursue|working towards?|earning|earn|earned|completing|complete|completed|studying|study|majoring in|obtaining|obtain|receive|received|getting|enrolled in|hold)( (at|from) (your |the )?(current )?(school|university|college|institution))?$|^(what|which) (is|was|are) your (current |expected |anticipated |cumulative |overall |undergraduate |intended |highest |primary )?(degree|degree type|major|field of study|area of study|concentration|gpa|grade point average|graduation date|graduation term|graduation year|graduation month|date of graduation|expected graduation( date)?|year of graduation|class year)( (at|from) (your |the )?(current )?(school|university|college|institution))?$|^(what|which) (school|university|college|institution) (do|are|did) you (currently )?(attend|attending)\b/;
@@ -265,6 +265,10 @@
     if (CLASS_YEAR_LABEL.test(norm(String(q || "").replace(/\([^)]*\)/g, " ")))) return true;
     if (EDU_QUESTION.test(norm(String(q || "").replace(/\([^)]*\)/g, " ")).replace(/^\s*(q(uestion)?\s*)?\d{1,2}[a-z]?\s+/, ""))) return true;
     let n = norm(String(q || "").replace(/\([^)]*\)/g, " ").replace(/[*✱]/g, " "));
+    // A prompt before the label ("Please select your graduation month", Hollowgate: the dropdowns were "classified
+    // education status: no education rule took this question") is set aside: "please select / choose / enter your",
+    // "what is your", "your".
+    n = n.replace(/^(please )?(select|choose|enter|provide|indicate|pick|specify|input|tell us) (your |the |an? )?/, "").replace(/^(what is |whats |what was )?(your |my )/, "");
     n = n.replace(/^(college |university )+(?=(school name|major|degree( type)?|gpa|graduation date)$)/, "").replace(/\s+(month|day|year)$/, "").replace(/\s+month day year$/, "").trim();
     return EDU_FIXED.test(n);
   }

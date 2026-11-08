@@ -1,0 +1,145 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Software Engineer Intern @ Hollowgate</title>
+<style>
+  body { font: 14px sans-serif; }
+  .ashby-application-form-field-entry { margin: 10px 0; position: relative; }
+  .ashby-application-form-input-yesno { display: flex; gap: 4px; position: relative; }
+  .ashby-application-form-input-yesno-option[aria-pressed="true"] { background: #333; color: #fff; }
+  ._input_1svni_78 { position: absolute; opacity: 0; width: 1px; height: 1px; }
+</style>
+<script>
+// ---- stub chrome API (test only)
+window.__logs = [];
+window.__errors = [];
+const origLog = console.log;
+console.log = (...a) => {
+  if (a[0] === "[autofill]") window.__logs.push(a.slice(1).map((x) => (typeof x === "string" ? x : x && x.nodeType ? "<" + x.tagName + ">" : JSON.stringify(x))).join(" "));
+  origLog(...a);
+};
+window.addEventListener("error", (e) => window.__errors.push("error: " + e.message + " @ " + (e.filename || "").split("/").pop() + ":" + e.lineno));
+window.addEventListener("unhandledrejection", (e) => window.__errors.push("rejection: " + (e.reason && e.reason.stack || e.reason)));
+window.AAF_TEST_TODAY = "2026-11-01T12:00:00"; // a fixed "today" (shared/profile.js today())
+const STORE = {
+  profile: {
+    firstName: "Test", lastName: "Applicant", preferredName: "Tess", email: "test@example.com", phone: "6465550100",
+    phoneCountry: "United States of America", country: "United States of America", city: "Springfield", state: "New York",
+    address1: "1 Test Street", zip: "10001",
+    linkedin: "https://www.linkedin.com/in/test/", github: "https://github.com/test", website: "https://test.dev",
+    source: "LinkedIn", expectedGraduation: "05/21/2027",
+    experiences: [{ company: "Examplecorp", title: "Engineering Intern" }],
+    education: [{ school: "Lakeview University", schoolAliases: "LSU Lakeview University | Lakeland State University at Lakeview", schoolSearch: "Lakeview",
+      degreeOptions: "Bachelor of Engineering | BEng | B.E. | BE\nBachelor's Degree | Bachelor's | Bachelors | Bachelor Degree\nBachelor of Science | BS | B.S. | BSc\nUndergraduate",
+      field: "Computer Engineering", gpa: "", startYear: "2023", endYear: "2027" }],
+    answers: { workAuth: "Yes", sponsorship: "No", over18: "Yes", citizen: "Yes", previousEmployers: "Examplecorp", travel: "Maximum", restrictions: "None" },
+    eeo: { gender: "Female", hispanic: "No", race: "Native Hawaiian or Other Pacific Islander", veteran: "Decline", disability: "Decline" },
+    api: { key: "test-key", model: "stub" },
+  },
+  settings: { useAI: true, learn: true, threshold: 0.75 },
+  learned: [],
+};
+// CITIZEN-OVERRIDE
+let onMsg = null;
+// Location settings have no default in Options: the New York values these tests were written with.
+{ const P = STORE.profile, AL = (P.applicationLocation ||= {}), A = (P.answers ||= {}), blank = !String(AL.search || "").trim();
+  if (blank) AL.search = "New York";
+  if (blank && !String(AL.matches || "").trim()) AL.matches = "New York City, New York, United States | New York, New York, United States | New York, NY, United States | New York, NY | New York City | New York, NY, USA | New York, USA";
+  if (!String(A.officeMetro || "").trim()) A.officeMetro = "New York City | NYC | New York, NY | New York, New York | Manhattan | Brooklyn | Queens | Bronx | Staten Island | Long Island | Jersey City | Hoboken | Newark | Westchester | Stamford"; }
+window.chrome = {
+  storage: {
+    local: {
+      get: async (keys) => {
+        const ks = typeof keys === "string" ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys || {});
+        const out = {};
+        for (const k of ks) if (STORE[k] !== undefined) out[k] = JSON.parse(JSON.stringify(STORE[k]));
+        return out;
+      },
+      set: async (o) => Object.assign(STORE, o),
+    },
+    onChanged: { addListener: () => {} },
+  },
+  runtime: { id: "test-extension",
+    onMessage: { addListener: (fn) => (onMsg = fn) },
+    sendMessage: async (msg) => {
+      // The classifier, answering as the real cache did: the city / state question "residence", graduation questions
+      // "education status", the rest "other".
+      if (msg.type === "CLASSIFY_ASK") {
+        window.__classify = (window.__classify || []).concat(msg.questions.map((q) => q.question));
+        return { model: "stub-haiku", categories: msg.questions.map((q) => ({ id: q.id, category: /located in today|city and state|reside/i.test(q.question) ? "residence" : /graduat/i.test(q.question) ? "education status" : "other" })) };
+      }
+      if (msg.type === "ASK_AI") {
+        window.__aiPayload = (window.__aiPayload || []).concat(msg.questions.map((q) => q.question));
+        return { model: "stub-model", answers: msg.questions.map((q) => ({ id: q.id, answer: null, confidence: 0.9 })) };
+      }
+      if (msg.type === "MAP_MEANING") {
+        window.__meaning = (window.__meaning || []).concat([msg.meaning]);
+        return { model: "stub-haiku", option: null };
+      }
+      return {};
+    },
+  },
+};
+window.__runFill = () => new Promise((res) => onMsg({ type: "FILL" }, {}, res));
+</script>
+</head>
+<body>
+<h1>Software Engineer Intern</h1>
+<!-- Hollowgate-like Ashby page (fake data). Three misses from one real application:
+     1. "Approximately how long is your current work authorization valid?" [Less than 1 year, 1-2 years, 2+ years]: the
+        work-authorization rule answered "Yes" (FAIL).
+     2. "Please list the city and state/province that you are located in today." (text): classified residence, yellow.
+     3. "Please select your graduation month" / "... graduation year" (dropdowns): "no education rule took this question".
+     Plus controls: a permanent option, a text duration box, city-only / city-and-state labels, an employer's city,
+     a residence yes / no, a graduation term dropdown and the plain "Expected graduation year". -->
+<div class="ashby-application-form-container">
+<div class="ashby-application-form-section-container" id="sec">
+  <div class="ashby-application-form-field-entry" data-field-path="auth"><label class="ashby-application-form-question-title _required_x" for="auth">Approximately how long is your current work authorization valid?</label>
+    <select id="auth" name="auth"><option value="">Select...</option><option>Less than 1 year</option><option>1-2 years</option><option>2+ years</option></select></div>
+  <div class="ashby-application-form-field-entry" data-field-path="auth2"><label class="ashby-application-form-question-title" for="auth2">How long is your work authorization valid for?</label>
+    <select id="auth2" name="auth2"><option value="">Select...</option><option>Less than 1 year</option><option>1-3 years</option><option>More than 3 years</option><option>Permanent / no expiration</option><option>I don't know</option></select></div>
+  <div class="ashby-application-form-field-entry" data-field-path="auth3"><label class="ashby-application-form-question-title" for="auth3">When does your work authorization expire?</label><input class="ashby-application-form-input-text" id="auth3" name="auth3" type="text"></div>
+  <div class="ashby-application-form-field-entry" data-field-path="wa"><label class="ashby-application-form-question-title _required_x" for="wa">Are you legally authorized to work in the United States?</label>
+    <select id="wa" name="wa"><option value="">Select...</option><option>Yes</option><option>No</option></select></div>
+  <div class="ashby-application-form-field-entry" data-field-path="city"><label class="ashby-application-form-question-title _required_x" for="city">Please list the city and state/province that you are located in today.</label><input class="ashby-application-form-input-text" id="city" name="city" type="text" required></div>
+  <div class="ashby-application-form-field-entry" data-field-path="city2"><label class="ashby-application-form-question-title" for="city2">Current city and state</label><input class="ashby-application-form-input-text" id="city2" name="city2" type="text"></div>
+  <div class="ashby-application-form-field-entry" data-field-path="city3"><label class="ashby-application-form-question-title" for="city3">Please enter the city you currently live in</label><input class="ashby-application-form-input-text" id="city3" name="city3" type="text"></div>
+  <div class="ashby-application-form-field-entry" data-field-path="city4"><label class="ashby-application-form-question-title" for="city4">Please list the city and state where your current employer is located</label><input class="ashby-application-form-input-text" id="city4" name="city4" type="text"></div>
+  <div class="ashby-application-form-field-entry" data-field-path="res"><label class="ashby-application-form-question-title" for="res">Do you currently reside in New York?</label>
+    <select id="res" name="res"><option value="">Select...</option><option>Yes</option><option>No</option></select></div>
+  <div class="ashby-application-form-field-entry" data-field-path="gradm"><label class="ashby-application-form-question-title _required_x" for="gradm">Please select your graduation month</label>
+    <select id="gradm" name="gradm"><option value="">Select...</option><option>January</option><option>February</option><option>March</option><option>April</option><option>May</option><option>June</option><option>July</option><option>August</option><option>September</option><option>October</option><option>November</option><option>December</option></select></div>
+  <div class="ashby-application-form-field-entry" data-field-path="grady"><label class="ashby-application-form-question-title _required_x" for="grady">Please select your graduation year</label>
+    <select id="grady" name="grady"><option value="">Select...</option><option>2025</option><option>2026</option><option>2027</option><option>2028</option><option>2029</option></select></div>
+  <div class="ashby-application-form-field-entry" data-field-path="gradt"><label class="ashby-application-form-question-title" for="gradt">Select your expected graduation term</label>
+    <select id="gradt" name="gradt"><option value="">Select...</option><option>Fall 2026</option><option>Spring 2027</option><option>Summer 2027</option><option>Fall 2027</option><option>Spring 2028</option></select></div>
+  <div class="ashby-application-form-field-entry" data-field-path="grady2"><label class="ashby-application-form-question-title" for="grady2">Expected graduation year</label>
+    <select id="grady2" name="grady2"><option value="">Select...</option><option>2026</option><option>2027</option><option>2028</option></select></div>
+</div>
+</div>
+<button id="submit" type="submit">Submit Application</button>
+<pre id="out"></pre>
+<!--SCRIPTS-->
+<script>
+setTimeout(async () => {
+  let stats;
+  try { stats = await window.__runFill(); } catch (e) { window.__errors.push("run: " + e.stack); }
+  const fields = [...document.querySelectorAll("[data-field-path]")].map((e) => {
+    const lab = e.querySelector("label").textContent.trim();
+    const c = e.querySelector("select, input");
+    return lab.slice(0, 60) + " = " + JSON.stringify(c.value) + " mark=" + (e.closest("[data-wdaf]")?.dataset.wdaf || e.querySelector("[data-wdaf]")?.dataset.wdaf || "-");
+  });
+  document.getElementById("out").textContent = "@@BEGIN\n" + [
+    "STATS " + JSON.stringify(stats), "TOAST " + JSON.stringify((document.getElementById("aaf-done-toast")?.shadowRoot?.querySelector(".box")?.innerText || "").replace(/\n/g, " | ")),
+    "CLASSIFY " + JSON.stringify(window.__classify || []),
+    "MEANING " + JSON.stringify(window.__meaning || []),
+    "AI " + JSON.stringify((window.__aiPayload || []).map((q) => q.question)),
+    ...window.__errors.map((e) => "ERR " + e),
+    ...window.__logs.map((l) => "LOG " + l),
+    ...fields.map((f) => "FIELD " + f),
+  ].join("\n") + "\n@@END";
+}, 500);
+</script>
+</body>
+</html>

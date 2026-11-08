@@ -127,6 +127,29 @@
     return ok.length ? ok.sort((a, b) => a[1][1] - a[1][0] - (b[1][1] - b[1][0]))[0][0] : null;
   };
 
+  // How long a work authorization is valid, for someone whose authorization doesn't expire (a U.S. citizen): the option
+  // that says so (permanent / indefinite / no expiration / does not expire / not applicable / U.S. citizen), else the
+  // longest span the options name ("2+ years" over "1-2 years" over "Less than 1 year": open-ended ranges by their
+  // start, then closed ranges by their end; months count as fractions of a year), never "I don't know" / "Other" /
+  // "Prefer not to say". null = no option names a span (yellow).
+  const AUTH_PERMANENT = /\b(permanent(ly)?|indefinite(ly)?|no expir\w*|does not expire|doesnt expire|never expires?|not expire|without expir\w*|unlimited|no end date|not applicable|n a|na|u ?s citizen|us citizen|citizen|green card|permanent resident|lawful permanent)\b/;
+  function authDurationChoice(texts) {
+    const ts = texts || [];
+    const bad = (t) => /\b(prefer not|dont know|do not know|not sure|unsure|decline|other|unknown)\b/.test(norm(t));
+    const perm = ts.find((t) => !bad(t) && AUTH_PERMANENT.test(norm(t)));
+    if (perm) return perm;
+    const span = (t) => {
+      const r = ageRange(t);
+      if (!r) return null;
+      const months = /\bmonths?\b/i.test(t) && !/\b(years?|yrs?)\b/i.test(t);
+      return months ? r.map((x) => (x === Infinity ? x : x / 12)) : r;
+    };
+    const ranked = ts.filter((t) => !bad(t)).map((t) => [t, span(t)]).filter(([, r]) => r);
+    if (!ranked.length) return null;
+    ranked.sort((a, b) => b[1][1] - a[1][1] || b[1][0] - a[1][0]);
+    return ranked[0][0];
+  }
+
   // A count among options ("0", "1", "2", "3+", "1-2", "3 or more", "None", "One internship", "More than 3"): the
   // option whose range holds n (the narrowest), via ageRange after words become digits; null = none holds it.
   const WORD_NUM = { none: 0, zero: 0, no: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6 };
@@ -1559,7 +1582,10 @@
     // Also longer wordings ("name of the company where you are currently or most recently employed", "What is your
     // current or most recent role title?"): from the work history, current job first, never Claude.
     const essay = /^(describe|tell us|explain|why|how)\b/.test(L);
-    const companyNow = !essay && L.length <= 160 && /\b(company|employer|organi[sz]ation)\b.{0,40}\b(currently|most recently|presently)( or most recently)? (employed|working|work)\b|\b(name of )?(your )?(current|most recent|present)( or (most recent|previous|last|former|past))? (company|employer|organi[sz]ation)( name)?\b/.test(L);
+    // Not a question about the employer's place ("the city and state where your current employer is located": the city /
+    // state rule, which leaves someone else's place for you).
+    const employerPlace = /\b(city|town|state|province|address|location|zip|postal|country)\b/.test(L);
+    const companyNow = !essay && !employerPlace && L.length <= 160 && /\b(company|employer|organi[sz]ation)\b.{0,40}\b(currently|most recently|presently)( or most recently)? (employed|working|work)\b|\b(name of )?(your )?(current|most recent|present)( or (most recent|previous|last|former|past))? (company|employer|organi[sz]ation)( name)?\b/.test(L);
     const titleNow = !essay && L.length <= 160 && /\b(current|most recent|present)( or (most recent|previous|last|former|past))? (job |role |position )?title\b|\btitle (of|for|at) (your )?(current|most recent) (role|job|position)\b|\b(current|most recent)( or most recent)? (role|position) title\b/.test(L);
     if (f.type === "text" && companyNow && !titleNow && !new RegExp(NOW_OR_BEFORE + "(company|employer|organi[sz]ation)( name)?$").test(L)) {
       const v = recentJob()?.company;
@@ -1571,7 +1597,7 @@
       factLog(v);
       return v ? FIX(v) : NEEDS;
     }
-    if (f.type === "text" && (f.nid === "org" || new RegExp(NOW_OR_BEFORE + "(company|employer|organi[sz]ation)( name)?$").test(L))) {
+    if (f.type === "text" && !employerPlace && (f.nid === "org" || new RegExp(NOW_OR_BEFORE + "(company|employer|organi[sz]ation)( name)?$").test(L))) {
       const v = recentJob()?.company;
       factLog(v);
       return v ? FIX(v) : NEEDS;
@@ -1722,6 +1748,29 @@
       if (["text", "textarea"].includes(f.type)) return undefined;
     }
     // Also "Where are you based?", "Which city are you currently located in?", "Current city".
+    // Your current city / state in a text box (Hollowgate, Ashby: "Please list the city and state/province that you are
+    // located in today." was classified residence and left yellow: the residence rule answers only yes / no questions
+    // naming a place). A text box asking for the city and / or state where you are (located / based / live / reside /
+    // today / current), or any text box the classifier calls residence that asks for a place, gets it from your address,
+    // in the form asked: "City, ST" for city and state, the city for a city, the state for a state. Blue, never Claude.
+    // Not a "location" label (the application-location rule, your accepted names), not someone else's place (an
+    // employer's, a school's, a contact's: yours, logged), not a yes / no question or an essay prompt.
+    const cityWord = /\b(city|town|municipality)\b/.test(L), stateWord = /\b(state|province|state province)\b/.test(L) && !/\bplease state\b|\bstate (your|the|if|whether|how|what|which|why)\b/.test(L);
+    const placeCtx = /\b(located|based|live|living|reside|residing|residence|home|current|currently|today|now|present)\b/.test(L) || ctx.category === "residence";
+    const cityStateAsk = ["text", "textarea"].includes(f.type) && L.length <= 160 && !/\blocation\b/.test(L) && !/^(are|do|have|will|is|would|can|could|were) you\b/.test(L) &&
+      ((cityWord && placeCtx) || (stateWord && /\b(state|province) (where|in which|you)\b|\b(your|current|home) (state|province)\b|\b(state|province) of residence\b/.test(L)) ||
+        (ctx.category === "residence" && /\b(city|town|state|province|where|based|located|reside|live)\b/.test(L)));
+    if (cityStateAsk) {
+      const others = /\b(employer|company|organi[sz]ation|school|university|college|office|headquarters|hq|job|position|role|contact|reference|relative|parent|spouse|manager|recruiter|born|birth|previous|prior|former|last)\b/.test(L);
+      const st = STATE_ABBR[norm(p.state || "")] || p.state || "";
+      const want = cityWord && stateWord ? "city and state" : cityWord ? "city" : "state";
+      const v = others ? "" : want === "city and state" ? (p.city && st ? `${p.city}, ${st}` : "") : want === "city" ? p.city || "" : p.state || "";
+      if (!namedLogged.has("citystate|" + f.label)) {
+        namedLogged.add("citystate|" + f.label);
+        dbg(`current city / state: ${others ? "the question asks for someone else's place (an employer's, a school's, a contact's), not where you live: left for you (never sent to Claude)" : v ? `"${v}" from your address (the question asks for the ${want}), blue` : `your address has no ${want} in Options, left for you (never sent to Claude)`}: ${f.label.slice(0, 80)}`);
+      }
+      return v ? FIX(v) : NEEDS;
+    }
     // A label that STARTS with the question is the location question whatever follows it: "Location (where you will be
     // based while working)" (Tessera, 47 characters) missed the 40-character cap, was classified relocation / office and
     // left yellow. The parenthetical / first sentence is set aside; "Location", "Current location", "Your location",
@@ -2047,6 +2096,24 @@
       return NEEDS;
     }
 
+    // How long your work authorization is valid (Hollowgate, Ashby: "Approximately how long is your current work
+    // authorization valid?" [Less than 1 year, 1-2 years, 2+ years]: the work-authorization rule answered "Yes", FAIL): a
+    // duration, not a yes / no. A U.S. citizen (Options "US citizen" = Yes) has no expiry: the option meaning permanent /
+    // no expiration / not applicable, else the longest span offered (`authDurationChoice`); a text box gets "Does not
+    // expire (U.S. citizen)". Not a citizen (a visa's validity is yours) or not set: yellow, never Claude. Never the
+    // work-authorization Yes / No.
+    const AUTH_VALID_Q = /\b(how long|how much longer|duration|length|validity|valid (for|until|through|till|to)|expir\w*|end date|until when|when does\b.{0,40}\b(expire|end|run out))\b/;
+    const AUTH_THING = /\b(work authori[sz]ation|authori[sz]ation to work|employment authori[sz]ation|work permit|work visa|visa|ead|work status|immigration status|opt|cpt|stem opt)\b/;
+    if (AUTH_VALID_Q.test(L) && AUTH_THING.test(L) && !/^(are|do|is|will|can|have|would|could) you\b/.test(L) && ["radio", "dropdown", "checkgroup", "text", "textarea"].includes(f.type)) {
+      const citizen = a.citizen === "Yes";
+      if (!namedLogged.has("authvalid|" + f.label)) {
+        namedLogged.add("authvalid|" + f.label);
+        dbg(`work authorization validity (a duration, not the yes / no answer): ${citizen ? "you are a U.S. citizen (Options): no expiration -> the permanent / longest option (blue)" : `US citizen is ${a.citizen ? "No" : "not set"} in Options: your visa's validity is yours, left for you (never sent to Claude)`}: ${f.label.slice(0, 80)}`);
+      }
+      if (!citizen) return NEEDS;
+      if (f.type === "text" || f.type === "textarea") return FIX("Does not expire (U.S. citizen)");
+      return FIX({ choose: authDurationChoice, text: "Does not expire (U.S. citizen)", what: "work authorization validity" });
+    }
     // Work authorization / sponsorship
     if (T(/without (any |the need for |requiring )?(visa |employer |company )?sponsorship/)) return FIXYES(a.workAuth, "work authorization");
     // "If hired, can you provide proof of eligibility?", "Can you provide documentation of your work
@@ -2393,6 +2460,36 @@
       if (!x?.school) return NEEDS;
       const aliases = /\|/.test(x.schoolAliases || "") ? splitAlts(x.schoolAliases) : String(x.schoolAliases || "").split(",").map((t) => t.trim()).filter(Boolean);
       return FIX(f.type === "dropdown" || f.type === "multi" ? { school: [x.school, ...aliases.filter((n) => norm(n) !== norm(x.school))], search: x.schoolSearch?.trim() || schoolKeyword(x.school) } : x.school);
+    }
+    // Graduation month / year / term / date asked with a prompt (Hollowgate, Ashby: "Please select your graduation
+    // month" / "... graduation year" (dropdowns) were "classified education status: no education rule took this
+    // question"): the prompt ("please select / choose / enter your", "what is your", "your") set aside, a label that is
+    // "(expected) graduation month | year | term | semester | date" or "month | year | term of graduation" gets it from the
+    // expected graduation date: month -> May | 05 | 5, year -> 2027 | Class of 2027, term / semester / date -> the
+    // graduation choice (Spring 2027 ...; a text box the words "Spring 2027" / the date). Blue, never Claude. (The form
+    // portals send these labels to the education step, which fills them the same way; this is the main-pass rule for
+    // Workday and any field the step didn't take.)
+    const Lg = L.replace(/^(please )?(select|choose|enter|provide|indicate|pick|specify|input|tell us) (your |the |an? )?/, "").replace(/^(what is |whats |what was )?(your |my )/, "");
+    const gradPart = (Lg.match(/^(?:expected |anticipated |intended |projected |estimated )?(?:graduation|grad) (month|year|term|semester|date)$|^(month|year|term|semester|date) of (?:expected |anticipated )?graduation$/) || []).slice(1).find(Boolean);
+    if (gradPart && (gradPart !== "date" || Lg !== L) && !["checkbox", "checkgroup", "file", "multi"].includes(f.type)) {
+      const d = parseDate(p.expectedGraduation || "");
+      const y = String(d.year || "");
+      const m = Number(d.month || 0);
+      const MONTHS_G = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+      const isText = f.type === "text" || f.type === "textarea";
+      let v;
+      if (!y || (gradPart === "month" && !m)) v = undefined;
+      else if (gradPart === "month") v = isText ? MONTHS_G[m - 1] : { steps: [[MONTHS_G[m - 1], MONTHS_G[m - 1].slice(0, 3), String(m).padStart(2, "0"), String(m)]], what: "graduation month" };
+      else if (gradPart === "year") v = isText ? y : { steps: [[y], [`Class of ${y}`]], what: "graduation year" };
+      else if (f.type === "date") v = d;
+      else if (!isText) v = { choose: graduationChoice(d), what: `graduation ${gradPart}` };
+      else v = gradPart === "date" ? gradText(f, p) : m ? `${m <= 5 ? "Spring" : m <= 8 ? "Summer" : "Fall"} ${y}` : y;
+      if (!namedLogged.has("gradpart|" + f.label)) {
+        namedLogged.add("gradpart|" + f.label);
+        dbg(`graduation ${gradPart}: ${v === undefined ? `no expected graduation ${gradPart === "month" && y ? "month" : "date"} in Options, left for you (never sent to Claude)` : `${gradPart === "month" ? MONTHS_G[m - 1] : gradPart === "year" ? y : typeof v === "string" ? v : `the option for ${m ? MONTHS_G[m - 1] + " " : ""}${y}`} (expected graduation ${p.expectedGraduation}, blue)`}: ${f.label.slice(0, 80)}`);
+      }
+      // A date keeps the graduation-date rule's outlining (not blue); month / year / term are blue like the year rule.
+      return v === undefined ? NEEDS : gradPart === "date" ? v : FIX(v);
     }
     // "Intended graduation year", "Graduation year", "Year of graduation": the year of the expected graduation
     // date, blue, never Claude.

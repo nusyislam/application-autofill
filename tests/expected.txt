@@ -518,3 +518,42 @@ greenhouse-location-blank :: Which office are you primarily interested in? => = 
 greenhouse-location-blank :: Current location => = "" mark=needs
 greenhouse-location-blank :: Are you able to work from the office 3 days a week => = "Yes" mark=review
 greenhouse-location-blank :: !LOG => questions sent, model
+# Hollowgate (Ashby): a work-authorization validity dropdown got the work-authorization "Yes" (FAIL); "Please list the city and
+# state/province that you are located in today." was classified residence and left yellow; "Please select your graduation month /
+# year" dropdowns were classified education status ("no education rule took this question"). The -visa fixture is the control
+# (US citizen No: the validity questions are yours); workday-grad-parts runs the same questions through the main-pass rules.
+ashby-duration-city-grad :: Approximately how long is your current work authorization va => = "2+ years" mark=review
+ashby-duration-city-grad :: How long is your work authorization valid for? => = "Permanent / no expiration" mark=review
+ashby-duration-city-grad :: When does your work authorization expire? => = "Does not expire (U.S. citizen)" mark=review
+ashby-duration-city-grad :: Are you legally authorized to work in the United States? => = "Yes" mark=review
+ashby-duration-city-grad :: Please list the city and state/province that you are located => = "Springfield, NY" mark=review
+ashby-duration-city-grad :: Current city and state => = "Springfield, NY" mark=review
+ashby-duration-city-grad :: Please enter the city you currently live in => = "Springfield" mark=review
+ashby-duration-city-grad :: Please list the city and state where your current employer i => = "" mark=needs
+ashby-duration-city-grad :: Do you currently reside in New York? => = "Yes" mark=review
+ashby-duration-city-grad :: Please select your graduation month => = "May"
+ashby-duration-city-grad :: Please select your graduation year => = "2027"
+ashby-duration-city-grad :: Select your expected graduation term => = "Spring 2027"
+ashby-duration-city-grad :: Expected graduation year => = "2027"
+ashby-duration-city-grad :: !LOG => classified
+ashby-duration-city-grad :: !LOG => FAIL
+ashby-duration-city-grad :: !LOG => questions sent, model
+ashby-duration-city-grad-visa :: Approximately how long is your current work authorization va => = "" mark=needs
+ashby-duration-city-grad-visa :: How long is your work authorization valid for? => = "" mark=needs
+ashby-duration-city-grad-visa :: When does your work authorization expire? => = "" mark=needs
+ashby-duration-city-grad-visa :: Are you legally authorized to work in the United States? => = "Yes" mark=review
+ashby-duration-city-grad-visa :: !LOG => FAIL
+ashby-duration-city-grad-visa :: !LOG => questions sent, model
+workday-grad-parts :: Approximately how long is your current work authorization va => = "2+ years" mark=review
+workday-grad-parts :: How long is your work authorization valid for? => = "Permanent / no expiration" mark=review
+workday-grad-parts :: Please list the city and state/province that you are located => = "Springfield, NY" mark=review
+workday-grad-parts :: Please list the city and state where your current employer i => = "" mark=needs
+workday-grad-parts :: Please select your graduation month => = "May" mark=review
+workday-grad-parts :: Please select your graduation year => = "2027" mark=review
+workday-grad-parts :: Select your expected graduation term => = "Spring 2027" mark=review
+workday-grad-parts :: What is your graduation month? => = "May" mark=review
+workday-grad-parts :: Enter your expected graduation year => = "2027" mark=review
+workday-grad-parts :: Expected graduation year => = "2027" mark=review
+workday-grad-parts :: !LOG => classified
+workday-grad-parts :: !LOG => FAIL
+workday-grad-parts :: !LOG => questions sent, model
