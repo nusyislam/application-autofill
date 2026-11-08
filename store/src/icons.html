@@ -3,28 +3,165 @@
 <head>
 <meta charset="utf-8">
 <title>icon sizes</title>
-<!-- Store build source: scales icons/icon128.png to 16, 32 and 48 px on a canvas and prints the PNGs as data URLs
-     (one per line, "size data:..."), read with --dump-dom by tools/screenshots.ps1 and written to icons/. -->
+<!-- Store build source (tools/screenshots.ps1, --dump-dom): the extension icons as PNG data URLs, one per line
+     ("<size> data:..."), written to icons/icon<size>.png; plus "sheet data:..." (a contact sheet at 1x and 4x, written to
+     store/.build/icon-sheet.png to check the small sizes by eye).
+     With icons/source.png present (a 2x2 sheet of candidate icons, git-ignored): the TOP-RIGHT tile (a document with a
+     checkmark) is cropped, its light background made transparent, and drawn at 96x96 centered in the 128x128 icon.
+     Without it, the existing icons/icon128.png is the source. The 16 and 32 px icons are drawn as vectors (the same
+     shapes, with lines and a checkmark thick enough to read at that size); 48 and 128 are scaled from the artwork. -->
 </head>
 <body>
-<img id="src" src="../../icons/icon128.png">
+<img id="src" src="../../icons/source.png">
+<img id="cur" src="../../icons/icon128.png">
 <pre id="out"></pre>
 <script>
-const img = document.getElementById("src");
-const go = () => {
-  const lines = [];
-  for (const size of [16, 32, 48]) {
-    const c = document.createElement("canvas");
-    c.width = c.height = size;
-    const ctx = c.getContext("2d");
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = "high";
-    ctx.drawImage(img, 0, 0, size, size);
-    lines.push(size + " " + c.toDataURL("image/png"));
+const SMALL_VECTOR = true; // 16 and 32 px: vector redraw (true) or a scaled-down raster (false)
+const BLUE = "#2b74f0", INK = "#0f172a", CHECK = "#2f80ff", PAPER = "#ffffff";
+
+// The top-right tile of the 2x2 sheet: the bounding box of its blue pixels, made transparent outside the rounded
+// square (pixels near the light background are the background; edge pixels blended with it keep the blue and get a
+// partial alpha).
+function cropTile(img) {
+  const W = img.naturalWidth, H = img.naturalHeight;
+  const c = document.createElement("canvas");
+  c.width = W; c.height = H;
+  const ctx = c.getContext("2d");
+  ctx.drawImage(img, 0, 0);
+  const d = ctx.getImageData(0, 0, W, H);
+  const px = (x, y) => { const i = (y * W + x) * 4; return [d.data[i], d.data[i + 1], d.data[i + 2]]; };
+  const bg = px(2, 2);
+  const isBlue = ([r, g, b]) => b > 180 && r < 120 && b - r > 80;
+  let x0 = W, y0 = H, x1 = 0, y1 = 0;
+  for (let y = 0; y < H / 2; y++) for (let x = W / 2; x < W; x++) if (isBlue(px(x, y))) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+  const w = x1 - x0 + 1, h = y1 - y0 + 1;
+  const tile = ctx.getImageData(x0, y0, w, h);
+  const t = tile.data;
+  const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+  const blue = [0x2b, 0x74, 0xf0];
+  const full = dist(bg, blue);
+  const at = (x, y) => { const i = (y * w + x) * 4; return [t[i], t[i + 1], t[i + 2]]; };
+  // Only the background CONNECTED to the tile's corners is background (the white page inside the blue square is
+  // nearly the same color as the light background, so a plain color test ate it): flood-fill the mostly-background
+  // pixels from the four corners, then blend the edge pixels next to them toward blue with a partial alpha.
+  const outside = new Uint8Array(w * h);
+  const stack = [[0, 0], [w - 1, 0], [0, h - 1], [w - 1, h - 1]];
+  while (stack.length) {
+    const [x, y] = stack.pop();
+    if (x < 0 || y < 0 || x >= w || y >= h || outside[y * w + x]) continue;
+    if (dist(at(x, y), bg) > 60) continue;
+    outside[y * w + x] = 1;
+    stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
   }
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = (y * w + x) * 4;
+    if (outside[y * w + x]) { t[i + 3] = 0; continue; }
+    let edge = false;
+    for (let dy = -1; dy <= 1 && !edge; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const xx = x + dx, yy = y + dy;
+      if (xx >= 0 && yy >= 0 && xx < w && yy < h && outside[yy * w + xx]) { edge = true; break; }
+    }
+    const p = at(x, y);
+    if (edge && dist(p, blue) > 18) {
+      const a = Math.min(1, dist(p, bg) / full);
+      t[i] = blue[0]; t[i + 1] = blue[1]; t[i + 2] = blue[2]; t[i + 3] = Math.round(a * 255);
+    }
+  }
+  const out = document.createElement("canvas");
+  out.width = w; out.height = h;
+  out.getContext("2d").putImageData(tile, 0, 0);
+  return out;
+}
+// The 128 px icon: the artwork at 96 px, centered.
+function icon128(art) {
+  const c = document.createElement("canvas");
+  c.width = c.height = 128;
+  const ctx = c.getContext("2d");
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(art, 16, 16, 96, 96);
+  return c;
+}
+// Scaled raster: the artwork filling the square with `pad` px of transparent border.
+function raster(art, size, pad) {
+  const c = document.createElement("canvas");
+  c.width = c.height = size;
+  const ctx = c.getContext("2d");
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(art, pad, pad, size - 2 * pad, size - 2 * pad);
+  return c;
+}
+// Vector redraw of the same icon (blue rounded square, white page with a folded corner, two text lines, a checkmark
+// over the lower right), with strokes thick enough for 16 / 32 px.
+function vector(size) {
+  const c = document.createElement("canvas");
+  c.width = c.height = size;
+  const ctx = c.getContext("2d");
+  const s = size;
+  const rr = (x, y, w, h, r) => { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); };
+  ctx.fillStyle = BLUE;
+  rr(0, 0, s, s, s * 0.22);
+  ctx.fill();
+  // Page: left 0.22, right 0.70, top 0.16, bottom 0.84; folded corner 0.16 of the size.
+  const L = s * 0.22, R = s * 0.70, T = s * 0.15, B = s * 0.85, F = s * 0.17;
+  ctx.fillStyle = PAPER;
+  ctx.beginPath();
+  ctx.moveTo(L, T); ctx.lineTo(R - F, T); ctx.lineTo(R, T + F); ctx.lineTo(R, B); ctx.lineTo(L, B); ctx.closePath();
+  ctx.fill();
+  // Text lines (thick at small sizes: 2 px at 16, 3.5 px at 32).
+  const lw = s <= 16 ? 2 : s <= 32 ? 3.5 : s * 0.075;
+  ctx.strokeStyle = INK; ctx.lineCap = "round"; ctx.lineWidth = lw;
+  const x1 = L + s * 0.10, x2 = R - s * 0.10;
+  for (const y of [T + (B - T) * 0.38, T + (B - T) * 0.60]) { ctx.beginPath(); ctx.moveTo(x1, y); ctx.lineTo(x2, y); ctx.stroke(); }
+  // Checkmark, lower right, with a thin page-colored halo so it reads against the lines.
+  const cw = s <= 16 ? 2.6 : s <= 32 ? 4.5 : s * 0.09;
+  const p1 = [s * 0.56, s * 0.66], p2 = [s * 0.68, s * 0.78], p3 = [s * 0.90, s * 0.50];
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = PAPER; ctx.lineWidth = cw + (s <= 16 ? 1.4 : 2.5);
+  ctx.beginPath(); ctx.moveTo(...p1); ctx.lineTo(...p2); ctx.lineTo(...p3); ctx.stroke();
+  ctx.strokeStyle = CHECK; ctx.lineWidth = cw;
+  ctx.beginPath(); ctx.moveTo(...p1); ctx.lineTo(...p2); ctx.lineTo(...p3); ctx.stroke();
+  return c;
+}
+// Contact sheet: every size at 1x on light and dark, then at 4x (nearest neighbour), to check by eye.
+function sheet(icons) {
+  const c = document.createElement("canvas");
+  c.width = 560; c.height = 300;
+  const ctx = c.getContext("2d");
+  ctx.fillStyle = "#f3f4f6"; ctx.fillRect(0, 0, 560, 150);
+  ctx.fillStyle = "#1f2937"; ctx.fillRect(0, 150, 560, 150);
+  ctx.font = "12px system-ui, sans-serif";
+  let x = 16;
+  for (const [size, cv] of icons) {
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(cv, x, 20); // 1x light
+    ctx.drawImage(cv, x, 170); // 1x dark
+    const m = size <= 32 ? 4 : size === 48 ? 2 : 1;
+    ctx.drawImage(cv, x, 150 - 10 - size * m, size * m, size * m); // magnified, bottom of the light band
+    ctx.fillStyle = "#374151"; ctx.fillText(`${size}${m > 1 ? ` (x${m} below)` : ""}`, x, 14);
+    x += Math.max(size * m, 60) + 24;
+  }
+  return c;
+}
+
+const src = document.getElementById("src"), cur = document.getElementById("cur");
+let pending = 2;
+const ready = () => { if (--pending > 0) return; go(); };
+for (const im of [src, cur]) { if (im.complete) ready(); else { im.addEventListener("load", ready); im.addEventListener("error", ready); } }
+function go() {
+  const fromSource = src.naturalWidth > 0;
+  const art = fromSource ? cropTile(src) : cur;
+  const i128 = fromSource ? icon128(art) : cur;
+  const art128 = fromSource ? art : cur;
+  const icons = [
+    [128, i128],
+    [48, raster(art128, 48, fromSource ? 3 : 0)],
+    [32, SMALL_VECTOR ? vector(32) : raster(art128, 32, 1)],
+    [16, SMALL_VECTOR ? vector(16) : raster(art128, 16, 0)],
+  ];
+  const lines = icons.map(([size, cv]) => `${size} ${cv.toDataURL("image/png")}`);
+  lines.push(`sheet ${sheet(icons).toDataURL("image/png")}`);
   document.getElementById("out").textContent = "@@BEGIN\n" + lines.join("\n") + "\n@@END";
-};
-if (img.complete && img.naturalWidth) go(); else img.addEventListener("load", go);
+}
 </script>
 </body>
 </html>

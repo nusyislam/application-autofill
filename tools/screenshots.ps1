@@ -4,7 +4,10 @@
 #   store\screenshot-2-options.png  1280x800  the Options page (options.html with a chrome.storage stub, store\src\options-stub.js)
 #   store\screenshot-3-learned.png  1280x800  the learned-answers review (the same page, only that section)
 #   store\promo-small-440x280.png   440x280   the small promo tile (store\src\promo-tile.html)
-#   icons\icon16.png, icon32.png, icon48.png  icons/icon128.png scaled (store\src\icons.html, a canvas)
+#   icons\icon128.png, icon48.png, icon32.png, icon16.png  from icons\source.png (git-ignored; the top-right tile of the
+#                                             2x2 sheet) when present, else from the existing icon128 (store\src\icons.html, a
+#                                             canvas: 48 / 128 scaled, 16 / 32 redrawn as vectors); store\.build\icon-sheet.png
+#                                             shows every size at 1x and magnified
 #
 #   powershell -ExecutionPolicy Bypass -File tools\screenshots.ps1
 #
@@ -82,10 +85,7 @@ foreach ($kind in "options", "learned") {
   Shot $page (Join-Path $store "screenshot-$n.png") 1280 800
 }
 
-# 4. The small promo tile.
-Shot (Join-Path $store "src\promo-tile.html") (Join-Path $store "promo-small-440x280.png") 440 280
-
-# 5. Icon sizes: the canvas page prints each size's PNG as a data URL.
+# 4. Icon sizes: the canvas page prints each size's PNG as a data URL.
 $dom = Edge @("--user-data-dir=$profiles\edge-icons", "--virtual-time-budget=5000", "--dump-dom", (FileUrl (Join-Path $store "src\icons.html")))
 $m = [regex]::Match($dom, '@@BEGIN\r?\n([\s\S]*?)\r?\n@@END')
 if (-not $m.Success) { throw "icons.html printed nothing" }
@@ -93,14 +93,18 @@ foreach ($line in ($m.Groups[1].Value -split "\r?\n")) {
   $parts = $line.Split(" ", 2)
   $size = $parts[0]
   $b64 = ($parts[1] -replace '^data:image/png;base64,', '')
-  [IO.File]::WriteAllBytes((Join-Path $repo "icons\icon$size.png"), [Convert]::FromBase64String($b64))
+  $dest = if ($size -eq "sheet") { Join-Path $build "icon-sheet.png" } else { Join-Path $repo "icons\icon$size.png" }
+  [IO.File]::WriteAllBytes($dest, [Convert]::FromBase64String($b64))
 }
+
+# 5. The small promo tile (after the icons: it shows icons/icon128.png).
+Shot (Join-Path $store "src\promo-tile.html") (Join-Path $store "promo-small-440x280.png") 440 280
 
 Write-Host "written:"
 Check (Join-Path $store "screenshot-1-fill.png") "1280 x 800"
 Check (Join-Path $store "screenshot-2-options.png") "1280 x 800"
 Check (Join-Path $store "screenshot-3-learned.png") "1280 x 800"
 Check (Join-Path $store "promo-small-440x280.png") "440 x 280"
-foreach ($s in 16, 32, 48) { Check (Join-Path $repo "icons\icon$s.png") "$s x $s" }
+foreach ($s in 16, 32, 48, 128) { Check (Join-Path $repo "icons\icon$s.png") "$s x $s" }
 Remove-Item -Recurse -Force $profiles -ErrorAction SilentlyContinue
 if ($failed) { Write-Host "$failed file(s) have the wrong size" -ForegroundColor Red; exit 1 }

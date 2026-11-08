@@ -13,3 +13,6 @@ tests/fixtures/yc-waas-job-raw.html
 # Chrome Web Store zips (tools/build.js) and the screenshot build pages (tools/screenshots.ps1)
 dist/
 store/.build/
+
+# The icon design sheet the icons are cut from (tools/screenshots.ps1); not part of the extension
+icons/source.png
