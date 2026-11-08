@@ -9,30 +9,33 @@ fake-data pages in `src/` by `tools/screenshots.ps1`. The package is `dist/appli
 
 **Name**: Application Autofill
 
-**Short description** (130 characters):
+**Short description** (119 characters, the same as the manifest's):
 
-> Fills job applications on Workday, Greenhouse, Ashby, Lever, Gem, iCIMS and Rippling from a profile on your device. Never submits.
+> Fills job application forms from a profile you keep on your device. Outlines every answer for review and never submits.
 
 **Category**: Productivity (Workflow & Planning). **Language**: English.
 
 **Long description**:
 
-> Application Autofill fills job application forms from a profile you keep in the extension's Options page: contact details, work experience, education, links, your resume, and your fixed answers to the questions every application asks (work authorization, sponsorship, relocation, clearance, how you heard about the job, and more). Start dates, pay and other questions that are yours alone are always left for you.
+> Application Autofill fills job application forms from a profile you keep in the extension's Options page: contact details, work experience, education, links, your resume, and your fixed answers to the questions most applications ask (work authorization, sponsorship, relocation, clearance, how you heard about the job, and more). Start dates, pay and other questions that are yours alone are always left for you.
 >
-> It works on Workday, Greenhouse, Ashby, Lever, Gem, iCIMS and Rippling, including application forms embedded on a company's own careers site. On YC Work at a Startup it drafts the note to the founder for you to rewrite.
+> It supports the most common applicant tracking systems: Workday, Greenhouse, Ashby, Lever, Gem, iCIMS and Rippling, including forms embedded on a company's own careers site.
 >
 > How it decides
-> 1. Your profile and a long list of rules answer first. A rule either answers from your Options or leaves the field for you and says why in the console. It never hands a question on silently.
-> 2. Answers you give yourself to a skipped question are saved, wait for your review in Options, and are reused for that question later. Questions that name a company are reused only for that company.
-> 3. Optional: with your own Anthropic API key, questions no rule answers are sent to Claude, and open-ended questions ("Why this company?") get a short first-person draft written from your own materials and the job description, outlined for you to edit.
 >
-> Every field it touches is outlined so you can review it: blue means answered by a rule or Claude, double-check it; yellow means it needs you; red marks a question about using AI on this application, which you answer yourself. A Done summary tells you how many fields need you. The extension never clicks Submit, Next, Continue, Save or Apply.
+> 1. Your profile and a set of rules answer first. A rule either answers from your Options or leaves the field for you and says why.
 >
-> Some questions are never answered by AI, whatever the settings: legal attestations and signatures, EEO and demographic questions (only your Options answers fill them), compensation, start dates and availability, notice periods, relationships and conflicts of interest, accommodation requests, and AI-usage disclosures. Forms that forbid AI-written answers get no drafts. Experience questions are answered Yes only when Claude cites a quote that really is in your resume or notes.
+> 2. Answers you give yourself to a skipped question are saved, wait for your review in Options, and are reused later. Questions that name a company are reused only for that company.
 >
-> Privacy: your profile, key, resume and learned answers stay in the browser's local storage on your device. The only data that leaves it goes to the Anthropic API, with your key, when you turn Claude on. No analytics, no telemetry, no server of ours.
+> 3. Optional: with your own Anthropic API key, questions no rule answers are sent to Claude, and open-ended questions ("Why this company?") get a short first-person draft from your own materials, outlined for you to edit.
 >
-> Not affiliated with Workday, Greenhouse, Ashby, Lever, Gem, iCIMS, Rippling, Y Combinator or Anthropic. Portals change their markup, so always review before you submit.
+> Every field it touches is outlined for review: blue means double-check it, yellow means it needs you, and red marks a question about using AI on the application, which you answer yourself. The extension never clicks Submit, Next or Save.
+>
+> Some questions are never answered by AI: legal attestations, EEO and demographic questions (only your Options answers fill them), compensation, start dates, relationships and conflicts of interest, accommodation requests, and AI-usage disclosures.
+>
+> Privacy: your profile, key, resume and learned answers stay in your browser's local storage. The only data that leaves your device goes to the Anthropic API, with your key, when you turn Claude on. No analytics, no tracking, no server of ours.
+>
+> Not affiliated with any of the portals above or with Anthropic. Always review before you submit.
 
 **Website / support URL**: https://github.com/nusyislam/application-autofill (issues: https://github.com/nusyislam/application-autofill/issues)
 
