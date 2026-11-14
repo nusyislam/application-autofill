@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Application Autofill",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Fills job application forms from a profile you keep on your device. Outlines every answer for review and never submits.",
   "icons": {
     "16": "icons/icon16.png",
