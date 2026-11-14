@@ -20,7 +20,13 @@
   // The education block (filled after the main pass): by container, or by Greenhouse's numbered ids
   // ("school--0", "degree--0", "start-year--0").
   const EDU_SEL = '.education--container, .education--form, #education_section, [class*="education-"], [id^="education"]';
-  const isEduField = (f) => !!f.c.closest(EDU_SEL) || /^(school|degree|discipline|start|end)[ -]/.test(f.nid + " ") && /\b\d+$/.test(f.nid);
+  // The Employment section (job-boards UI: repeated Company name / Title / Start date month + year / End date month +
+  // year / "Current role" entries with "Add another"). Its date ids (start-month--0, end-year--0) look like the
+  // education block's, and the old id test ("start" / "end" + a number) sent every employment date to the education
+  // step (Kestrel Labs: all four parsed entries got the education's January 2023 / May 2027). Education is its section
+  // (or a school / degree / discipline id); a field under Employment is never education.
+  const EMP_SEL = '.employment--container, .employment--form, #employment_section, [class*="employment-"], [id^="employment"]';
+  const isEduField = (f) => !f.c.closest(EMP_SEL) && (!!f.c.closest(EDU_SEL) || /^(school|degree|discipline)[ -]/.test(f.nid + " ") && /\b\d+$/.test(f.nid));
   const hasForm = () => !!document.querySelector(FORM_SEL) || !!document.querySelector('#first_name, input[name="job_application[first_name]"]');
 
   // ----------------------------------------------------------- job posting
@@ -53,5 +59,10 @@
     isEduField,
     fileBoxSel: ".file-upload, .field, .field-wrapper, fieldset",
     jobInfo,
+    // The Employment entries as repeatable experience blocks (shared/form.js fillBlocks: scored matching by company /
+    // title / start date, dates and "Current role" from the matching entry, this section's "Add another" for the rest).
+    // Education keeps its own step (fillEducation), so only experience blocks here.
+    repeatables: "experience",
+    addButtons: true,
   });
 })();

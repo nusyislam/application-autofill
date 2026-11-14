@@ -622,3 +622,39 @@ greenhouse-ai-prohibition :: Describe one thing you've personally built => = "" 
 greenhouse-ai-prohibition :: How do you use AI in your day-to-day work? => = "" mark=needs
 greenhouse-ai-prohibition :: What excites you about working for Kestrel Labs? => = "" mark=needs
 greenhouse-ai-prohibition :: !LOG => sent, model stub-draft-model
+
+# Kestrel Labs (Greenhouse job-boards UI): four resume-parsed Employment entries got the EDUCATION dates and were only "kept
+# (already answered)"; the missing current job was never added. Now: experience blocks matched by company / title / dates,
+# dates and "Current role" from the matching entry, "Add another" for the missing one; education dates stay in Education.
+greenhouse-employment :: Employment 1: Start date month => = "June" mark=-
+greenhouse-employment :: Employment 1: Start date year => = "2025" mark=-
+greenhouse-employment :: Employment 1: End date month => = "August" mark=-
+greenhouse-employment :: Employment 1: End date year => = "2025" mark=-
+greenhouse-employment :: Employment 1: Current role => = "unchecked"
+greenhouse-employment :: Employment 2: Company name => = "Northwind Systems, Inc."
+greenhouse-employment :: Employment 2: Start date month => = "June" mark=-
+greenhouse-employment :: Employment 2: Start date year => = "2024" mark=-
+greenhouse-employment :: Employment 2: End date year => = "2024" mark=-
+greenhouse-employment :: Employment 3: Start date month => = "September" mark=-
+greenhouse-employment :: Employment 3: Start date year => = "2023" mark=-
+greenhouse-employment :: Employment 3: End date month => = "May" mark=-
+greenhouse-employment :: Employment 3: End date year => = "2024" mark=-
+greenhouse-employment :: Employment 4: Start date month => = "January" mark=-
+greenhouse-employment :: Employment 4: Start date year => = "2023" mark=-
+greenhouse-employment :: Employment 4: End date month => = "May" mark=-
+greenhouse-employment :: Employment 4: End date year => = "2023" mark=-
+greenhouse-employment :: Employment 4: Current role => = "unchecked"
+greenhouse-employment :: Employment 5: Company name => = "Emberline"
+greenhouse-employment :: Employment 5: Title => = "Software Engineer"
+greenhouse-employment :: Employment 5: Start date month => = "June"
+greenhouse-employment :: Employment 5: Start date year => = "2026"
+greenhouse-employment :: Employment 5: End date month => = ""
+greenhouse-employment :: Employment 5: End date year => = ""
+greenhouse-employment :: Employment 5: Current role => = "checked"
+greenhouse-employment :: Education: Start date month => = "January" mark=-
+greenhouse-employment :: Education: Start date year => = "2023" mark=-
+greenhouse-employment :: Education: End date month => = "May" mark=-
+greenhouse-employment :: Education: End date year => = "2027" mark=-
+greenhouse-employment :: !LOG => (already answered)
+greenhouse-employment :: !LOG => no empty block for your entry
+greenhouse-employment :: !LOG => questions sent, model

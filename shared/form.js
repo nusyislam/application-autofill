@@ -2041,6 +2041,12 @@
       },
     };
     const CONTACT = /^(legal |preferred )?(first|last|middle|full)( name)?$|^name$|e ?mail|phone|^address|street|zip|postal/;
+    // The block kinds this portal has: cfg.repeatables = true (both: iCIMS) or a kind / list of kinds (Greenhouse:
+    // "experience", its Education section being the education step's).
+    const blockKinds = () => (cfg.repeatables === true ? Object.keys(KINDS) : cfg.repeatables ? [].concat(cfg.repeatables).filter((k) => KINDS[k]) : []);
+    // A field the portal's education step owns is never part of an experience block, and an experience block's field is
+    // never education (Kestrel Labs: the two sections share "Start date month" labels).
+    const eduOwned = (f) => !!cfg.isEduField?.(f) || !!f.eduBlock;
     // A label read without its hint in parentheses (Steadfast: 'School (If school not found, select "Other College/High
     // School")' was no block name, so the whole education block went to the main pass and stayed yellow).
     const bare = (f) => f.bnl ?? (f.bnl = norm(String(f.label || "").replace(/\([^)]*\)/g, " ").replace(/[*✱]/g, " ")));
@@ -2048,30 +2054,34 @@
       const K = KINDS[kind];
       const O = KINDS[kind === "experience" ? "education" : "experience"];
       const root = formRoot();
-      return fields.filter((f) => K.name.test(bare(f))).map((nf) => {
+      return fields.filter((f) => K.name.test(bare(f)) && !(kind === "experience" && eduOwned(f))).map((nf) => {
         let panel = nf.c;
         for (let el = nf.c.parentElement, i = 0; el && el !== root && el !== document.body && i < 8; i++, el = el.parentElement) {
           if (fields.some((x) => x !== nf && el.contains(x.c) && (K.name.test(bare(x)) || O.name.test(bare(x)) || CONTACT.test(bare(x))))) break;
           panel = el;
         }
-        return { panel, name: nf, fields: fields.filter((x) => panel.contains(x.c)) };
+        return { panel, name: nf, fields: fields.filter((x) => panel.contains(x.c) && !(kind === "experience" && eduOwned(x))) };
       })
         // A block has its second field too (title; degree or major): iCIMS HMSY's clearance group ("Type/Level",
         // "Employer:") was taken for an experience block and got a company name.
         .filter((b) => b.fields.some((x) => x !== b.name && K.sub.test(bare(x))));
     }
-    let blockCache = { t: 0, set: new Set() };
+    let blockCache = { t: 0, set: new Map() };
     // Fields inside a block whose label belongs to that block's vocabulary (others stay in the main pass).
     function inBlock(f) {
-      if (!cfg.repeatables) return false;
+      return !!blockKindOf(f);
+    }
+    // The kind of block a field sits in ("experience" / "education"), or "".
+    function blockKindOf(f) {
+      if (!blockKinds().length) return "";
       if (Date.now() - blockCache.t > 300) {
         const fields = discover().filter((x) => x.type);
-        const set = new Set();
-        for (const kind of Object.keys(KINDS))
-          for (const b of blocksOf(kind, fields)) for (const x of b.fields) if (KINDS[kind].vocab.test(x.nl)) set.add(x.c);
+        const set = new Map();
+        for (const kind of blockKinds())
+          for (const b of blocksOf(kind, fields)) for (const x of b.fields) if (KINDS[kind].vocab.test(x.nl)) set.set(x.c, kind);
         blockCache = { t: Date.now(), set };
       }
-      return blockCache.set.has(f.c);
+      return blockCache.set.get(f.c) || "";
     }
     const schoolNamesOf = (x) => [x.school, ...(/\|/.test(x.schoolAliases || "") ? splitAlts(x.schoolAliases) : String(x.schoolAliases || "").split(",").map((t) => t.trim()))].filter(Boolean);
     const sameTitle = (a, x) => !!a && !!x.title && (norm(a) === norm(x.title) || hasPhrase(a, x.title) || hasPhrase(x.title, a));
@@ -2176,7 +2186,7 @@
     }
     async function fillBlocks(p, stats) {
       const fields = discover().filter((f) => f.type);
-      for (const [kind, entries] of [["experience", p.experiences || []], ["education", p.education || []]]) {
+      for (const [kind, entries] of [["experience", p.experiences || []], ["education", p.education || []]].filter(([k]) => blockKinds().includes(k))) {
         const blocks = blocksOf(kind, fields);
         if (!blocks.length || !entries.length) continue;
         dbg(`${kind}: ${blocks.length} block(s) on this page`);
@@ -2576,7 +2586,7 @@
       if (!entries.length) return;
       // "Still Student?" / "Currently attending" first in each entry: checking it can disable End Date (Old Harbor), and
       // a date filled before that is an invalid entry. The fields after it are judged as they are by then.
-      const fields = stillFirst(discover().filter((f) => isEduField(f) && sectionNew(f) && !(late && isFilled(f))), (f) => f.eduIdx || 0, (f) => ["checkbox", "radio", "dropdown"].includes(f.type) && !/\b(which|what)\b/.test(f.nl) && AAF.STUDENT_NOW.test(`${f.nl} ${norm(f.optionText || "")}`));
+      const fields = stillFirst(discover().filter((f) => isEduField(f) && blockKindOf(f) !== "experience" && sectionNew(f) && !(late && isFilled(f))), (f) => f.eduIdx || 0, (f) => ["checkbox", "radio", "dropdown"].includes(f.type) && !/\b(which|what)\b/.test(f.nl) && AAF.STUDENT_NOW.test(`${f.nl} ${norm(f.optionText || "")}`));
       if (!fields.length) return;
       if (entries.length > 1 && !fields.some((f) => f.eduIdx > 0)) dbg(`education: ${entries.length} entries in profile; only the first is filled`);
       for (const f of fields) {

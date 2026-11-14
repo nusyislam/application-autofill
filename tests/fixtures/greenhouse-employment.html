@@ -1,0 +1,239 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Job Application for Software Engineer at Kestrel Labs</title>
+<style>
+  body { font: 14px sans-serif; }
+  .field-wrapper, .text-input-wrapper, .select, .checkbox { margin: 10px 0; }
+  .select__control { border: 1px solid #999; min-height: 30px; width: 320px; position: relative; }
+  .select__menu { position: absolute; background: #fff; border: 1px solid #999; width: 320px; z-index: 5; }
+  .select__option { padding: 4px; }
+  .employment-form, .education--form { border: 1px solid #ddd; padding: 6px; margin: 6px 0; }
+  .icon-button { background: none; border: 0; padding: 2px; }
+</style>
+<script>
+// ---- stub chrome API (test only)
+window.__logs = [];
+window.__errors = [];
+const origLog = console.log;
+console.log = (...a) => {
+  if (a[0] === "[autofill]") window.__logs.push(a.slice(1).map((x) => (typeof x === "string" ? x : x && x.nodeType ? "<" + x.tagName + ">" : JSON.stringify(x))).join(" "));
+  origLog(...a);
+};
+window.addEventListener("error", (e) => window.__errors.push("error: " + e.message + " @ " + (e.filename || "").split("/").pop() + ":" + e.lineno));
+window.addEventListener("unhandledrejection", (e) => window.__errors.push("rejection: " + (e.reason && e.reason.stack || e.reason)));
+const STORE = {
+  profile: {
+    firstName: "Test", lastName: "Applicant", email: "test@example.com", phone: "6465550100",
+    country: "United States of America", city: "Springfield", state: "New York", expectedGraduation: "05/2027",
+    // Emberline is the current job and is NOT on the form (the resume parse missed it); the other four are parsed entries.
+    experiences: [
+      { title: "Software Engineer", company: "Emberline", location: "New York, NY", current: true, startMonth: "6", startYear: "2026", endMonth: "", endYear: "" },
+      { title: "Software Engineer Intern", company: "Contoso", location: "New York, NY", current: false, startMonth: "6", startYear: "2025", endMonth: "8", endYear: "2025" },
+      { title: "AI Engineer Intern", company: "Northwind", location: "Riverton, NJ", current: false, startMonth: "6", startYear: "2024", endMonth: "8", endYear: "2024" },
+      { title: "Research Assistant", company: "Fabrikam", location: "Springfield, NY", current: false, startMonth: "9", startYear: "2023", endMonth: "5", endYear: "2024" },
+      { title: "Teaching Assistant", company: "Tailspin Toys", location: "Springfield, NY", current: false, startMonth: "1", startYear: "2023", endMonth: "5", endYear: "2023" },
+    ],
+    // Education: January 2023 to May 2027 (the dates that ended up in every employment entry on the real page).
+    education: [{ school: "Lakeview University", schoolAliases: "LSU Lakeview University | Lakeland State University-Lakeview", schoolSearch: "Lakeview", degreeOptions: "Bachelor of Engineering | BEng | B.E. | BE\nBachelor's Degree | Bachelor's | Bachelors | Bachelor Degree\nBachelor of Science | BS | B.S. | BSc", field: "Computer Engineering", startMonth: "1", startYear: "2023", endYear: "2027" }],
+    answers: { workAuth: "Yes", sponsorship: "No", restrictions: "None" },
+    eeo: {}, api: { key: "test-key", model: "stub" },
+  },
+  settings: { useAI: true, learn: true, drafts: true, threshold: 0.75 },
+  learned: [],
+};
+let onMsg = null;
+{ const P = STORE.profile, AL = (P.applicationLocation ||= {}), A = (P.answers ||= {}), blank = !String(AL.search || "").trim();
+  if (blank) AL.search = "New York";
+  if (blank && !String(AL.matches || "").trim()) AL.matches = "New York City, New York, United States | New York, New York, United States | New York, NY, United States | New York, NY | New York City | New York, NY, USA | New York, USA";
+  if (!String(A.officeMetro || "").trim()) A.officeMetro = "New York City | NYC | New York, NY | New York, New York | Manhattan | Brooklyn | Queens | Bronx | Staten Island | Long Island | Jersey City | Hoboken | Newark | Westchester | Stamford"; }
+window.chrome = {
+  storage: {
+    local: {
+      get: async (keys) => {
+        const ks = typeof keys === "string" ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys || {});
+        const out = {};
+        for (const k of ks) if (STORE[k] !== undefined) out[k] = JSON.parse(JSON.stringify(STORE[k]));
+        return out;
+      },
+      set: async (o) => Object.assign(STORE, o),
+    },
+    onChanged: { addListener: () => {} },
+  },
+  runtime: { id: "test-extension",
+    onMessage: { addListener: (fn) => (onMsg = fn) },
+    sendMessage: async (msg) => {
+      if (msg.type === "CLASSIFY_ASK") return { model: "stub-haiku", categories: msg.questions.map((q) => ({ id: q.id, category: q.type === "textarea" ? "open-ended" : "other" })) };
+      if (msg.type === "ASK_AI") {
+        window.__aiPayload = (window.__aiPayload || []).concat(msg.questions);
+        return { model: "stub-model", answers: msg.questions.map((q) => ({ id: q.id, answer: null, confidence: 0 })) };
+      }
+      if (msg.type === "DRAFT") return { model: "stub-draft-model", included: {}, answers: msg.questions.map((q) => ({ id: q.id, answer: null, reason: "not drafted in tests" })) };
+      return {};
+    },
+  },
+};
+window.__runFill = () => new Promise((res) => onMsg({ type: "FILL" }, {}, res));
+</script>
+</head>
+<body>
+<h1>Software Engineer</h1>
+<div class="job__location">New York, NY</div>
+<!-- Kestrel Labs (Greenhouse job-boards UI, fake data; the structure of greenhouse-employment-raw.html). The resume parse
+     created four Employment entries (Company name, Title, Start / End date month + year, "Current role", "Add another")
+     with their dates empty; the extension only logged them "kept (already answered)", the EDUCATION date filler took every
+     "Start date month" / "End date year" in the Employment section and wrote January 2023 / May 2027 into all four, and
+     the current job (Emberline), missing from the parse, was never added. The Education section uses the same date labels. -->
+<form id="application-form" class="application--form">
+  <div class="field-wrapper"><label for="first_name">First Name<span>*</span></label><input id="first_name" type="text"></div>
+  <div class="field-wrapper"><label for="last_name">Last Name<span>*</span></label><input id="last_name" type="text"></div>
+  <div class="field-wrapper"><label for="email">Email<span>*</span></label><input id="email" type="email"></div>
+  <div class="field-wrapper"><label for="phone">Phone</label><input id="phone" type="tel"></div>
+
+  <div class="employment--container">
+    <div class="employment-form"><hr><div class="header-row"><p class="body body--medium">Employment</p><button type="button" class="icon-button icon-button--sm" aria-label="Remove employment"><svg class="svg-icon" fill="none" height="20" width="20" viewBox="0 0 24 24"><path d="M4 4h16v16H4z"></path></svg></button></div>
+      <div class="text-input-wrapper"><div class="input-wrapper"><label id="company-name-1-label" for="company-name-1" class="label label">Company name</label><input id="company-name-1" class="input input__single-line" aria-label="Company name" aria-describedby="company-name-1-description company-name-1-error company-name-1-help" aria-invalid="false" aria-required="false" type="text" maxlength="255" value="Contoso"></div></div>
+      <div class="text-input-wrapper"><div class="input-wrapper"><label id="title-1-label" for="title-1" class="label label">Title</label><input id="title-1" class="input input__single-line" aria-label="Title" aria-describedby="title-1-description title-1-error title-1-help" aria-invalid="false" aria-required="false" type="text" maxlength="255" value="Software Engineer Intern"></div></div>
+      <div class="date-row"><div class="select"><div class="select__container react-select" data-opts="January|February|March|April|May|June|July|August|September|October|November|December"><label id="start-date-month-1-label" for="start-date-month-1" class="label select__label">Start date month</label></div></div><div class="text-input-wrapper"><div class="input-wrapper"><label id="start-date-year-1-label" for="start-date-year-1" class="label label">Start date year</label><input id="start-date-year-1" class="input input__single-line" aria-label="Start date year" aria-describedby="start-date-year-1-description start-date-year-1-error start-date-year-1-help" aria-invalid="false" aria-required="false" type="text" maxlength="255" value=""></div></div></div>
+      <div class="date-row"><div class="select"><div class="select__container react-select" data-opts="January|February|March|April|May|June|July|August|September|October|November|December"><label id="end-date-month-1-label" for="end-date-month-1" class="label select__label">End date month</label></div></div><div class="text-input-wrapper"><div class="input-wrapper"><label id="end-date-year-1-label" for="end-date-year-1" class="label label">End date year</label><input id="end-date-year-1" class="input input__single-line" aria-label="End date year" aria-describedby="end-date-year-1-description end-date-year-1-error end-date-year-1-help" aria-invalid="false" aria-required="false" type="text" maxlength="255" value=""></div></div></div>
+      <div class="checkbox" id="current-role-1"><div class="checkbox__wrapper"><div class="checkbox__input"><input aria-required="false" type="checkbox" id="current-role-1_1" name="current-role-1" aria-invalid="false" value="1"><svg class="svg-icon" fill="none" height="16" width="16" viewBox="0 0 16 16"><path d="M2 8l4 4 8-8"></path></svg></div><label for="current-role-1_1">Current role</label></div></div>
+    </div>
+    <div class="employment-form"><hr><div class="header-row"><p class="body body--medium">Employment</p><button type="button" class="icon-button icon-button--sm" aria-label="Remove employment"><svg class="svg-icon" fill="none" height="20" width="20" viewBox="0 0 24 24"><path d="M4 4h16v16H4z"></path></svg></button></div>
+      <div class="text-input-wrapper"><div class="input-wrapper"><label id="company-name-2-label" for="company-name-2" class="label label">Company name</label><input id="company-name-2" class="input input__single-line" aria-label="Company name" aria-describedby="company-name-2-description company-name-2-error company-name-2-help" aria-invalid="false" aria-required="false" type="text" maxlength="255" value="Northwind Systems, Inc."></div></div>
+      <div class="text-input-wrapper"><div class="input-wrapper"><label id="title-2-label" for="title-2" class="label label">Title</label><input id="title-2" class="input input__single-line" aria-label="Title" aria-describedby="title-2-description title-2-error title-2-help" aria-invalid="false" aria-required="false" type="text" maxlength="255" value="AI Engineer Intern"></div></div>
+      <div class="date-row"><div class="select"><div class="select__container react-select" data-opts="January|February|March|April|May|June|July|August|September|October|November|December"><label id="start-date-month-2-label" for="start-date-month-2" class="label select__label">Start date month</label></div></div><div class="text-input-wrapper"><div class="input-wrapper"><label id="start-date-year-2-label" for="start-date-year-2" class="label label">Start date year</label><input id="start-date-year-2" class="input input__single-line" aria-label="Start date year" aria-describedby="start-date-year-2-description start-date-year-2-error start-date-year-2-help" aria-invalid="false" aria-required="false" type="text" maxlength="255" value=""></div></div></div>
+      <div class="date-row"><div class="select"><div class="select__container react-select" data-opts="January|February|March|April|May|June|July|August|September|October|November|December"><label id="end-date-month-2-label" for="end-date-month-2" class="label select__label">End date month</label></div></div><div class="text-input-wrapper"><div class="input-wrapper"><label id="end-date-year-2-label" for="end-date-year-2" class="label label">End date year</label><input id="end-date-year-2" class="input input__single-line" aria-label="End date year" aria-describedby="end-date-year-2-description end-date-year-2-error end-date-year-2-help" aria-invalid="false" aria-required="false" type="text" maxlength="255" value=""></div></div></div>
+      <div class="checkbox" id="current-role-2"><div class="checkbox__wrapper"><div class="checkbox__input"><input aria-required="false" type="checkbox" id="current-role-2_1" name="current-role-2" aria-invalid="false" value="1"><svg class="svg-icon" fill="none" height="16" width="16" viewBox="0 0 16 16"><path d="M2 8l4 4 8-8"></path></svg></div><label for="current-role-2_1">Current role</label></div></div>
+    </div>
+    <div class="employment-form"><hr><div class="header-row"><p class="body body--medium">Employment</p><button type="button" class="icon-button icon-button--sm" aria-label="Remove employment"><svg class="svg-icon" fill="none" height="20" width="20" viewBox="0 0 24 24"><path d="M4 4h16v16H4z"></path></svg></button></div>
+      <div class="text-input-wrapper"><div class="input-wrapper"><label id="company-name-3-label" for="company-name-3" class="label label">Company name</label><input id="company-name-3" class="input input__single-line" aria-label="Company name" aria-describedby="company-name-3-description company-name-3-error company-name-3-help" aria-invalid="false" aria-required="false" type="text" maxlength="255" value="Fabrikam"></div></div>
+      <div class="text-input-wrapper"><div class="input-wrapper"><label id="title-3-label" for="title-3" class="label label">Title</label><input id="title-3" class="input input__single-line" aria-label="Title" aria-describedby="title-3-description title-3-error title-3-help" aria-invalid="false" aria-required="false" type="text" maxlength="255" value="Research Assistant"></div></div>
+      <div class="date-row"><div class="select"><div class="select__container react-select" data-opts="January|February|March|April|May|June|July|August|September|October|November|December"><label id="start-date-month-3-label" for="start-date-month-3" class="label select__label">Start date month</label></div></div><div class="text-input-wrapper"><div class="input-wrapper"><label id="start-date-year-3-label" for="start-date-year-3" class="label label">Start date year</label><input id="start-date-year-3" class="input input__single-line" aria-label="Start date year" aria-describedby="start-date-year-3-description start-date-year-3-error start-date-year-3-help" aria-invalid="false" aria-required="false" type="text" maxlength="255" value=""></div></div></div>
+      <div class="date-row"><div class="select"><div class="select__container react-select" data-opts="January|February|March|April|May|June|July|August|September|October|November|December"><label id="end-date-month-3-label" for="end-date-month-3" class="label select__label">End date month</label></div></div><div class="text-input-wrapper"><div class="input-wrapper"><label id="end-date-year-3-label" for="end-date-year-3" class="label label">End date year</label><input id="end-date-year-3" class="input input__single-line" aria-label="End date year" aria-describedby="end-date-year-3-description end-date-year-3-error end-date-year-3-help" aria-invalid="false" aria-required="false" type="text" maxlength="255" value=""></div></div></div>
+      <div class="checkbox" id="current-role-3"><div class="checkbox__wrapper"><div class="checkbox__input"><input aria-required="false" type="checkbox" id="current-role-3_1" name="current-role-3" aria-invalid="false" value="1"><svg class="svg-icon" fill="none" height="16" width="16" viewBox="0 0 16 16"><path d="M2 8l4 4 8-8"></path></svg></div><label for="current-role-3_1">Current role</label></div></div>
+    </div>
+    <div class="employment-form"><hr><div class="header-row"><p class="body body--medium">Employment</p><button type="button" class="icon-button icon-button--sm" aria-label="Remove employment"><svg class="svg-icon" fill="none" height="20" width="20" viewBox="0 0 24 24"><path d="M4 4h16v16H4z"></path></svg></button></div>
+      <div class="text-input-wrapper"><div class="input-wrapper"><label id="company-name-4-label" for="company-name-4" class="label label">Company name</label><input id="company-name-4" class="input input__single-line" aria-label="Company name" aria-describedby="company-name-4-description company-name-4-error company-name-4-help" aria-invalid="false" aria-required="false" type="text" maxlength="255" value="Tailspin Toys"></div></div>
+      <div class="text-input-wrapper"><div class="input-wrapper"><label id="title-4-label" for="title-4" class="label label">Title</label><input id="title-4" class="input input__single-line" aria-label="Title" aria-describedby="title-4-description title-4-error title-4-help" aria-invalid="false" aria-required="false" type="text" maxlength="255" value="Teaching Assistant"></div></div>
+      <div class="date-row"><div class="select"><div class="select__container react-select" data-opts="January|February|March|April|May|June|July|August|September|October|November|December"><label id="start-date-month-4-label" for="start-date-month-4" class="label select__label">Start date month</label></div></div><div class="text-input-wrapper"><div class="input-wrapper"><label id="start-date-year-4-label" for="start-date-year-4" class="label label">Start date year</label><input id="start-date-year-4" class="input input__single-line" aria-label="Start date year" aria-describedby="start-date-year-4-description start-date-year-4-error start-date-year-4-help" aria-invalid="false" aria-required="false" type="text" maxlength="255" value=""></div></div></div>
+      <div class="date-row"><div class="select"><div class="select__container react-select" data-opts="January|February|March|April|May|June|July|August|September|October|November|December"><label id="end-date-month-4-label" for="end-date-month-4" class="label select__label">End date month</label></div></div><div class="text-input-wrapper"><div class="input-wrapper"><label id="end-date-year-4-label" for="end-date-year-4" class="label label">End date year</label><input id="end-date-year-4" class="input input__single-line" aria-label="End date year" aria-describedby="end-date-year-4-description end-date-year-4-error end-date-year-4-help" aria-invalid="false" aria-required="false" type="text" maxlength="255" value=""></div></div></div>
+      <div class="checkbox" id="current-role-4"><div class="checkbox__wrapper"><div class="checkbox__input"><input aria-required="false" type="checkbox" id="current-role-4_1" name="current-role-4" aria-invalid="false" value="1"><svg class="svg-icon" fill="none" height="16" width="16" viewBox="0 0 16 16"><path d="M2 8l4 4 8-8"></path></svg></div><label for="current-role-4_1">Current role</label></div></div>
+    </div>
+  <button class="add-another-button" type="button">Add another</button></div>
+
+  <div class="education--container"><div class="education-form"><hr><div class="header-row"><p class="body body--medium">Education</p><button type="button" class="icon-button icon-button--sm" aria-label="Remove education"><svg class="svg-icon" fill="none" height="20" width="20" viewBox="0 0 24 24"><path d="M4 4h16v16H4z"></path></svg></button></div>
+    <div class="field-wrapper"><div class="react-select" data-async="Lakeland State University-Lakeview|Lsu Lakeview University|Lakeview School|Other" data-maxwords="2"><label id="school--0-label" for="school--0">School<span>*</span></label></div></div>
+    <div class="field-wrapper"><div class="react-select" data-opts="High School|Associate’s Degree|Bachelor’s Degree|Master’s Degree|Doctor of Philosophy (Ph.D.)|Other"><label id="degree--0-label" for="degree--0">Degree<span>*</span></label></div></div>
+    <div class="field-wrapper"><div class="react-select" data-opts="Computer Science|Computer Engineering|Electrical Engineering|Mathematics"><label id="discipline--0-label" for="discipline--0">Discipline</label></div></div>
+    <div class="date-row"><div class="select"><div class="select__container react-select" data-opts="January|February|March|April|May|June|July|August|September|October|November|December"><label id="edu-start-date-month-1-label" for="edu-start-date-month-1" class="label select__label">Start date month</label></div></div><div class="text-input-wrapper"><div class="input-wrapper"><label id="edu-start-date-year-1-label" for="edu-start-date-year-1" class="label label">Start date year</label><input id="edu-start-date-year-1" class="input input__single-line" aria-label="Start date year" aria-describedby="edu-start-date-year-1-description edu-start-date-year-1-error edu-start-date-year-1-help" aria-invalid="false" aria-required="false" type="text" maxlength="255" value=""></div></div></div>
+    <div class="date-row"><div class="select"><div class="select__container react-select" data-opts="January|February|March|April|May|June|July|August|September|October|November|December"><label id="edu-end-date-month-1-label" for="edu-end-date-month-1" class="label select__label">End date month</label></div></div><div class="text-input-wrapper"><div class="input-wrapper"><label id="edu-end-date-year-1-label" for="edu-end-date-year-1" class="label label">End date year</label><input id="edu-end-date-year-1" class="input input__single-line" aria-label="End date year" aria-describedby="edu-end-date-year-1-description edu-end-date-year-1-error edu-end-date-year-1-help" aria-invalid="false" aria-required="false" type="text" maxlength="255" value=""></div></div></div>
+  </div><button class="add-another-button" type="button" id="add-education">Add another</button></div>
+
+  <div class="field-wrapper"><div class="react-select" data-opts="Yes|No"><label id="question_104-label" for="question_104">Are you legally authorized to work in the United States?<span>*</span></label></div></div>
+  <button type="submit" id="submit" onclick="event.preventDefault(); window.__nav = (window.__nav || []).concat('Submit')">Submit Application</button>
+</form>
+<pre id="out"></pre>
+<script>
+// ---- react-select look-alike (test only): mousedown on the control opens the menu once the input has seen focus;
+// typing filters (data-async lists answer after 600 ms); clicking an option sets the single value; Escape closes. The
+// control carries the real page's "Clear selections" / "Toggle flyout" icon buttons.
+let rs = 0;
+function makeSelect(wrap) {
+  const label = wrap.querySelector("label");
+  const id = label.getAttribute("for");
+  const all = (wrap.dataset.opts || wrap.dataset.async).split("|");
+  const isAsync = !!wrap.dataset.async;
+  const lbId = "react-select-" + ++rs + "-listbox";
+  wrap.classList.add("select__container");
+  wrap.insertAdjacentHTML("beforeend",
+    `<div class="select-shell"><span aria-live="polite" aria-atomic="false" role="log" class="a11yText"></span><div><div class="select__control"><div class="select__value-container"><div class="select__placeholder">Select...</div>` +
+    `<div class="select__input-container"><input class="select__input" role="combobox" aria-expanded="false" aria-haspopup="true" aria-autocomplete="list" id="${id}" aria-labelledby="${id}-label" type="text"></div></div>` +
+    `<div class="select__indicators"><div aria-hidden="false"><button type=\"button\" class=\"icon-button icon-button--sm\" aria-label=\"Clear selections\"><svg class=\"svg-icon\" fill=\"none\" height=\"20\" width=\"20\" viewBox=\"0 0 24 24\"><path d=\"M4 4h16v16H4z\"></path></svg></button></div><button type=\"button\" class=\"icon-button icon-button--sm\" aria-label=\"Toggle flyout\"><svg class=\"svg-icon\" fill=\"none\" height=\"20\" width=\"20\" viewBox=\"0 0 24 24\"><path d=\"M4 4h16v16H4z\"></path></svg></button></div></div></div></div>`);
+  const control = wrap.querySelector(".select__control");
+  const input = wrap.querySelector("input");
+  let menu = null;
+  let timer = null;
+  const close = () => { menu?.remove(); menu = null; input.setAttribute("aria-expanded", "false"); input.removeAttribute("aria-controls"); };
+  const render = (list) => {
+    if (!menu) {
+      menu = document.createElement("div"); menu.className = "select__menu";
+      control.after(menu);
+      input.setAttribute("aria-expanded", "true"); input.setAttribute("aria-controls", lbId);
+    }
+    menu.innerHTML = `<div class="select__menu-list" role="listbox" id="${lbId}"></div>`;
+    const lb = menu.firstChild;
+    if (!list.length) lb.innerHTML = `<div class="select__menu-notice">${isAsync && !input.value ? "Type to search" : "No options"}</div>`;
+    for (const t of list) {
+      const o = document.createElement("div"); o.className = "select__option"; o.setAttribute("role", "option"); o.textContent = t;
+      o.addEventListener("click", () => {
+        const vc = wrap.querySelector(".select__value-container");
+        vc.querySelector(".select__placeholder, .select__single-value")?.remove();
+        vc.insertAdjacentHTML("afterbegin", `<div class="select__single-value">${t}</div>`);
+        input.value = ""; close();
+      });
+      lb.appendChild(o);
+    }
+  };
+  const filtered = () =>
+    wrap.dataset.maxwords && input.value.trim().split(/\s+/).length > +wrap.dataset.maxwords
+      ? []
+      : all.filter((t) => !input.value || t.toLowerCase().includes(input.value.toLowerCase()));
+  let focused = false;
+  input.addEventListener("focusin", () => (focused = true));
+  input.addEventListener("focusout", () => { focused = false; close(); });
+  control.addEventListener("mousedown", () => { if (!focused) return; menu ? close() : render(isAsync ? [] : filtered()); });
+  input.addEventListener("input", () => {
+    clearTimeout(timer);
+    if (isAsync) { render([]); timer = setTimeout(() => render(input.value ? filtered() : []), 600); }
+    else render(filtered());
+  });
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") close();
+    if (e.key === "ArrowDown" && !menu) render(isAsync ? [] : filtered());
+  });
+}
+document.querySelectorAll(".react-select").forEach(makeSelect);
+// "Add another" (Employment): a new empty entry with the next ids, before the button, like the job-boards UI.
+const ENTRY = "    <div class=\"employment-form\"><hr><div class=\"header-row\"><p class=\"body body--medium\">Employment</p><button type=\"button\" class=\"icon-button icon-button--sm\" aria-label=\"Remove employment\"><svg class=\"svg-icon\" fill=\"none\" height=\"20\" width=\"20\" viewBox=\"0 0 24 24\"><path d=\"M4 4h16v16H4z\"></path></svg></button></div>\n      <div class=\"text-input-wrapper\"><div class=\"input-wrapper\"><label id=\"company-name-IDX-label\" for=\"company-name-IDX\" class=\"label label\">Company name</label><input id=\"company-name-IDX\" class=\"input input__single-line\" aria-label=\"Company name\" aria-describedby=\"company-name-IDX-description company-name-IDX-error company-name-IDX-help\" aria-invalid=\"false\" aria-required=\"false\" type=\"text\" maxlength=\"255\" value=\"\"></div></div>\n      <div class=\"text-input-wrapper\"><div class=\"input-wrapper\"><label id=\"title-IDX-label\" for=\"title-IDX\" class=\"label label\">Title</label><input id=\"title-IDX\" class=\"input input__single-line\" aria-label=\"Title\" aria-describedby=\"title-IDX-description title-IDX-error title-IDX-help\" aria-invalid=\"false\" aria-required=\"false\" type=\"text\" maxlength=\"255\" value=\"\"></div></div>\n      <div class=\"date-row\"><div class=\"select\"><div class=\"select__container react-select\" data-opts=\"January|February|March|April|May|June|July|August|September|October|November|December\"><label id=\"start-date-month-IDX-label\" for=\"start-date-month-IDX\" class=\"label select__label\">Start date month</label></div></div><div class=\"text-input-wrapper\"><div class=\"input-wrapper\"><label id=\"start-date-year-IDX-label\" for=\"start-date-year-IDX\" class=\"label label\">Start date year</label><input id=\"start-date-year-IDX\" class=\"input input__single-line\" aria-label=\"Start date year\" aria-describedby=\"start-date-year-IDX-description start-date-year-IDX-error start-date-year-IDX-help\" aria-invalid=\"false\" aria-required=\"false\" type=\"text\" maxlength=\"255\" value=\"\"></div></div></div>\n      <div class=\"date-row\"><div class=\"select\"><div class=\"select__container react-select\" data-opts=\"January|February|March|April|May|June|July|August|September|October|November|December\"><label id=\"end-date-month-IDX-label\" for=\"end-date-month-IDX\" class=\"label select__label\">End date month</label></div></div><div class=\"text-input-wrapper\"><div class=\"input-wrapper\"><label id=\"end-date-year-IDX-label\" for=\"end-date-year-IDX\" class=\"label label\">End date year</label><input id=\"end-date-year-IDX\" class=\"input input__single-line\" aria-label=\"End date year\" aria-describedby=\"end-date-year-IDX-description end-date-year-IDX-error end-date-year-IDX-help\" aria-invalid=\"false\" aria-required=\"false\" type=\"text\" maxlength=\"255\" value=\"\"></div></div></div>\n      <div class=\"checkbox\" id=\"current-role-IDX\"><div class=\"checkbox__wrapper\"><div class=\"checkbox__input\"><input aria-required=\"false\" type=\"checkbox\" id=\"current-role-IDX_1\" name=\"current-role-IDX\" aria-invalid=\"false\" value=\"1\"><svg class=\"svg-icon\" fill=\"none\" height=\"16\" width=\"16\" viewBox=\"0 0 16 16\"><path d=\"M2 8l4 4 8-8\"></path></svg></div><label for=\"current-role-IDX_1\">Current role</label></div></div>\n    </div>";
+const addBtn = document.querySelector(".employment--container > .add-another-button");
+addBtn.addEventListener("click", () => {
+  const n = document.querySelectorAll(".employment--container .employment-form").length + 1;
+  addBtn.insertAdjacentHTML("beforebegin", ENTRY.replace(/IDX/g, String(n)));
+  addBtn.previousElementSibling.querySelectorAll(".react-select").forEach(makeSelect);
+  window.__added = (window.__added || 0) + 1;
+});
+document.getElementById("add-education").addEventListener("click", () => { window.__eduAdded = (window.__eduAdded || 0) + 1; });
+</script>
+<!--SCRIPTS-->
+<script>
+setTimeout(async () => {
+  let stats;
+  try { stats = await window.__runFill(); } catch (e) { window.__errors.push("run: " + e.stack); }
+  // One line per labelled control: the text input's value, the react-select's shown value, or the checkbox state.
+  const line = (prefix, lab) => {
+    const id = lab.getAttribute("for");
+    const ctrl = document.getElementById(id);
+    if (!ctrl) return null;
+    const wrap = ctrl.closest(".select__container");
+    const v = wrap ? (wrap.querySelector(".select__single-value")?.textContent || "") : ctrl.type === "checkbox" ? (ctrl.checked ? "checked" : "unchecked") : ctrl.value;
+    const marked = ctrl.closest("[data-wdaf]") || (wrap || ctrl.parentElement).querySelector("[data-wdaf]");
+    return "FIELD " + prefix + lab.textContent.replace(/\*/g, "").trim().slice(0, 40) + " = " + JSON.stringify(v) + " mark=" + ((marked && marked.dataset.wdaf) || "-");
+  };
+  const fields = [];
+  document.querySelectorAll(".employment--container .employment-form").forEach((e, i) => e.querySelectorAll("label[for]").forEach((l) => { const t = line("Employment " + (i + 1) + ": ", l); if (t) fields.push(t); }));
+  document.querySelectorAll(".education-form label[for]").forEach((l) => { const t = line("Education: ", l); if (t) fields.push(t); });
+  document.querySelectorAll("form > .field-wrapper label[for]").forEach((l) => { const t = line("", l); if (t) fields.push(t); });
+  document.getElementById("out").textContent = "@@BEGIN\n" + [
+    "STATS " + JSON.stringify(stats), "TOAST " + JSON.stringify((document.getElementById("aaf-done-toast")?.shadowRoot?.querySelector(".box")?.innerText || "").replace(/\n/g, " | ")),
+    "NAV " + JSON.stringify(window.__nav || []),
+    "ADDED employment " + (window.__added || 0) + ", education " + (window.__eduAdded || 0),
+    "AI " + JSON.stringify((window.__aiPayload || []).map((q) => q.question)),
+    ...window.__errors.map((e) => "ERR " + e),
+    ...window.__logs.map((l) => "LOG " + l),
+    ...fields,
+  ].join("\n") + "\n@@END";
+}, 500);
+</script>
+</body>
+</html>
