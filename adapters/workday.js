@@ -998,6 +998,8 @@
     return res;
   }
 
+  // The "I currently work here" / "Current role" / "Still work here" box of a work panel.
+  const CURRENT_CB = /\b(currently|current|present|still)\b/;
   const workMap = (f, x) => {
     const L = f.nl;
     if (/job title/.test(L)) return x.title;
@@ -1126,9 +1128,23 @@
     }
     const fillPanel = async (i, o) => {
       const x = entries[i];
-      for (const f of fieldContainers(panelEl(o.a)).map(describe)) {
+      // A queue, not a one-time list: toggling "I currently work here" re-renders the panel's dates (Workday shows "To"
+      // only while the box is unchecked). Halcyon: the parse had the box ticked on a job your profile says ended; the
+      // box was unticked, but the To field it revealed wasn't in the list scanned before, so it was never filled and
+      // nothing was logged. After a toggle the panel is scanned again, revealed fields are queued (logged), hidden ones
+      // dropped, and the fields left are re-found on the live panel.
+      const keyOf = (f) => `${f.nid}|${f.nl}`;
+      const labels = new Map();
+      const scan = () => fieldContainers(panelEl(o.a)).map(describe).map((f) => (labels.set(keyOf(f), f.label), f));
+      let queue = scan();
+      const seen = new Set(queue.map(keyOf));
+      const done = new Set();
+      while (queue.length) {
+        const f = queue.shift();
+        done.add(keyOf(f));
         const v = mapFn(f, x);
         if (v === undefined) continue;
+        const cbBefore = f.type === "checkbox" ? !!f.ctrl?.checked : null;
         // Dates count as holding a value once any box has digits (isFilled wants every box).
         const before = f.type === "date" ? (/\d/.test(currentValue(f)) ? currentValue(f) : "") : isFilled(f) ? currentValue(f) : "";
         if (before && f.type === "date") {
@@ -1172,6 +1188,21 @@
           dbg(`${what} ${i + 1}: ${f.label}: replaced "${before}" with "${after}"`);
           mark(f, "review");
           res.review++;
+        }
+        // The box changed state: the panel may show other fields now (To appears when it's unchecked, goes when checked).
+        if (cbBefore !== null && CURRENT_CB.test(f.nl) && !!(f.c.querySelector('input[type="checkbox"]') || f.ctrl)?.checked !== cbBefore) {
+          const was = JSON.stringify([...seen]);
+          await waitFor(() => JSON.stringify(scan().map(keyOf)) !== was, 1200);
+          const fresh = scan();
+          const now = new Set(fresh.map(keyOf));
+          const revealed = fresh.filter((y) => !seen.has(keyOf(y)));
+          const hidden = [...seen].filter((k) => !now.has(k)).map((k) => labels.get(k) || k.split("|")[1]);
+          const state = cbBefore ? "unchecked" : "checked";
+          if (revealed.length) dbg(`${what} ${i + 1}: "${f.label}" ${state} revealed: ${revealed.map((y) => y.label).join(", ")}; filling from your entry`);
+          if (hidden.length) dbg(`${what} ${i + 1}: "${f.label}" ${state} hid: ${hidden.join(", ")}`);
+          if (!revealed.length && !hidden.length) dbg(`${what} ${i + 1}: "${f.label}" ${state}; the panel shows the same fields`);
+          for (const k of now) seen.add(k);
+          queue = fresh.filter((y) => !done.has(keyOf(y)));
         }
       }
     };

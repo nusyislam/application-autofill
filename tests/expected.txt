@@ -658,3 +658,19 @@ greenhouse-employment :: Education: End date year => = "2027" mark=-
 greenhouse-employment :: !LOG => (already answered)
 greenhouse-employment :: !LOG => no empty block for your entry
 greenhouse-employment :: !LOG => questions sent, model
+
+# Halcyon (Workday, Greenhouse job-boards UI): the resume parse ticked "I currently work here" / "Current role" on a job your
+# profile says ended; the box was unticked, but the To / End date it revealed was never filled (the panel was scanned before
+# the toggle). Now the panel is re-scanned after the toggle and the revealed fields filled; the reverse (parsed as ended,
+# profile current) ticks the box and the end date goes.
+workday-current-toggle :: formField-currentlyWorkHere = "unchecked" => mark=-
+workday-current-toggle :: formField-endDate => = "08/2026"
+workday-current-toggle :: formField-currentlyWorkHere = "checked" => mark=-
+workday-current-toggle :: work panels => AI Engineer Intern @ Northwind; Software Engineer @ Contoso
+greenhouse-current-toggle :: Employment 1: Current role => = "unchecked"
+greenhouse-current-toggle :: Employment 1: End date month => = "August"
+greenhouse-current-toggle :: Employment 1: End date year => = "2024"
+greenhouse-current-toggle :: Employment 2: Current role => = "checked"
+greenhouse-current-toggle :: Employment 2: Start date year => = "2025"
+greenhouse-current-toggle :: !LOG => no empty block for your entry
+greenhouse-current-toggle :: !LOG => questions sent, model

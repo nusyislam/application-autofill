@@ -2267,13 +2267,26 @@
           stats.needs++;
         }
         for (const { i, o } of pairs.sort((a, b) => a.i - b.i)) {
-          for (const f of o.b.fields) {
+          // A queue, not a one-time list (Halcyon, Greenhouse job-boards UI): "Current role" ticked by the resume parse
+          // on a job your profile says ended; unticking it reveals the End date row, which the block scanned before the
+          // toggle didn't have, so it was never filled. After the box changes state the block is scanned again:
+          // revealed fields are queued (logged), hidden ones dropped, the fields left re-found on the live block.
+          const keyOf = (f) => `${f.nid}|${f.nl}`;
+          const labels = new Map(o.b.fields.map((f) => [keyOf(f), f.label]));
+          const rescan = () => (blocksOf(kind, discover().filter((f) => f.type)).find((b) => b.panel === o.b.panel || b.name.c === o.b.name.c)?.fields || []).map((f) => (labels.set(keyOf(f), f.label), f));
+          let queue = [...o.b.fields];
+          const seen = new Set(queue.map(keyOf));
+          const done = new Set();
+          while (queue.length) {
+            const f = queue.shift();
+            done.add(keyOf(f));
             f.blockFields = o.b.fields;
             const v = kind === "experience" ? expValue(f, entries[i], o.b) : eduValue(f, entries[i], p);
             if (v === AAF.SKIP) {
               AAF.handled(f);
               continue;
             }
+            const cbBefore = f.type === "checkbox" ? !!f.ctrl?.checked : null;
             if (v === undefined || v === "" || v == null) {
               // A value your profile has nothing for stays (a split date's Day: your dates are month + year): kept, so
               // the final check doesn't list it as unhandled.
@@ -2307,6 +2320,22 @@
               dbg(`${kind} ${i + 1}: ${f.label}: replaced "${before}" with "${after}"`);
               mark(f, "review");
               stats.review++;
+            }
+            // The box changed state ("Current role", "Still student"): the block may show other fields now.
+            if (cbBefore !== null && /\b(currently|current|present|still)\b/.test(f.nl) && !!(f.ctrl || f.c.querySelector('input[type="checkbox"]'))?.checked !== cbBefore) {
+              const was = JSON.stringify([...seen]);
+              await waitFor(() => JSON.stringify(rescan().map(keyOf)) !== was, 1200);
+              const fresh = rescan();
+              const now = new Set(fresh.map(keyOf));
+              const revealed = fresh.filter((y) => !seen.has(keyOf(y)));
+              const hidden = [...seen].filter((k) => !now.has(k)).map((k) => labels.get(k) || k.split("|")[1]);
+              const state = cbBefore ? "unchecked" : "checked";
+              if (revealed.length) dbg(`${kind} ${i + 1}: "${f.label}" ${state} revealed: ${revealed.map((y) => y.label).join(", ")}; filling from your entry`);
+              if (hidden.length) dbg(`${kind} ${i + 1}: "${f.label}" ${state} hid: ${hidden.join(", ")}`);
+              if (!revealed.length && !hidden.length) dbg(`${kind} ${i + 1}: "${f.label}" ${state}; the block shows the same fields`);
+              for (const k of now) seen.add(k);
+              o.b.fields = fresh;
+              queue = fresh.filter((y) => !done.has(keyOf(y)));
             }
           }
         }

@@ -1,0 +1,220 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Software Engineering Intern | Mototron Solutions Careers</title>
+<style>
+  body { font: 14px sans-serif; }
+  [role=listbox] { position: absolute; background: #fff; border: 1px solid #999; width: 320px; max-height: 200px; overflow: auto; z-index: 5; }
+  [role=option] { padding: 4px; min-height: 20px; }
+  .ff { margin: 10px 0; }
+  section { border: 1px solid #ccc; margin: 12px 0; padding: 8px; }
+  .panel { border-top: 1px dashed #ccc; margin-top: 6px; }
+</style>
+<script>
+window.__logs = [];
+window.__errors = [];
+const origLog = console.log;
+console.log = (...a) => {
+  if (a[0] === "[autofill]") window.__logs.push(a.slice(1).map((x) => (typeof x === "string" ? x : x && x.nodeType ? "<" + x.tagName + ">" : JSON.stringify(x))).join(" "));
+  origLog(...a);
+};
+window.addEventListener("error", (e) => window.__errors.push("error: " + e.message + " @ " + (e.filename || "").split("/").pop() + ":" + e.lineno));
+window.addEventListener("unhandledrejection", (e) => window.__errors.push("rejection: " + (e.reason && e.reason.stack || e.reason)));
+const STORE = {
+  profile: {
+    firstName: "Test", lastName: "Applicant", email: "test@example.com", phone: "6465550100", expectedGraduation: "05/2027",
+    experiences: [
+      { title: "AI Engineer Intern", company: "Northwind", location: "Riverton, NJ", current: false, startMonth: "6", startYear: "2026", endMonth: "8", endYear: "2026" },
+      { title: "Software Engineer", company: "Contoso", location: "Remote", current: true, startMonth: "1", startYear: "2026", endMonth: "", endYear: "" },
+    ],
+    projectsHighlight: "Application Autofill: a browser extension that fills job applications",
+    resumeText: "TEST APPLICANT\nEXPERIENCE\nAI Engineer Intern, Northwind\nPROJECTS\nMicrocontroller-Based Alarm Clock | C, AVR\nAI Gym Tracker - React Native\nSKILLS\nPython, C++",
+    education: [{ school: "Lakeview University", schoolAliases: "LSU Lakeview University", degreeOptions: "Bachelor of Engineering | BEng | B.E. | BE\nBachelor's Degree | Bachelor's", field: "", gpa: "" }],
+    answers: {}, eeo: {}, api: { key: "" },
+  },
+  settings: { useAI: true, learn: true, threshold: 0.75 },
+  learned: [],
+};
+let onMsg = null;
+// Location settings have no default in Options: the New York values these tests were written with (settings a fixture
+// sets itself are kept; a blank search took the old default search, and the default list when the list was blank too).
+{ const P = STORE.profile, AL = (P.applicationLocation ||= {}), A = (P.answers ||= {}), blank = !String(AL.search || "").trim();
+  if (blank) AL.search = "New York";
+  if (blank && !String(AL.matches || "").trim()) AL.matches = "New York City, New York, United States | New York, New York, United States | New York, NY, United States | New York, NY | New York City | New York, NY, USA | New York, USA";
+  if (!String(A.officeMetro || "").trim()) A.officeMetro = "New York City | NYC | New York, NY | New York, New York | Manhattan | Brooklyn | Queens | Bronx | Staten Island | Long Island | Jersey City | Hoboken | Newark | Westchester | Stamford"; }
+window.chrome = {
+  storage: {
+    local: {
+      get: async (keys) => {
+        const ks = typeof keys === "string" ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys || {});
+        const out = {};
+        for (const k of ks) if (STORE[k] !== undefined) out[k] = JSON.parse(JSON.stringify(STORE[k]));
+        return out;
+      },
+      set: async (o) => Object.assign(STORE, o),
+    },
+    onChanged: { addListener: () => {} },
+  },
+  runtime: { id: "test-extension", onMessage: { addListener: (fn) => (onMsg = fn) }, sendMessage: async () => ({ model: "stub", answers: [] }) },
+};
+window.__runFill = () => new Promise((res) => onMsg({ type: "FILL" }, {}, res));
+</script>
+</head>
+<body>
+<!-- Halcyon (Workday, fake data) after Workday's own "Autofill with Resume": the parse ticked "I currently work here" on
+     the Northwind panel, which your profile says ENDED (August 2026). Workday shows the "To" date only while the box is
+     unchecked, so the panel scanned before the toggle had no To field: HEAD unchecked the box and never filled To (no
+     "To" line logged). Expected now: the box unchecked AND To = 8/2026, logged as revealed. The reverse on the Contoso
+     panel: the parse left it ended (To 5/2026) while your profile says current: the box is checked and To goes away. -->
+<h2>My Information</h2>
+<div class="ff" data-automation-id="formField-legalName--firstName"><label>First Name<abbr>*</abbr></label><input type="text" id="first" value="Tess"></div>
+<div class="ff" data-automation-id="formField-legalName--lastName"><label>Last Name<abbr>*</abbr></label><input type="text" value="applicant"></div>
+<div class="ff" data-automation-id="formField-email"><label>Email Address<abbr>*</abbr></label><input type="text" value="old.address@example.com"></div>
+<div class="ff" data-automation-id="formField-phoneNumber"><label>Phone Number<abbr>*</abbr></label><input type="text" value="+1 646-555-0100"></div>
+<div class="ff" data-automation-id="formField-gradDate"><label>Expected Graduation Date</label><input data-automation-id="dateSectionMonth-input" value="5"> <input data-automation-id="dateSectionYear-input" value="2027"></div>
+
+<h2>My Experience</h2>
+<section id="sec-work"><h3>Work Experience</h3><div class="panels"></div><button type="button" data-tpl="work">Add Another</button></section>
+<section id="sec-edu"><h3>Education</h3><div class="panels"></div><button type="button" data-tpl="edu">Add Another</button></section>
+<pre id="out"></pre>
+
+<template id="work"><div class="panel"><button type="button" data-automation-id="panel-set-delete-button">Delete</button>
+  <div class="ff" data-automation-id="formField-jobTitle"><label>Job Title<abbr>*</abbr></label><input type="text"></div>
+  <div class="ff" data-automation-id="formField-companyName"><label>Company<abbr>*</abbr></label><input type="text"></div>
+  <div class="ff" data-automation-id="formField-location"><label>Location</label><input type="text"></div>
+  <div class="ff" data-automation-id="formField-currentlyWorkHere"><label for="">I currently work here</label><input type="checkbox"></div>
+  <div class="ff" data-automation-id="formField-startDate"><label>From<abbr>*</abbr></label><input data-automation-id="dateSectionMonth-input"> <input data-automation-id="dateSectionYear-input"></div>
+  <div class="ff" data-automation-id="formField-endDate"><label>To</label><input data-automation-id="dateSectionMonth-input"> <input data-automation-id="dateSectionYear-input"></div>
+</div></template>
+<template id="edu"><div class="panel"><button type="button" data-automation-id="panel-set-delete-button">Delete</button>
+  <div class="ff" data-automation-id="formField-school"><label>School or University<abbr>*</abbr></label>
+    <div data-automation-id="multiselectInputContainer"><input type="text" data-items="Lakeview University|LSU Lakeview University|Queens College"></div></div>
+  <div class="ff" data-automation-id="formField-degree"><label>Degree<abbr>*</abbr></label>
+    <button aria-haspopup="listbox" aria-expanded="false" data-opts="Select One|Bachelor of Arts|Bachelor of Science|Bachelor of Engineering">Select One</button></div>
+</div></template>
+
+<script>
+// ---- Workday-like widgets (test only), as in workday-experience.html
+let n = 0;
+function wireDropdowns(root) {
+  for (const btn of root.querySelectorAll("button[aria-haspopup=listbox]")) {
+    if (btn.dataset.wired) continue;
+    btn.dataset.wired = "1";
+    const id = "lb" + n++;
+    btn.setAttribute("aria-controls", id);
+    btn.addEventListener("click", () => {
+      let lb = document.getElementById(id);
+      if (btn.getAttribute("aria-expanded") === "true") { lb && lb.remove(); btn.setAttribute("aria-expanded", "false"); return; }
+      lb = document.createElement("div");
+      lb.id = id; lb.setAttribute("role", "listbox");
+      for (const t of btn.dataset.opts.split("|")) {
+        const o = document.createElement("div"); o.setAttribute("role", "option"); o.textContent = t;
+        o.addEventListener("click", () => { btn.textContent = t; lb.remove(); btn.setAttribute("aria-expanded", "false"); });
+        lb.appendChild(o);
+      }
+      btn.after(lb);
+      btn.setAttribute("aria-expanded", "true");
+    });
+  }
+}
+function wireSearch(root) {
+  for (const inp of root.querySelectorAll("[data-automation-id=multiselectInputContainer] input")) {
+    if (inp.dataset.wired) continue;
+    inp.dataset.wired = "1";
+    const field = inp.closest("[data-automation-id^=formField]");
+    inp.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") { document.querySelectorAll("[data-automation-id=activeListContainer]").forEach((x) => x.remove()); return; }
+      if (e.key !== "Enter") return;
+      document.querySelectorAll("[data-automation-id=activeListContainer]").forEach((x) => x.remove());
+      const q = inp.value.toLowerCase();
+      const items = inp.dataset.items.split("|").filter((t) => q && t.toLowerCase().includes(q.split(" ")[0]));
+      const lb = document.createElement("div");
+      lb.setAttribute("data-automation-id", "activeListContainer"); lb.setAttribute("role", "listbox");
+      for (const t of items.length ? items : ["No Items."]) {
+        const row = document.createElement("div"); row.setAttribute("role", "option"); row.setAttribute("data-automation-id", "menuItem");
+        const leaf = document.createElement("div"); leaf.setAttribute("data-automation-id", "promptLeafNode");
+        const po = document.createElement("div"); po.setAttribute("data-automation-id", "promptOption"); po.textContent = t;
+        if (items.length) po.addEventListener("click", () => { const chip = document.createElement("div"); chip.setAttribute("data-automation-id", "selectedItem"); chip.textContent = t; field.appendChild(chip); });
+        leaf.appendChild(po); row.appendChild(leaf); lb.appendChild(row);
+      }
+      field.appendChild(lb);
+    });
+  }
+}
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  for (const b of document.querySelectorAll("button[aria-expanded=true]")) { document.getElementById(b.getAttribute("aria-controls"))?.remove(); b.setAttribute("aria-expanded", "false"); }
+});
+const addPanel = (tpl) => {
+  const panel = document.getElementById(tpl).content.firstElementChild.cloneNode(true);
+  document.querySelector(`[data-tpl=${tpl}]`).closest("section").querySelector(".panels").appendChild(panel);
+  wireDropdowns(panel); wireSearch(panel);
+  panel.querySelector("[data-automation-id=panel-set-delete-button]").addEventListener("click", () => { window.__deleted = (window.__deleted || 0) + 1; panel.remove(); });
+  // "I currently work here": Workday removes the To field while it's checked and re-renders it when unchecked.
+  const cb = panel.querySelector("[data-automation-id=formField-currentlyWorkHere] input");
+  if (cb) {
+    let to = panel.querySelector("[data-automation-id=formField-endDate]");
+    const sync = (log = true) => {
+      const shown = panel.querySelector("[data-automation-id=formField-endDate]");
+      if (cb.checked && shown) { to = shown; shown.remove(); if (log) window.__toggles = (window.__toggles || []).concat("To hidden"); }
+      else if (!cb.checked && !shown) { to = to.cloneNode(true); to.querySelectorAll("input").forEach((i) => (i.value = "")); panel.appendChild(to); window.__toggles = (window.__toggles || []).concat("To revealed"); }
+    };
+    cb.addEventListener("change", () => setTimeout(sync, 150));
+    panel.__sync = sync;
+  }
+  return panel;
+};
+for (const btn of document.querySelectorAll("button[data-tpl]")) btn.addEventListener("click", () => addPanel(btn.dataset.tpl));
+// The resume parse: two panels. `current` ticks the box (and the To field is removed, as Workday does).
+const work = (title, company, loc, current, dates = []) => {
+  const p = addPanel("work");
+  const [t, c, l] = p.querySelectorAll("input[type=text]");
+  t.value = title; c.value = company; l.value = loc;
+  p.querySelectorAll("[data-automation-id^=dateSection]").forEach((d, i) => (d.value = dates[i] || ""));
+  p.querySelector("[data-automation-id=formField-currentlyWorkHere] input").checked = current;
+  p.__sync(false);
+};
+work("AI Engineer Intern", "Northwind", "Riverton, NJ", true, ["06", "2026"]);          // parsed as current; your profile: ended 8/2026
+work("Software Engineer", "Contoso", "Remote", false, ["01", "2026", "05", "2026"]);  // parsed as ended; your profile: current
+const edu = (school, degree) => {
+  const p = addPanel("edu");
+  const chip = document.createElement("div"); chip.setAttribute("data-automation-id", "selectedItem"); chip.textContent = school;
+  p.querySelector("[data-automation-id=formField-school]").appendChild(chip);
+  p.querySelector("button[aria-haspopup]").textContent = degree;
+};
+edu("Lakeview University", "Bachelor of Engineering");
+</script>
+<!--SCRIPTS-->
+<script>
+setTimeout(async () => {
+  // The first name was typed by hand on this page (headless can't make trusted events).
+  if (AAF.markUserEdited) AAF.markUserEdited(document.getElementById("first"));
+  let stats;
+  try { stats = await window.__runFill(); } catch (e) { window.__errors.push("run: " + e.stack); }
+  const fields = [...document.querySelectorAll("[data-automation-id^=formField]")].map((c) => {
+    const ctrl = c.querySelector("input:not([type=radio]):not([type=file]),textarea,button");
+    const chips = [...c.querySelectorAll("[data-automation-id=selectedItem]")].map((x) => x.textContent);
+    const dates = [...c.querySelectorAll("[data-automation-id^=dateSection]")].map((i) => i.value);
+    const val = chips.length ? "chips:" + chips.join(",") : dates.length ? dates.join("/") : ctrl ? (ctrl.tagName === "BUTTON" ? ctrl.textContent : ctrl.type === "checkbox" ? (ctrl.checked ? "checked" : "unchecked") : ctrl.value) : "";
+    return c.getAttribute("data-automation-id") + " = " + JSON.stringify(val) + " mark=" + (c.dataset.wdaf || "-");
+  });
+  const panels = [...document.querySelectorAll(".panel")].map((p, i) => `PANEL ${p.closest("section").id} ${i}: ` +
+    [...p.querySelectorAll("input[type=text], [data-automation-id=formField-startDate], [data-automation-id=formField-endDate], button[aria-haspopup]")].map((x) => x.tagName === "BUTTON" ? x.textContent : x.tagName === "DIV" ? [...x.querySelectorAll("input")].map((i) => i.value).join("/") : x.value).filter((v) => v && v !== "/").join(" | ") +
+    (p.querySelector("[data-automation-id=selectedItem]") ? " | chips:" + [...p.querySelectorAll("[data-automation-id=selectedItem]")].map((x) => x.textContent).join(",") : "") +
+    " mark=" + (p.dataset.wdaf || "-"));
+  document.getElementById("out").textContent = "@@BEGIN\n" + [
+    "STATS " + JSON.stringify(stats), "TOAST " + JSON.stringify((document.getElementById("aaf-done-toast")?.shadowRoot?.querySelector(".box")?.innerText || "").replace(/\n/g, " | ")),
+    ...window.__errors.map((e) => "ERR " + e),
+    ...window.__logs.map((l) => "LOG " + l),
+    "TOGGLES " + JSON.stringify(window.__toggles || []),
+    "DELETED " + (window.__deleted || 0) + ", WORK PANELS " + document.querySelectorAll("#sec-work .panel").length,
+    "FIELD work panels = " + document.querySelectorAll("#sec-work .panel").length + " | " + [...document.querySelectorAll("#sec-work .panel")].map((p) => { const i = p.querySelectorAll("input"); return i[0].value + " @ " + i[1].value; }).join("; "),
+    "FIELD deleted panels = " + (window.__deleted || 0),
+    ...panels,
+    ...fields.map((f) => "FIELD " + f),
+  ].join("\n") + "\n@@END";
+}, 500);
+</script>
+</body>
+</html>
