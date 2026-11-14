@@ -683,3 +683,16 @@ workday-late-skills :: late section log => = yes
 workday-no-skills :: skills => = []
 workday-no-skills :: no-skills log => = yes
 workday-no-skills :: late section log => = no
+
+# Larkspur (Ashby): "What is the location where you permanently reside?" on the "Start typing..." location picker was
+# "classified residence: left for you". Home-location wordings on a picker go to the application-location filler; the
+# yes / no question and the state list keep the residence / place rules; "Hometown" reaches it through the classifier.
+ashby-home-location :: What is the location where you permanently reside? => = "New York City, New York, United States" mark=-
+ashby-home-location :: Where do you live? => = "New York City, New York, United States" mark=-
+ashby-home-location :: City of residence => = "New York City, New York, United States" mark=-
+ashby-home-location :: Current location => = "New York City, New York, United States" mark=-
+ashby-home-location :: Hometown => = "New York City, New York, United States" mark=review
+ashby-home-location :: Do you currently reside in New York City? => = Yes mark=review
+ashby-home-location :: Which U.S. state do you reside in? => = New York mark=review
+ashby-home-location :: !LOG => classified residence: left for you
+ashby-home-location :: !LOG => questions sent, model

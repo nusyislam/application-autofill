@@ -1808,6 +1808,47 @@
     // in the form asked: "City, ST" for city and state, the city for a city, the state for a state. Blue, never Claude.
     // Not a "location" label (the application-location rule, your accepted names), not someone else's place (an
     // employer's, a school's, a contact's: yours, logged), not a yes / no question or an essay prompt.
+    // The application-location filler (Options "Application location": the search term and the accepted names in order):
+    // search boxes / dropdowns / radios get the steps (exact, then the same city), plain text the first accepted name.
+    // Neither set = left for you, never Claude.
+    const locationAnswer = () => {
+      const { search, list } = appLocation(p);
+      const names = splitAlts(list);
+      if (!names.length) {
+        if (!namedLogged.has("noloc|" + f.label)) {
+          namedLogged.add("noloc|" + f.label);
+          dbg(`location: application location not set in Options, left for you (never sent to Claude): ${f.label.slice(0, 80)}`);
+        }
+        return NEEDS;
+      }
+      // near: with no exact match, an option for the same city counts (blue).
+      if (["dropdown", "radio", "checkgroup"].includes(f.type) || f.kind === "autocomplete") return { steps: names.map((m) => [m]), search, exact: true, near: list, what: "location" };
+      return names[0];
+    };
+    // Where you live, asked on a type-to-search location picker (Larkspur, Ashby: "What is the location where you
+    // permanently reside?", the "Start typing..." box, was "classified residence: left for you (no place your address
+    // matches)": the residence rules answer yes / no questions naming a place, and this is your home location). "The
+    // location / place where you (permanently / currently) reside / live / are based", "Where do you live?", "Current /
+    // home location", "City of residence", "Permanent address city", or any place question the classifier calls residence,
+    // on a picker (a combobox with an autocomplete class / id, a "Start typing..." placeholder, or no options listed) goes
+    // to the application-location filler, like Ashby's "Location" field; plain text too for the location wordings (the
+    // city / state wordings keep the current-city rules below). Yes / no questions and option lists keep the residence /
+    // place rules. Never Claude.
+    const ctrlHint = `${f.ctrl?.className || ""} ${f.ctrl?.id || ""} ${f.ctrl?.name || ""}`;
+    const picker = f.kind === "autocomplete" || (f.type === "dropdown" && (/autocomplete|typeahead|location/i.test(ctrlHint) || /\b(typ(e|ing)|search)\b/i.test(f.ctrl?.getAttribute?.("placeholder") || "") || (!!ctx.options && !fOpts.length)));
+    const HOME_LOC = /\b(location|place|area|address)\b.{0,25}\b(you |your )?(permanently |currently |presently |primarily |now )?(reside|residing|live|living|based|located|residence|home)\b|\bwhere do you (currently |permanently |presently )?(live|reside|living)\b|\b(city|town|location|place) of (your )?(permanent |current |primary |legal )?residence\b|\b(permanent|home|residential) (address |residence )?city\b|\b(permanent|residential) (address |residence )?location\b/;
+    const HOME_CITY = /\b(city|town)\b.{0,25}\b(you |your )?(permanently |currently |presently |primarily |now )?(reside|residing|live|living|based|located|residence)\b/;
+    const othersPlace = /\b(employer|company|organi[sz]ation|school|university|college|office|headquarters|hq|job|position|role|contact|reference|relative|parent|spouse|manager|recruiter|born|birth|previous|prior|former|last|work from|working from|be based|will you|would you)\b/.test(L);
+    const homeLoc = L.length <= 160 && !/^(are|do|have|will|is|would|can|could|were) you\b/.test(L) && !/^i (am |currently |presently )/.test(L) && !othersPlace &&
+      (HOME_LOC.test(L) || (picker && (HOME_CITY.test(L) || (ctx.category === "residence" && /\b(location|based|located|city|town|where|home|hometown|reside|live)\b/.test(L))))) &&
+      (picker || ["text", "textarea"].includes(f.type) && !/\b(city|town|state|province)\b/.test(L));
+    if (homeLoc) {
+      if (!namedLogged.has("homeloc|" + f.label)) {
+        namedLogged.add("homeloc|" + f.label);
+        dbg(`location (where you live): ${picker ? "a location picker" : "a text box"} asking for your home location -> the application location in Options (${ctx.category === "residence" && !HOME_LOC.test(L) && !HOME_CITY.test(L) ? "classified residence, " : ""}never Claude): ${f.label.slice(0, 80)}`);
+      }
+      return locationAnswer();
+    }
     const cityWord = /\b(city|town|municipality)\b/.test(L), stateWord = /\b(state|province|state province)\b/.test(L) && !/\bplease state\b|\bstate (your|the|if|whether|how|what|which|why)\b/.test(L);
     const placeCtx = /\b(located|based|live|living|reside|residing|residence|home|current|currently|today|now|present)\b/.test(L) || ctx.category === "residence";
     const cityStateAsk = ["text", "textarea"].includes(f.type) && L.length <= 160 && !/\blocation\b/.test(L) && !/^(are|do|have|will|is|would|can|could|were) you\b/.test(L) &&
@@ -1858,21 +1899,7 @@
       // Not a first-person statement ("I am currently based in the USA." with Yes / No: the residence rule).
       (L.length <= 90 && !/^(are|do|have|will|is|would|can|could) you\b/.test(L) && !/^i (am |currently |presently )/.test(L) &&
         /\bwhere (are|do) you (currently )?(based|located|live|living|reside)|\b(which|what) (city|location|metro|area)\b.*\b(based|located|live|living|reside)\b|\bcurrent (city|location)\b|\bcurrently based\b/.test(L));
-    if (asksLocation) {
-      // A search term with a blank list accepts the search term itself; neither set = left for you (never Claude).
-      const { search, list } = appLocation(p);
-      const names = splitAlts(list);
-      if (!names.length) {
-        if (!namedLogged.has("noloc|" + f.label)) {
-          namedLogged.add("noloc|" + f.label);
-          dbg(`location: application location not set in Options, left for you (never sent to Claude): ${f.label.slice(0, 80)}`);
-        }
-        return NEEDS;
-      }
-      // near: with no exact match, an option for the same city counts (blue).
-      if (["dropdown", "radio", "checkgroup"].includes(f.type) || f.kind === "autocomplete") return { steps: names.map((m) => [m]), search, exact: true, near: list, what: "location" };
-      return names[0];
-    }
+    if (asksLocation) return locationAnswer();
     // One field for the whole address, only when the form doesn't split it into line / city / zip.
     if (/^(current |home |permanent |residential )?(mailing |street |home )?address$/.test(L) && ["text", "textarea"].includes(f.type) && !ctx.splitAddress)
       return fullAddress(p) || undefined;
