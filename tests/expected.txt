@@ -674,3 +674,12 @@ greenhouse-current-toggle :: Employment 2: Current role => = "checked"
 greenhouse-current-toggle :: Employment 2: Start date year => = "2025"
 greenhouse-current-toggle :: !LOG => no empty block for your entry
 greenhouse-current-toggle :: !LOG => questions sent, model
+
+# Cobalt (Workday, "Use my last application"): the Skills multiselect rendered after the first scan, so the first fill had no
+# skills at all. Now the sections are re-detected after the panels and a settle wait; a Skills block that never appears on
+# My Experience is logged.
+workday-late-skills :: skills => = ["Data Wrangling","Fortran Basics","GIMP Retouching"]
+workday-late-skills :: late section log => = yes
+workday-no-skills :: skills => = []
+workday-no-skills :: no-skills log => = yes
+workday-no-skills :: late section log => = no

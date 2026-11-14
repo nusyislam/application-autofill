@@ -1,0 +1,118 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Careers</title>
+<style>
+  body { font: 14px sans-serif; }
+  [role=listbox] { position: absolute; background: #fff; border: 1px solid #999; width: 320px; max-height: 200px; overflow: auto; z-index: 5; }
+  [role=option] { padding: 4px; min-height: 20px; }
+  .ff { margin: 10px 0; }
+</style>
+<script>
+window.__logs = [];
+window.__errors = [];
+const origLog = console.log;
+console.log = (...a) => {
+  if (a[0] === "[autofill]") window.__logs.push(a.slice(1).map((x) => (typeof x === "string" ? x : x && x.nodeType ? "<" + x.tagName + ">" : JSON.stringify(x))).join(" "));
+  origLog(...a);
+};
+window.addEventListener("error", (e) => window.__errors.push("error: " + e.message + " @ " + (e.filename || "").split("/").pop() + ":" + e.lineno));
+window.addEventListener("unhandledrejection", (e) => window.__errors.push("rejection: " + (e.reason && e.reason.stack || e.reason)));
+const STORE = {
+  profile: {
+    firstName: "Test", lastName: "Applicant",
+    skills: "Data Wrangling, Fortran Basics, GIMP Retouching",
+    experiences: [], education: [], languages: [], answers: {}, eeo: {}, api: { key: "" },
+  },
+  settings: { useAI: true, learn: true, threshold: 0.75 },
+  learned: [],
+};
+let onMsg = null;
+// Location settings have no default in Options: the New York values these tests were written with (settings a fixture
+// sets itself are kept; a blank search took the old default search, and the default list when the list was blank too).
+{ const P = STORE.profile, AL = (P.applicationLocation ||= {}), A = (P.answers ||= {}), blank = !String(AL.search || "").trim();
+  if (blank) AL.search = "New York";
+  if (blank && !String(AL.matches || "").trim()) AL.matches = "New York City, New York, United States | New York, New York, United States | New York, NY, United States | New York, NY | New York City | New York, NY, USA | New York, USA";
+  if (!String(A.officeMetro || "").trim()) A.officeMetro = "New York City | NYC | New York, NY | New York, New York | Manhattan | Brooklyn | Queens | Bronx | Staten Island | Long Island | Jersey City | Hoboken | Newark | Westchester | Stamford"; }
+window.chrome = {
+  storage: {
+    local: {
+      get: async (keys) => {
+        const ks = typeof keys === "string" ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys || {});
+        const out = {};
+        for (const k of ks) if (STORE[k] !== undefined) out[k] = JSON.parse(JSON.stringify(STORE[k]));
+        return out;
+      },
+      set: async (o) => Object.assign(STORE, o),
+    },
+    onChanged: { addListener: () => {} },
+  },
+  runtime: { id: "test-extension", onMessage: { addListener: (fn) => (onMsg = fn) }, sendMessage: async () => ({ model: "stub", answers: [] }) },
+};
+window.__runFill = () => new Promise((res) => onMsg({ type: "FILL" }, {}, res));
+</script>
+</head>
+<body>
+<div data-automation-id="progressBar"><div data-automation-id="progressBarActiveStep">My Experience</div></div>
+<h2>My Experience</h2>
+<!-- Cobalt (Workday, fake data): a My Experience page prefilled by "Use my last application". The Skills multiselect
+     ("Type to Add Skills") renders about 1.5 s after the page: the first fill scanned the page before it existed
+     ("fields found: multi 1", no skills line), and only a second run added the skills. Here the block never appears: the fill must say so ("skills: no skills field on this My Experience page ..."), not skip silently. -->
+<div id="skills-slot"></div>
+<pre id="out"></pre>
+
+<script>
+// ---- Workday-like skills search (test only), wired when the block is inserted.
+window.__searches = [];
+const SKILLS_HTML = '<div class="ff" data-automation-id="formField-skills"><label>Type to Add Skills</label>' +
+  '<div data-automation-id="multiselectInputContainer"><input type="text" data-items="Data Wrangling|Fortran Basics|GIMP Retouching|InkScape Diagramming"></div></div>';
+let field = null;
+function wireSkills() {
+  const inp = document.querySelector("[data-automation-id=multiselectInputContainer] input");
+  field = inp.closest("[data-automation-id^=formField]");
+  let lb = null;
+  const render = (items) => {
+    if (!lb || !lb.isConnected) {
+      lb = document.createElement("div");
+      lb.setAttribute("data-automation-id", "activeListContainer"); lb.setAttribute("role", "listbox");
+      field.appendChild(lb);
+    }
+    lb.innerHTML = "";
+    for (const t of items.length ? items : ["No Items."]) {
+      const row = document.createElement("div"); row.setAttribute("role", "option"); row.setAttribute("data-automation-id", "menuItem");
+      const leaf = document.createElement("div"); leaf.setAttribute("data-automation-id", "promptLeafNode");
+      const po = document.createElement("div"); po.setAttribute("data-automation-id", "promptOption"); po.textContent = t;
+      if (items.length) po.addEventListener("click", () => { const chip = document.createElement("div"); chip.setAttribute("data-automation-id", "selectedItem"); chip.textContent = t; field.appendChild(chip); });
+      leaf.appendChild(po); row.appendChild(leaf); lb.appendChild(row);
+    }
+  };
+  inp.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") { lb?.remove(); return; }
+    if (e.key !== "Enter") return;
+    const q = inp.value.trim().toLowerCase();
+    window.__searches.push(q);
+    render(inp.dataset.items.split("|").filter((t) => q && t.toLowerCase().includes(q)));
+  });
+}
+// The block never renders on this page.
+</script>
+<!--SCRIPTS-->
+<script>
+setTimeout(async () => {
+  let stats;
+  try { stats = await window.__runFill(); } catch (e) { window.__errors.push("run: " + e.stack); }
+  const skills = field ? [...field.querySelectorAll("[data-automation-id=selectedItem]")].map((x) => x.textContent) : [];
+  document.getElementById("out").textContent = "@@BEGIN\n" + [
+    "STATS " + JSON.stringify(stats), "TOAST " + JSON.stringify((document.getElementById("aaf-done-toast")?.shadowRoot?.querySelector(".box")?.innerText || "").replace(/\n/g, " | ")),
+    "FIELD skills = " + JSON.stringify(skills),
+    "FIELD late section log = " + (window.__logs.some((l) => /^late section found: skills/.test(l)) ? "yes" : "no"),
+    "FIELD no-skills log = " + (window.__logs.some((l) => /^skills: no skills field on this My Experience page/.test(l)) ? "yes" : "no"),
+    "SEARCHES " + JSON.stringify(window.__searches),
+    ...window.__errors.map((e) => "ERR " + e),
+    ...window.__logs.map((l) => "LOG " + l),
+  ].join("\n") + "\n@@END";
+}, 500);
+</script>
+</body>
+</html>

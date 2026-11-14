@@ -1503,11 +1503,14 @@
   // Skills are comma-separated; each skill may list aliases separated by "|", tried in order
   // ("C++ Programming Language | C++ | C++ (Programming Language)"): the first that gets selected wins.
   // Each alias is still matched exact/prefix-only, like any skill.
+  // The Skills multiselect ("Type to Add Skills") on this step, if rendered.
+  const skillsField = () => fieldContainers().map(describe).find((x) => x.type === "multi" && /skill/.test(x.nl + " " + x.nid));
+  const profileSkills = (p) => (p.skills || "").split(",").map(splitAlts).filter((s) => s.length);
   async function fillSkills(p) {
-    const skills = (p.skills || "").split(",").map(splitAlts).filter((s) => s.length);
+    const skills = profileSkills(p);
     if (!skills.length) return 0;
-    const find = () => fieldContainers().map(describe).find((x) => x.type === "multi" && /skill/.test(x.nl + " " + x.nid));
-    if (!find()) return 0; // no skills field on this step
+    const find = skillsField;
+    if (!find()) return 0; // no skills field on this step (fillSections logs it when it never appears on My Experience)
     // Skills this site's list doesn't have, remembered per Workday tenant ("ex.wd5") for 7 days
     // (chrome.storage `skillMisses`, shown in Options with a Clear button): skipped with one log line.
     const tenant = location.hostname.replace(/\.myworkday(jobs|site)?\.com$/i, "");
@@ -1734,9 +1737,58 @@
     }
     logSections();
     noteLinkedInField();
+    const seenKinds = new Set(detectSections().filter((s) => s.kind).map((s) => s.kind));
+    const hadSkills = !!skillsField();
+    await runSections(p, stats, null);
+    // Late-rendered sections (Cobalt, a page prefilled by "Use my last application": the Skills multiselect rendered after
+    // the first scan, so the first fill found "multi 1" and had no skills line at all, and a second run added 86 of 89).
+    // After the panels are filled and the page has been quiet for 700 ms (3 s at most), the sections are detected once
+    // more and any new one (skills, websites, languages, work experience, education) is run, logged.
+    // Skills expected here (your profile lists them, My Experience, none rendered yet): at least 1.5 s, in case it renders late.
+    const expectSkills = profileSkills(p).length && !hadSkills && onMyExperience();
+    const waited = await waitQuietPage(700, 3000, expectSkills ? 1500 : 0);
+    const late = detectSections().filter((s) => s.kind && !seenKinds.has(s.kind)).map((s) => s.kind);
+    if (!hadSkills && skillsField()) late.push("skills");
+    if (late.length) {
+      dbg(`late section found: ${late.join(", ")} (rendered after the first scan; waited ${waited} ms for the page to settle)`);
+      await runSections(p, stats, new Set(late));
+    }
+    // Skills expected on My Experience but never rendered: said, not silently skipped.
+    const n = profileSkills(p).length;
+    if (n && !skillsField() && onMyExperience()) dbg(`skills: no skills field on this My Experience page (your profile lists ${n} skills; waited ${waited} ms for late sections); nothing added`);
+
+    if (p.preferredName) {
+      const pf = fieldContainers().map(describe).find((x) => x.type === "checkbox" && /preferred name/.test(x.nl));
+      if (pf && !pf.ctrl.checked) {
+        click(pf.ctrl);
+        await waitFor(() => fieldContainers().map(describe).some((x) => /first name/.test(x.nl) && isPreferred(x)), 2500);
+      }
+    }
+  }
+  // The "My Experience" step (the progress bar's active step, else a heading).
+  const onMyExperience = () =>
+    /my experience/.test(norm(document.querySelector('[data-automation-id="progressBarActiveStep"]')?.innerText || "")) ||
+    [...document.querySelectorAll("h1,h2,h3,[role='heading']")].some((h) => visible(h) && /^my experience$/.test(norm(h.innerText)));
+  // No DOM mutations for `quietMs` (at most `maxMs`, at least `minMs`); returns the ms waited. Polls with sleep(), so a
+  // hidden tab is fine.
+  async function waitQuietPage(quietMs = 700, maxMs = 3000, minMs = 0) {
+    const t0 = AAF.now();
+    let last = t0;
+    const obs = new MutationObserver(() => (last = AAF.now()));
+    obs.observe(document.body, { childList: true, subtree: true, attributes: true });
+    try {
+      while ((AAF.now() - last < quietMs || AAF.now() - t0 < minMs) && AAF.now() - t0 < maxMs) await sleep(100);
+    } finally {
+      obs.disconnect();
+    }
+    return Math.round(AAF.now() - t0);
+  }
+  // The repeatable sections and skills: all of them (kinds = null), or only the kinds named (the late re-scan).
+  async function runSections(p, stats, kinds) {
+    const want = (k) => !kinds || kinds.has(k);
     const sites = websiteEntries(p);
-    for (const r of [
-      await fillByName(() => sectionOf("work experience"), /^job title/, p.experiences, workMap, {
+    const rs = [];
+    if (want("work experience")) rs.push(await fillByName(() => sectionOf("work experience"), /^job title/, p.experiences, workMap, {
         what: "work experience",
         nameRx: /^company/,
         subRx: /job title/,
@@ -1751,31 +1803,23 @@
         isMatch: (sc) => sc.strong >= 2 || ((sc.by.title || 0) >= 1 && (sc.by.company || 0) >= 1),
         required: [/job title/, /^company/],
         p,
-      }),
-      await fillByName(() => sectionOf("education"), /^(school|school or university|university)/, p.education, eduMap, {
+      }));
+    if (want("education")) rs.push(await fillByName(() => sectionOf("education"), /^(school|school or university|university)/, p.education, eduMap, {
         what: "education",
         nameRx: /school|university|institution/,
         signals: [{ what: "school", rx: /school|university|institution/, same: (v, x) => (sameSchool(v, x) ? 2 : 0) }],
         isMatch: (sc) => (sc.by.school || 0) >= 2,
         required: [/school|university|institution/],
         p,
-      }),
-      await fillRepeatable(websitesSection, /^url$/, sites, (f, x) => (/url/.test(f.nl) ? x.url : undefined), { onlyEmpty: true }),
-    ]) {
+      }));
+    if (want("websites")) rs.push(await fillRepeatable(websitesSection, /^url$/, sites, (f, x) => (/url/.test(f.nl) ? x.url : undefined), { onlyEmpty: true }));
+    for (const r of rs) {
       // r.filled is already in the run tally (AAF.countFill / countKept).
       stats.needs += r.needs;
       stats.review += r.review;
     }
-    await fillLanguages(p, stats);
-    await fillSkills(p); // counts one per skill chip as it's added (AAF.run.extra)
-
-    if (p.preferredName) {
-      const pf = fieldContainers().map(describe).find((x) => x.type === "checkbox" && /preferred name/.test(x.nl));
-      if (pf && !pf.ctrl.checked) {
-        click(pf.ctrl);
-        await waitFor(() => fieldContainers().map(describe).some((x) => /first name/.test(x.nl) && isPreferred(x)), 2500);
-      }
-    }
+    if (want("languages")) await fillLanguages(p, stats);
+    if (want("skills")) await fillSkills(p); // counts one per skill chip as it's added (AAF.run.extra)
   }
 
   // -------------------------------------------------------------- learning wiring
