@@ -27,6 +27,16 @@ chrome.commands.getAll().then((cmds) => {
   $("shortcut").textContent = c?.shortcut ? `Shortcut: ${c.shortcut}` : "Shortcut: not set (chrome://extensions/shortcuts)";
 });
 
+// The footer: which build this is, the same line as the first [autofill] log line of every fill ("Application Autofill
+// 1.0.2 (unpacked, main 7c4217e)" / "(store)"). The manifest gives the version and store / unpacked at once; the git
+// commit comes from background.js (BUILD_INFO).
+(async () => {
+  const m = chrome.runtime.getManifest();
+  $("build").textContent = `Application Autofill ${m.version} (${m.update_url ? "store" : "unpacked"})`;
+  const r = await chrome.runtime.sendMessage({ type: "BUILD_INFO" }).catch(() => null);
+  if (r?.line) $("build").textContent = r.line;
+})();
+
 // While a fill runs in this tab the button is "Stop autofill" (checked when the popup opens, then every 700 ms).
 let runningHere = false;
 const setRunning = (r) => {

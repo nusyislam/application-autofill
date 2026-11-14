@@ -199,6 +199,8 @@
   if (!A) return;
   AAF.adapter = A;
   A.watchUserAnswers();
+  // The build line (version, store / unpacked, git commit) is asked for once at load, so a fill's first log line has it.
+  if (AAF.alive()) AAF.buildLine();
 
   // Stops (and hides the button) once the extension is reloaded: this copy of the scripts is orphaned.
   const tick = setInterval(() => {
@@ -428,6 +430,9 @@
     if (opts.fromButton && A.delegateFill?.()) return { delegated: true };
     // That top-level page never fills itself (its own search box isn't the application).
     if (A.passiveFrame?.()) return { passive: true };
+    // The first line of every fill says which build is running (1.0.2 unpacked at commit X, or the store's).
+    const build = await AAF.buildLine();
+    if (build) dbg(build);
     // A fill already running (the previous step's, still on its skill retries): stop it, then start.
     if (running) {
       AAF.cancel.reason = "a new fill started";

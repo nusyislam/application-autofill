@@ -32,9 +32,17 @@ const chrome = new Proxy({
   }, onChanged: any() },
 }, { get: (t, k) => (k in t ? t[k] : any()) });
 
+// The extension's own files as background.js buildInfo() reads them (chrome.runtime.getURL + fetch): a clone on main.
+const manifest = { version: "9.9.9" };
+let ownFiles = { ".git/HEAD": "ref: refs/heads/main\n", ".git/refs/heads/main": "0123456789abcdef0123456789abcdef01234567\n" };
+chrome.runtime = new Proxy({ getManifest: () => manifest, getURL: (p) => "chrome-extension://test/" + p }, { get: (t, k) => (k in t ? t[k] : any()) });
 const ctx = {
   chrome, console: { log() {}, warn() {}, error() {} }, setTimeout, clearTimeout, AbortController, URL, TextEncoder,
   fetch: async (url, init) => {
+    if (typeof url === "string" && url.startsWith("chrome-extension://")) {
+      const body = ownFiles[url.replace("chrome-extension://test/", "")];
+      return { ok: body !== undefined, status: body !== undefined ? 200 : 404, text: async () => body || "" };
+    }
     bodies.push(JSON.parse(init.body));
     const r = replies.length ? replies.shift() : reply;
     return { ok: r.status < 300, status: r.status, json: async () => r.json };
@@ -127,6 +135,23 @@ const BANNED = ["temperature", "top_p", "top_k"];
       b2.messages.length === 1 && b2.messages[0].content === b1.messages[0].content && /DETAIL: the applicant lives in New York City/.test(b1.messages[0].content);
     if (ok) console.log(`ok   meaning mapper cut off at max_tokens: sent again as the same request with ${b2.max_tokens} tokens (first ${b1.max_tokens}), the DETAIL kept`);
     else { console.log(`FAIL meaning mapper cut-off retry: ${JSON.stringify({ r, b1: b1 && { max: b1.max_tokens, n: b1.messages.length }, b2: b2 && { max: b2.max_tokens, n: b2.messages.length } })}`); failed++; }
+  }
+  // The build line (BUILD_INFO): the manifest version, store (update_url set) / unpacked, and for an unpacked clone the
+  // branch and short commit from .git/HEAD; a folder without .git just says unpacked.
+  {
+    const want = [
+      ["Application Autofill 9.9.9 (unpacked, main 0123456)", () => {}],
+      ["Application Autofill 9.9.9 (unpacked, detached 89abcde)", () => { ownFiles = { ".git/HEAD": "89abcdef0123456789abcdef0123456789abcdef" }; }],
+      ["Application Autofill 9.9.9 (unpacked, fix 0123456)", () => { ownFiles = { ".git/HEAD": "ref: refs/heads/fix", ".git/packed-refs": "# pack-refs with: peeled\n0123456789abcdef0123456789abcdef01234567 refs/heads/fix\n" }; }],
+      ["Application Autofill 9.9.9 (unpacked)", () => { ownFiles = {}; }],
+      ["Application Autofill 9.9.9 (store)", () => { manifest.update_url = "https://clients2.google.com/service/update2/crx"; }],
+    ];
+    for (const [line, setup] of want) {
+      setup();
+      const r = await ctx.buildInfo();
+      if (r?.line === line) console.log(`ok   build line: "${line}"`);
+      else { console.log(`FAIL build line: wanted "${line}", got ${JSON.stringify(r)}`); failed++; }
+    }
   }
   console.log(failed ? `background request check: ${failed} failed` : "background request check: all passed");
   process.exit(failed ? 1 : 0);

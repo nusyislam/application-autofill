@@ -329,6 +329,29 @@
     }
   };
 
+  // Which build is running: "Application Autofill 1.0.2 (unpacked, main 7c4217e)" or "... (store)", the first log
+  // line of every fill (main.js) and the popup's footer. The version and store / unpacked (the store sets update_url)
+  // come from the manifest here; the git branch and commit from background.js (BUILD_INFO, which reads .git/HEAD
+  // among the extension's own files when the unpacked folder is a clone). Asked once per page, at load, so the
+  // fill's first line doesn't wait for it; "" when there's no manifest (the test fixtures' chrome stub).
+  let buildLineP = null;
+  const buildLine = () =>
+    buildLineP ||
+    (buildLineP = (async () => {
+      let m = null;
+      try {
+        m = chrome.runtime?.getManifest?.();
+      } catch {}
+      if (!m?.version) return "";
+      const local = `Application Autofill ${m.version} (${m.update_url ? "store" : "unpacked"})`;
+      try {
+        const r = await chrome.runtime.sendMessage({ type: "BUILD_INFO" });
+        return r?.line || local;
+      } catch {
+        return local;
+      }
+    })());
+
   // A promise that also ends when the run is cancelled (an in-flight Claude request: its answer is discarded).
   function untilCancel(promise) {
     let iv;
@@ -339,5 +362,5 @@
     });
     return Promise.race([promise, stop]).finally(() => clearInterval(iv));
   }
-  Object.assign(AAF, { cancel, Cancelled, untilCancel, now, delay, focusStep, focused, fillClock, alive, DEBUG, dbg, show, sleep, norm, visible, SKIP, waitFor, checkboxOn, parseDate, splitAlts, setField, timed });
+  Object.assign(AAF, { cancel, Cancelled, untilCancel, now, delay, focusStep, focused, fillClock, alive, buildLine, DEBUG, dbg, show, sleep, norm, visible, SKIP, waitFor, checkboxOn, parseDate, splitAlts, setField, timed });
 })();

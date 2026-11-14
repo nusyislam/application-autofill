@@ -14,6 +14,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (tabId != null) pausedBadge(tabId, msg.paused, msg.done);
     return;
   }
+  // Which build is running (the first log line of every fill, the popup footer).
+  if (msg?.type === "BUILD_INFO") {
+    buildInfo().then(sendResponse, () => sendResponse(null));
+    return true;
+  }
   if (msg?.type === "ASK_AI") {
     const signal = claudeSignal(sender.tab?.id);
     askAI({ ...msg, signal })
@@ -234,6 +239,38 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     chrome.tabs.sendMessage(sender.tab.id, { type: "SCROLL_NEEDS" }, { frameId: lastFillFrame.get(sender.tab.id) ?? 0 }).catch(() => {});
   }
 });
+// Which build is running: the manifest version; "store" when the store installed it (it sets update_url), else
+// "unpacked"; for an unpacked clone the git branch and commit, read from .git/HEAD (then the ref file or
+// packed-refs) among the extension's own files. Nothing else is read and nothing leaves the browser; a copy
+// without .git (or one Chrome won't serve it from) just says "unpacked".
+async function buildInfo() {
+  const m = chrome.runtime.getManifest();
+  const unpacked = !m.update_url;
+  let git = "";
+  if (unpacked) {
+    try {
+      const text = async (p) => {
+        const r = await fetch(chrome.runtime.getURL(p));
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return (await r.text()).trim();
+      };
+      const head = await text(".git/HEAD");
+      const ref = /^ref:\s*(\S+)/.exec(head)?.[1];
+      let sha = ref ? "" : head;
+      if (ref) {
+        try {
+          sha = await text(".git/" + ref);
+        } catch {
+          const packed = await text(".git/packed-refs").catch(() => "");
+          sha = packed.split("\n").find((l) => l.trim().endsWith(" " + ref))?.trim().split(/\s+/)[0] || "";
+        }
+      }
+      if (/^[0-9a-f]{40}$/i.test(sha)) git = `${ref ? ref.replace(/^refs\/heads\//, "") : "detached"} ${sha.slice(0, 7)}`;
+    } catch {}
+  }
+  const line = `Application Autofill ${m.version} (${unpacked ? "unpacked" + (git ? ", " + git : "") : "store"})`;
+  return { version: m.version, unpacked, git, line };
+}
 async function fillDone(data, sender) {
   const tabId = sender.tab.id;
   runningFills.delete(tabId);
