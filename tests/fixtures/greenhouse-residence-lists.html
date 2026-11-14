@@ -1,0 +1,126 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Job Application for Software Engineer at Kestrel Labs</title>
+<style>
+  body { font: 14px sans-serif; }
+  .field-wrapper { margin: 10px 0; }
+</style>
+<script>
+// ---- stub chrome API (test only)
+window.__logs = [];
+window.__errors = [];
+const origLog = console.log;
+console.log = (...a) => {
+  if (a[0] === "[autofill]") window.__logs.push(a.slice(1).map((x) => (typeof x === "string" ? x : x && x.nodeType ? "<" + x.tagName + ">" : JSON.stringify(x))).join(" "));
+  origLog(...a);
+};
+window.addEventListener("error", (e) => window.__errors.push("error: " + e.message + " @ " + (e.filename || "").split("/").pop() + ":" + e.lineno));
+window.addEventListener("unhandledrejection", (e) => window.__errors.push("rejection: " + (e.reason && e.reason.stack || e.reason)));
+const STORE = {
+  profile: {
+    firstName: "Test", lastName: "Applicant", email: "test@example.com", phone: "6465550100",
+    city: "Astoria", state: "New York", zip: "11102", address1: "1 Test Street", country: "United States of America",
+    expectedGraduation: "05/2027", education: [],
+    experiences: [
+      { company: "Contoso", title: "Software Engineer Intern", current: true, startMonth: "6", startYear: "2026", endMonth: "", endYear: "" },
+    ],
+    answers: { workAuth: "Yes", sponsorship: "No" },
+    eeo: {}, api: { key: "test-key", model: "stub" },
+  },
+  settings: { useAI: true, learn: true, threshold: 0.75 },
+  // No learned answers: the residence rule alone decides. The fake address is in Astoria, Queens (zip 11102).
+  learned: [],
+};
+let onMsg = null;
+{ const P = STORE.profile, AL = (P.applicationLocation ||= {}), A = (P.answers ||= {}), blank = !String(AL.search || "").trim();
+  if (blank) AL.search = "New York";
+  if (blank && !String(AL.matches || "").trim()) AL.matches = "New York City, New York, United States | New York, New York, United States | New York, NY, United States | New York, NY | New York City | New York, NY, USA | New York, USA";
+  if (!String(A.officeMetro || "").trim()) A.officeMetro = "New York City | NYC | New York, NY | New York, New York | Manhattan | Brooklyn | Queens | Bronx | Staten Island | Long Island | Jersey City | Hoboken | Newark | Westchester | Stamford"; }
+window.chrome = {
+  storage: {
+    local: {
+      get: async (keys) => {
+        const ks = typeof keys === "string" ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys || {});
+        const out = {};
+        for (const k of ks) if (STORE[k] !== undefined) out[k] = JSON.parse(JSON.stringify(STORE[k]));
+        return out;
+      },
+      set: async (o) => Object.assign(STORE, o),
+    },
+    onChanged: { addListener: () => {} },
+  },
+  runtime: { id: "test-extension",
+    onMessage: { addListener: (fn) => (onMsg = fn) },
+    sendMessage: async (msg) => {
+      if (msg.type === "ASK_AI") {
+        window.__aiPayload = msg.questions;
+        return { model: "stub-model", answers: msg.questions.map((q) => ({ id: q.id, answer: null, confidence: 0 })) };
+      }
+      return {};
+    },
+  },
+};
+window.__runFill = () => new Promise((res) => onMsg({ type: "FILL" }, {}, res));
+</script>
+</head>
+<body>
+<h1>Software Engineer</h1>
+<div class="job__location">New York, NY</div>
+<!-- Kestrel Labs (Greenhouse, fake data): "Are you located in San Francisco, New York or London?" was answered No:
+     the place list was split on "or" but not on commas (the normalized label has none), so "san francisco new york"
+     was one place. The reported wording plus comma / slash / "and" lists, a city with its state, and controls that
+     must stay No. The address is in Astoria, Queens (New York City, zip 11102). -->
+<form id="application-form" class="application--form">
+</form>
+<pre id="out"></pre>
+<script>
+// [label, options]
+const Q = [
+  ["Are you located in San Francisco, New York or London?", ["Yes", "No"]],   // the reported question: New York is yours: Yes
+  ["Are you based in Austin, Denver, or Boston?", ["Yes", "No"]],             // an Oxford comma, none yours: No
+  ["Are you located in SF / NYC / London?", ["Yes", "No"]],                   // slashes, NYC is yours: Yes
+  ["Are you located in Austin, Texas?", ["Yes", "No"]],                       // a city with its state, neither yours: No
+  ["Are you based in Boston, MA or New York, NY?", ["Yes", "No"]],            // city, state pairs: New York is yours: Yes
+  ["Are you located in San Francisco; Chicago; or Miami?", ["Yes", "No"]],    // semicolons, none yours: No
+  ["Do you live in London and New York?", ["Yes", "No"]],                     // "and": New York is yours: Yes
+  ["Are you located in Seattle?", ["Yes", "No"]],                             // one place, not yours: No
+  // "<City>, <State>" is one place, judged by its city (the state alone never matches):
+  ["Are you located in Albany, New York?", ["Yes", "No"]],                    // Albany is not New York City: No
+  ["Are you located in Rochester, NY?", ["Yes", "No"]],                       // No
+  ["Are you located in Brooklyn, New York?", ["Yes", "No"]],                  // another borough (yours is Queens): No
+  ["Are you located in Queens, NY?", ["Yes", "No"]],                          // your borough: Yes
+  ["Are you located in New York, NY?", ["Yes", "No"]],                        // your city: Yes
+  ["Are you located in Austin, Texas or New York, NY?", ["Yes", "No"]],       // two pairs, the second yours: Yes
+  ["Are you located in Toronto, Canada?", ["Yes", "No"]],                     // a city with its country: No
+];
+const form = document.getElementById("application-form");
+Q.forEach(([label, opts], i) => {
+  const fs = document.createElement("fieldset");
+  fs.className = "field-wrapper";
+  fs.innerHTML = `<legend>${label}</legend>` + opts.map((o) => `<label><input type="radio" name="q${i}" value="${o}"> ${o}</label>`).join(" ");
+  form.appendChild(fs);
+});
+</script>
+<!--SCRIPTS-->
+<script>
+setTimeout(async () => {
+  let stats;
+  try { stats = await window.__runFill(); } catch (e) { window.__errors.push("run: " + e.stack); }
+  const fields = [...document.querySelectorAll(".field-wrapper")].map((w) => {
+    const lab = w.querySelector("legend").textContent.trim();
+    const marked = w.closest("[data-wdaf]") || w.querySelector("[data-wdaf]");
+    return lab.slice(0, 60) + " = " + JSON.stringify(w.querySelector("input:checked")?.value || "") + " mark=" + ((marked && marked.dataset.wdaf) || "-");
+  });
+  document.getElementById("out").textContent = "@@BEGIN\n" + [
+    "STATS " + JSON.stringify(stats), "TOAST " + JSON.stringify((document.getElementById("aaf-done-toast")?.shadowRoot?.querySelector(".box")?.innerText || "").replace(/\n/g, " | ")),
+    "AI " + JSON.stringify((window.__aiPayload || []).map((q) => q.question)),
+    ...window.__errors.map((e) => "ERR " + e),
+    ...window.__logs.map((l) => "LOG " + l),
+    ...fields.map((f) => "FIELD " + f),
+  ].join("\n") + "\n@@END";
+}, 500);
+</script>
+</body>
+</html>

@@ -147,7 +147,26 @@
   // when it sits in visually hidden text (shared/main.js `trapWhy`), never on its own in visible text.
   // Not screen-reader hints ("Type your answer here"): it must name a word / phrase to plant, or a strange format.
   const HIDDEN_ORDER = /\b(include|mention|use|insert|add|write|say|type|start|begin|end|put)\b( \w+){0,6} (the |a )?(word|words|phrase|sentence|emoji|code ?word|keyword|secret)\b|\b(answer|respond|reply|write) (only )?(in|with) (french|spanish|german|all caps|uppercase|a poem|a haiku|json|emojis?)\b/;
-  const AI_POLICY = /\b(llm|ai|chat ?gpt|gpt) (assistance|assisted|assistant)\b|\bai[- ]generated (answers?|responses?|content|text|applications?|writing)\b|\bautomated tool (generation|generated|use)\b|\bunassisted\b|\byour own (original )?(words|writing)\b|\bwithout (the )?(use|help) of (ai|llms?|chat ?gpt)\b|\b(llms?|large language models?|chat ?gpt|generative ai|ai tools?|ai models?|automated tools?|artificial intelligence)\b.{0,160}\b(prohibit\w*|disqualif\w*|verif\w*|disclos\w*|not (be )?(permitted|allowed)|must not|was used|were used|written by|to write|to generate|to complete (this|your|the) application)\b/;
+  // An AI-use POLICY prohibits or restricts AI on the application. A question ABOUT AI use is not one (Kestrel Labs,
+  // Greenhouse: "Describe one thing you've personally built ... using an AI-assisted dev tool like Cursor, Claude Code,
+  // or Copilot" matched the old "ai assisted" branch, and no open-ended question on the form was drafted). On the
+  // normalized text (no punctuation, lowercase), one of:
+  //   - a prohibition before the AI word: "do not use AI", "refrain from using LLMs", "without the help of ChatGPT";
+  //   - the AI word, then the rule or consequence: "AI-generated responses will be disqualified", "use of AI is prohibited";
+  //   - own work: "answers must be your own work", "in your own words", "your own original, unassisted writing";
+  //   - a disclosure requirement about AI use ON THIS application (Stackline AV: "If LLM assistance or automated tool
+  //     generation was used in completing this application, please indicate so here"; drafting there would have to be
+  //     disclosed); not "Which AI tools have you used?" or "How do you use AI in your day-to-day work?".
+  const AI_WORD = "(?:ai|llms?|large language models?|language models?|chat ?gpt|gpt|generative ai|gen ai|copilot|ai tools?|ai models?|ai assistants?|ai assistance|automated tools?|automation tools?|artificial intelligence)";
+  const AI_POLICY = new RegExp([
+    `\\b(?:do not|dont|never|must not|may not|should not|not (?:permitted|allowed) to|are not (?:permitted|allowed) to|prohibited from|refrain from)(?: \\w+){0,2} (?:use|using|rely on|relying on|consult|consulting|employ|employing|leverage|leveraging|turn to|copy from|submit)(?: \\w+){0,4} ${AI_WORD}\\b`,
+    `\\bwithout (?:the |any )?(?:use|help|assistance|aid|support) of (?:\\w+ ){0,2}${AI_WORD}\\b`,
+    `\\b${AI_WORD}\\b(?: \\w+){0,8} (?:is |are |will be |would be )?(?:prohibited|forbidden|not (?:be )?(?:permitted|allowed|accepted|acceptable)|disqualif\\w*|grounds for (?:rejection|disqualification|dismissal)|will result in|against (?:our|the|this) (?:policy|rules)|must not|may not|should not|unacceptable)\\b`,
+    `\\b(?:must|should|need to|needs to|have to|has to|are to|is to|are required to|is required to|are expected to) be (?:entirely |completely |solely |wholly |fully )?(?:your own|written by you|human written|in your own words|original|unassisted)\\b`,
+    `\\bin your own (?:original )?words\\b|\\byour own (?:original,? |unassisted,? )*(?:writing|words)\\b|\\bunassisted (?:writing|answers?|responses?)\\b|\\b(?:answers?|responses?|essays?|writing|submissions?) (?:that (?:is|are) )?(?:entirely |completely )?(?:human written|written by you)\\b`,
+    `\\b(?:if|whether|where|when)(?: \\w+){0,3} ${AI_WORD}(?: \\w+){0,6} (?:was|were|is|are|has been|have been) (?:being )?used\\b.{0,120}\\b(?:indicate|disclose|select|check|confirm|let us know|tell us|note|state)\\b`,
+    `\\b(?:disclose|declare) (?:any|all|whether|if|your|the) (?:\\w+ ){0,3}(?:use of |usage of )?${AI_WORD}\\b|\\b${AI_WORD} (?:assistance|use|usage|tools?|help)(?: \\w+){0,3} (?:must|should|needs? to|has to) be (?:disclosed|declared|reported)\\b`,
+  ].join("|"));
   // The never-learn categories a question can be classified into (background.js CLASSIFY_LEARN, Haiku),
   // besides "general". The same names as blockedCategory's.
   // AI / tool usage disclosures (Stackline AV: "Application Verification: If LLM assistance or automated tool generation is

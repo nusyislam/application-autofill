@@ -1241,7 +1241,7 @@
       const policy = globalThis.AAF_LEARN_RULES?.AI_POLICY.exec(formText);
       if (policy) {
         aiPolicy = true;
-        dbg(`AI-use policy found, drafts skipped ("${formText.slice(Math.max(0, policy.index - 40), policy.index + 120).trim()}")`);
+        dbg(`AI-use policy found, drafts skipped: matched "${policy[0].slice(0, 120)}" in "${formText.slice(Math.max(0, policy.index - 40), policy.index + policy[0].length + 40).trim()}"`);
       }
       await askRound(questions);
       // Late reveals: an answer from Claude, a draft, or a re-fill in the final sweep can reveal a follow-up

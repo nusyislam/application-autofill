@@ -1945,6 +1945,12 @@
     const PLACE_ALIAS = { sf: "san francisco", "sf bay": "san francisco", "bay area": "san francisco", bay: "san francisco", "silicon valley": "san jose", la: "los angeles", dc: "washington", "d c": "washington" };
     // true = yours, false = not yours, null = can't tell; `how` says which branch decided.
     function placePart(x) {
+      // "albany in new york" (a "<City>, <State>" pair, glued below): the city decides; the state alone never does.
+      const pair = x.match(/^(.+?) in (.+)$/);
+      if (pair && isRegionName(pair[2])) {
+        const city = placePart(pair[1]);
+        return { home: city.home === null ? null : city.home === true, how: `city with its state / country ("${pair[1]}" in "${pair[2]}", judged by the city: ${city.how})` };
+      }
       const tz = x.match(/^(eastern|central|mountain|pacific|et|ct|mt|pt|est|edt|cst|cdt|mst|mdt|pst|pdt)( standard)?( time)?( zone)?$/);
       if (tz && (tz[3] || tz[4] || x.length <= 3)) {
         const zone = ZONE_NAMES[tz[1]];
@@ -1961,14 +1967,44 @@
       const home = homes.some((h) => h === v || h === x) || isHome(v, p) || isHome(x, p);
       return { home, how: "country / state / city" };
     }
-    const placeLike = (x) => /^[a-z][a-z .'-]*$/.test(x) && x.split(" ").length <= 4 && !/\b(distance|commut\w*|time ?zones?|hours?|miles?|minutes?|radius|reasonable|driving|travel|office|offices|our|your|you|any|which|where|same|compatible|timezone|location|following|authorized|legally|eligible|willing|relocate|relocating)\b/.test(x);
+    const isRegionName = (n) => !!n && (!!STATE_ABBR[n] || Object.values(STATE_ABBR).some((a) => norm(a) === n) || COUNTRIES.includes(n) || US_NAME.test(n) || /^(uk|u k|us|u s|usa)$/.test(n));
+    const placeLike = (x) => {
+      const pair = x.match(/^(.+?) in (.+)$/);
+      if (pair && isRegionName(pair[2])) return placeLike(pair[1]) || !!BOROUGHS[pair[1]];
+      return /^[a-z][a-z .'-]*$/.test(x) && x.split(" ").length <= 4 && !/\b(distance|commut\w*|time ?zones?|hours?|miles?|minutes?|radius|reasonable|driving|travel|office|offices|our|your|you|any|which|where|same|compatible|timezone|location|following|authorized|legally|eligible|willing|relocate|relocating)\b/.test(x);
+    };
     function checkPlaces(placeText) {
       const place = norm(placeText).replace(/\b(currently|today|at this time|right now)\b/g, "").replace(/\s+/g, " ").trim();
       // "one of the following countries: United States, Canada" (2Password): the list, read from the label itself, where
       // its commas still separate the places (the normalized text has lost them).
       const listed = /\bthe following (countries|states|cities|locations|places|areas|regions)\b/.test(place) &&
         (f.label.match(/\bthe following (?:countries|states|cities|locations|places|areas|regions)\b\s*:?\s*(.+?)\??$/i) || [])[1];
-      const raw = listed ? norm(listed.replace(/[,;/]+/g, " or ")) : place;
+      // The commas, semicolons and slashes between places are gone from the normalized label ("San Francisco, New York or
+      // London" became "san francisco new york or london", read as two places, and Kestrel Labs got No; "SF / NYC / London"
+      // was one place): the list is read from the RAW label, the suffix whose normalized text is this place text, with
+      // those separators turned into "or" before normalizing. Multi-word names ("San Francisco", "New York City") stay
+      // whole, since only the separators split; "Austin, Texas" becomes the two parts austin and texas.
+      const rawTail = (() => {
+        const want = norm(placeText).trim();
+        const words = String(f.label || "").replace(/[*✱]/g, " ").split(/(\s+)/);
+        for (let i = 0; i < words.length; i++) {
+          const tail = words.slice(i).join("");
+          if (norm(tail).trim() === want) return tail;
+        }
+        return "";
+      })();
+      // "<City>, <State or country>" is ONE place ("Albany, New York" is not New York City, "Queens, NY" is): the pair is
+      // glued with " in " before the other commas become "or", and placePart judges it by its city alone.
+      // "New York" and "Washington" are states AND cities: after a comma they are a pair's state only when nothing but the
+      // list's end (or another comma / semicolon / slash) follows; "San Francisco, New York or London" lists three cities.
+      const rawList = (listed || rawTail || "").replace(/\s*,\s*([^,;/]+?)(?=\s*(?:,|;|\/|\bor\b|\band\b|$))/g, (m, after, at, whole) => {
+        const n = norm(after).trim();
+        const conjNext = /^\s*(or|and)\b/i.test(whole.slice(at + m.length));
+        // The left side must be a city: "United States, Canada" (two countries) and "New York, California" (two states) are lists.
+        const left = norm(whole.slice(0, at).split(/,|;|\/|\bor\b|\band\b/i).pop() || "").trim();
+        return isRegionName(n) && !isRegionName(left) && !(/^(new york|washington)$/.test(n) && conjNext) ? ` in ${after.trim()}` : m;
+      });
+      const raw = rawList ? norm(rawList.replace(/[,;/]+/g, " or ")).replace(/\b(currently|today|at this time|right now)\b/g, "").replace(/\s+/g, " ").trim() : place;
       const clean = (x) => {
         let y = x;
         for (let i = 0; i < 4; i++) y = y.replace(/^(the|either|greater)\s+/, "").replace(/\s+(metropolitan area|metro area|metro|area|region|bay area|bay)$/, "").replace(/\s+tri ?state$/, "").trim();
