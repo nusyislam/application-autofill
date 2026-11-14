@@ -2718,9 +2718,17 @@
       return y ? (m ? `${String(m).padStart(2, "0")}/${y}` : String(y)) : undefined;
     }
     async function fillWork(p, stats, late = false) {
-      const all = p.experiences || [];
-      const ordered = [...all.filter((x) => x.current), ...all.filter((x) => !x.current)];
+      // By recency (the current job, else the latest end date), never list order (Tidewater: "Current Company" / "Current
+      // Job Title" as block 1 got entry 1, an old internship); one function with the profile-fact rule (shared/profile.js).
+      const ranked = AAF.experiencesByRecency ? AAF.experiencesByRecency(p) : (p.experiences || []).map((x) => ({ x, why: "" }));
+      const ordered = ranked.map((r) => r.x);
       const fields = stillFirst(discover().filter((f) => f.workBlock && sectionNew(f) && !(late && isFilled(f))), (f) => f.workIdx || 0, (f) => STILL_WORK.test(f.nl));
+      for (const r of ranked) {
+        const i = ordered.indexOf(r.x);
+        if (!fields.some((f) => (f.workIdx || 0) === i) || AAF.namedLogged?.has("worktakes|" + i)) continue;
+        AAF.namedLogged?.add("worktakes|" + i);
+        dbg(`work experience block ${i + 1} takes "${r.x.title || "?"} at ${r.x.company || "?"}" (${r.why})`);
+      }
       for (const f of fields) {
         sectionDone.add(f.c);
         live(f);

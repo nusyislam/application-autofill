@@ -271,11 +271,24 @@
       // A fixed "Yes" the options can't take (no Yes option): the option that means yes for your profile
       // (shared/profile.js yesOption: your country, "I am a U.S. person"), logged with the reason; none =
       // logged and left for you (FAIL, the retry pass marks it yellow).
-      if (!ok && f.yesAlt && v === (f.yesAlt.for || "Yes") && AAF.adapter.readOptions) {
+      // Not when an option has the literal text (then the fill failed for another reason, a dropdown that didn't register:
+      // workday-questions; the chooser would click it once more), like the meaning mapper below.
+      const hasLiteral = (texts) => typeof v === "string" && texts.some((t) => norm(t) === norm(v));
+      if (!ok && f.yesAlt?.choose && v === (f.yesAlt.for || "Yes") && AAF.adapter.readOptions) {
         const texts = (await AAF.adapter.readOptions(f)) || [];
-        const hit = f.yesAlt.choose(texts);
-        dbg(`${f.yesAlt.what}: no "${v}" option; options ${show(texts)} -> ${hit ? `"${hit.text}" (${hit.why})` : `none clearly means ${v.toLowerCase()}, left for you`}`);
-        if (hit) ok = await AAF.adapter.setField(f, hit.text);
+        // A select-all-that-apply (the office rule: every office that matches where you live / your office locations).
+        const literal = hasLiteral(texts);
+        const all = !literal && f.type === "checkgroup" && f.yesAlt.chooseAll ? f.yesAlt.chooseAll(texts) : [];
+        if (literal) {
+          // The literal option exists: the fill failed for another reason (see above); nothing to choose.
+        } else if (all.length) {
+          dbg(`${f.yesAlt.what}: no "${v}" option; options ${show(texts)} -> checking ${show(all)} (${f.yesAlt.detail || "the options that match"})`);
+          ok = await AAF.adapter.setField(f, { checkAll: all, what: f.yesAlt.what });
+        } else {
+          const hit = f.yesAlt.choose(texts);
+          dbg(`${f.yesAlt.what}: no "${v}" option; options ${show(texts)} -> ${hit ? `"${hit.text}" (${hit.why})` : `none clearly means ${v.toLowerCase()} (the meaning mapper tries next)`}`);
+          if (hit) ok = await AAF.adapter.setField(f, hit.text);
+        }
       }
       // Any other meaning a choice field couldn't take literally ("Yes" / "No" / "None" / "N/A" from any rule, or the
       // classifier): the shared meaning mapper (shared/prefmap.js mapMeaning: synonyms, then Haiku among the options).

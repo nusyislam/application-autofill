@@ -577,6 +577,66 @@
   // Returns { text, why } or null (nothing clearly means yes: left for you).
   //   a "No" (sponsorship): the option meaning no visa is needed ("None", "N/A", "Not applicable", "I do not
   //   require sponsorship"); never a visa type or "Other".
+  // A rule's Yes / No with its MEANING (Kestrel: a bare "Yes" to the meaning mapper picked "I'd relocate"; Tidewater: the
+  // office rule's bare "Yes" let Haiku pick San Francisco). For a choice field whose options aren't a plain yes / no the
+  // mapper gets the rule's detail, and a pick that contradicts it is rejected (core.js): an option negating a Yes, or
+  // affirming a No. Returns the fixed answer (a checkbox gets the boolean).
+  const CONTRA = {
+    Yes: /^(no|never|none|neither|not)\b|\b(do not|don t|did not|didn t|have not|haven t|am not|is not|isn t|cannot|can t|will not|won t|would not|wouldn t|unable|unwilling|not (available|able|willing|open|interested|applicable|authorized|eligible))\b/,
+    No: /^(yes|currently|already)\b|^i (have|do|am|did|will|can|would|hold|need|require)(?! not| never| n t|n t)\b/,
+  };
+  function meant(f, yes, what, detail) {
+    const v = yes ? "Yes" : "No";
+    if (["radio", "dropdown", "checkgroup"].includes(f.type)) f.yesAlt = { for: v, what, detail, not: CONTRA[v] };
+    return { value: f.type === "checkbox" ? yes : v, review: true };
+  }
+  // The meaning behind each Options fixed answer (FIXYES), for the mapper's DETAIL.
+  const FIX_DETAIL = {
+    "work authorization": { Yes: "the applicant is legally authorized to work in the United States for any employer", No: "the applicant is not authorized to work in the United States" },
+    sponsorship: { Yes: "the applicant needs visa sponsorship", No: "the applicant does not need and will never need visa sponsorship (no visa)" },
+    relocation: { Yes: "the applicant is willing to relocate for this role", No: "the applicant is not willing to relocate" },
+    "U.S. person": { Yes: "the applicant is a U.S. person (a U.S. citizen)", No: "the applicant is not a U.S. person" },
+    "U.S. citizen": { Yes: "the applicant is a U.S. citizen", No: "the applicant is not a U.S. citizen" },
+    "18 or older": { Yes: "the applicant is 18 years of age or older", No: "the applicant is under 18" },
+    "security clearance": { Yes: "the applicant currently holds an active U.S. security clearance", No: "the applicant does not hold a security clearance" },
+  };
+  // Your experiences by recency, never list order (Tidewater, Ashby: "Current Company" / "Current Job Title" got entry 1, an
+  // old internship): the one marked current first, then by end date (latest first), then entries with no end date (not marked
+  // current) by start date. Each with why it ranks there ("marked current", "most recent, ended August 2025"). One function
+  // for the profile-fact rule ("Current company", Lever's org) and shared/form.js's work blocks.
+  function experiencesByRecency(p) {
+    const ym = (y, m) => (Number(y) || 0) * 12 + (Number(m) || 0);
+    const key = (x) => (x.current ? [2, 0] : x.endYear ? [1, ym(x.endYear, x.endMonth)] : [0, ym(x.startYear, x.startMonth)]);
+    const why = (x) => (x.current ? "marked current" : x.endYear ? `most recent, ended ${x.endMonth ? MONTH_NAMES[Number(x.endMonth) - 1] + " " : ""}${x.endYear}` : "no end date and not marked current, ranked by its start");
+    return (p.experiences || [])
+      .filter((x) => x.company || x.title)
+      .map((x, i) => ({ x, i, k: key(x) }))
+      .sort((a, b) => b.k[0] - a.k[0] || b.k[1] - a.k[1] || a.i - b.i)
+      .map((o) => ({ x: o.x, why: why(o.x) }));
+  }
+  const recentExperience = (p) => experiencesByRecency(p)[0] || null;
+  // The office rule's Yes with its meaning: the office that matches where you live or your office locations (the shared
+  // place matcher), never an option saying you're not available for the office, and never another office (a Claude pick
+  // of one is rejected). A select-all-that-apply gets every matching office.
+  function officeAlt(hit, accepted, p) {
+    const mine = (t) => !!(inMetro(t, accepted) || isHome(t, p));
+    const NOT_AVAILABLE = /\b(not available|unavailable|not able|unable|cannot|can t|not willing|unwilling|not open|remote only|fully remote|no office|none of|neither|not interested|not in)\b|^(no|none)\b/;
+    // The options seen by the chooser: a mapper pick is "another office" only when the list holds an office of yours (an
+    // acknowledgment list, "I understand" / "I do not understand", has none: greenhouse-based-in).
+    let listed = [];
+    const picks = (texts) => ((listed = texts), texts.filter((t) => !NOT_AVAILABLE.test(norm(t)) && mine(t)));
+    return {
+      for: "Yes",
+      what: "office attendance",
+      detail: `the applicant can work from the ${hit.part} office (${/where you live/.test(hit.e) ? `they live in ${homeName(p)}` : `"${hit.e}" is one of their office locations`}); never an option saying they are not available for the office, never another office`,
+      not: { test: (t) => NOT_AVAILABLE.test(t) || (listed.some(mine) && !mine(t)) },
+      choose: (texts) => {
+        const t = picks(texts)[0];
+        return t ? { text: t, why: "the office that matches where you live / your office locations" } : null;
+      },
+      chooseAll: picks,
+    };
+  }
   function yesOption(kind, texts, p, answer = "Yes") {
     // You already live where they ask you to relocate: an "I am local / already live there" option, then a plain yes,
     // then "open to relocating"; never a negated one.
@@ -590,7 +650,7 @@
     if (answer === "No") {
       const t = texts.find((x) => /^no\b/.test(norm(x)) && !/\b(but|however|will need|will require|in the future)\b/.test(norm(x))) ||
         texts.find((x) => /^(none|none of (the|these) above|none needed|n a|na|not applicable|does not apply|not required|no sponsorship( needed| required)?|i (do not|dont|will not|wont) (need|require)\b.*|i am a u s citizen|u s citizen|us citizen)$/.test(norm(x)));
-      return t ? { text: t, why: `you don't need sponsorship (Options: ${kind} "No")` } : null;
+      return t ? { text: t, why: kind === "sponsorship" ? `you don't need sponsorship (Options: sponsorship "No")` : `Options: ${kind} "No"` } : null;
     }
     const NEG = /\b(no|not|non|none|neither|n a|na|outside|other)\b/;
     const ok = texts.filter((t) => t && !NEG.test(norm(t)));
@@ -717,7 +777,7 @@
       namedLogged.add("namedschool|" + f.label);
       dbg(`named school: "${name}" ${yes ? "is your school -> Yes" : "is not in your education -> No"} (blue, never Claude): ${f.label.slice(0, 80)}`);
     }
-    return { value: yes ? "Yes" : "No", review: true };
+    return meant(f, yes, "named school", yes ? `the applicant attended / is a student of ${name}` : `the applicant has never attended ${name}`);
   }
   function fullAddress(p) {
     if (!p.address1 || !p.city) return "";
@@ -1085,9 +1145,11 @@
     // "Yes" itself can't be selected (shared/core.js).
     // Also a fixed "No" (sponsorship as visa types [J1, F1, None, Other]: "None").
     const FIXYES = (v, kind) => {
-      if ((v === "Yes" || v === "No") && ["radio", "dropdown", "checkgroup"].includes(f.type)) f.yesAlt = { what: kind, for: v, choose: (texts) => yesOption(kind, texts, p, v) };
+      if ((v === "Yes" || v === "No") && ["radio", "dropdown", "checkgroup"].includes(f.type)) f.yesAlt = { what: kind, for: v, choose: (texts) => yesOption(kind, texts, p, v), detail: FIX_DETAIL[kind]?.[v] || "", not: CONTRA[v] };
       return FIX(v);
     };
+    // A rule's own Yes / No with its meaning (see meant()): never a bare "Yes" / "No" to the mapper.
+    const MEANT = (yes, what, detail) => meant(f, yes, what, detail);
 
     // Conditional follow-ups ("If yes, when did you graduate?", "If you graduated, enter the year",
     // "Select HM Business Unit if actively or formerly employed", fields of an "If Yes, please provide level
@@ -1178,6 +1240,7 @@
       const none = /^(none|no|n ?a|not applicable)$/i.test(norm(v));
       const text = ["text", "textarea"].includes(f.type);
       const ans = !v ? null : none ? (exact || (text ? "None" : "No")) : text ? v : "Yes";
+      if (ans === "Yes" || ans === "No") MEANT(ans === "Yes", "restrictive agreements", ans === "Yes" ? `the applicant is bound by a restrictive agreement (${v})` : "the applicant has no non-disclosure, non-solicit or non-compete agreement");
       if (!namedLogged.has("nda|" + f.label)) {
         namedLogged.add("nda|" + f.label);
         dbg("restrictive agreements (NDA / non-solicit / non-compete): " + (!v ? "not set in Options, left for you (never Claude)" : (none ? "none in Options" : '"' + v.slice(0, 60) + '" in Options') + ' -> "' + String(ans).slice(0, 60) + '"' + (none && exact ? " (the reply the question asks for)" : "") + " (blue)") + ": " + f.label.slice(0, 80));
@@ -1263,7 +1326,7 @@
         namedLogged.add("hasdeg|" + f.label);
         dbg(`degree question: ${edu.length} education entr${edu.length === 1 ? "y" : "ies"} in your profile${orStudying ? " (the question includes studying for one)" : now ? ", still studying" : ""} -> ${yes ? "Yes (blue)" : "left for you"}: ${f.label.slice(0, 80)}`);
       }
-      return yes ? FIX(f.type === "checkbox" ? true : "Yes") : NEEDS;
+      return yes ? MEANT(true, "degree question", now ? "the applicant is studying for a degree now (expected graduation ahead), not holding one yet" : "the applicant holds a degree (graduated)") : NEEDS;
     }
     if (choiceType && /^(do you have|have you had)( any)? (prior |previous |professional |relevant |paid |industry )?(work|professional|industry|job) experience\b/.test(L)) {
       const n = (p.experiences || []).filter((x) => x.company || x.title).length;
@@ -1271,7 +1334,7 @@
         namedLogged.add("haswork|" + f.label);
         dbg(`work experience question: ${n} experience entr${n === 1 ? "y" : "ies"} in your profile -> ${n ? "Yes (blue)" : "left for you"}: ${f.label.slice(0, 80)}`);
       }
-      return n ? FIX(f.type === "checkbox" ? true : "Yes") : NEEDS;
+      return n ? MEANT(true, "work experience question", "the applicant has work experience (internships included)") : NEEDS;
     }
     // "Add another company?", "Would you like to add a second degree?": Yes only when the profile has more entries than
     // the form shows blocks for (the revealed block is then filled from the next entry); otherwise No. Blue, never Claude.
@@ -1286,7 +1349,7 @@
         namedLogged.add("addmore|" + f.label);
         dbg(`add another ${isEdu ? "degree" : "company"}: ${entries} in your profile, ${shown} block${shown === 1 ? "" : "s"} on the form -> ${yes ? "Yes" : "No"} (blue): ${f.label.slice(0, 80)}`);
       }
-      return FIX(f.type === "checkbox" ? yes : yes ? "Yes" : "No");
+      return MEANT(yes, "add another", yes ? "the applicant has another entry to add" : "the applicant has no more entries to add");
     }
     // Employment type ("Employment type", "Are you looking for a full-time role or an internship?", "Type of position":
     // Full-time / Internship / Contract / Open to both): Options "Employment type preference" (`answers.employmentType`),
@@ -1364,7 +1427,7 @@
         namedLogged.add("othercountry|" + f.label);
         dbg(`citizenship of other countries: asks about [${otherCountries.join(", ")}]${embargo.length ? " (embargoed)" : ""}; ${no ? "you are a U.S. citizen with a U.S. address (Options) -> No (blue)" : embargo.length ? `US citizen "${a.citizen || "not set"}", country "${p.country || "not set"}" in Options: left for you` : "not your country; left for you (never the U.S. citizenship answer, never Claude)"}: ${f.label.slice(0, 80)}`);
       }
-      return no ? FIX("No") : NEEDS;
+      return no ? MEANT(false, "citizenship of other countries", "the applicant is a U.S. citizen only, not a citizen, national or resident of any of the listed countries") : NEEDS;
     }
     // Informational notices about hiring to acknowledge (Saleshub: "I understand that upon employment, proof of
     // legal right to work in the US and completion of an I-9 form will be required." was left yellow as an
@@ -1461,7 +1524,7 @@
         namedLogged.add("grady|" + f.label);
         dbg(`graduation question: asks ${show(years)}${levels.length ? " " + show(levels) : ""}; you graduate ${gy} (${mine}) -> ${yes ? "Yes" : "No"} (blue)`);
       }
-      return FIX(f.type === "checkbox" ? yes : yes ? "Yes" : "No");
+      return MEANT(yes, "graduation question", yes ? `the applicant graduates in ${gy} (a ${mine}'s degree)` : `the applicant graduates in ${gy}, not in the year(s) asked`);
     }
     // "Is your degree in Computer Science?", "Is your major Computer Science, Computer Engineering, or a
     // related field?", "Are you majoring in X?": X against the field of study (first education entry),
@@ -1511,11 +1574,11 @@
       if (!hit) {
         if (real.length < asked.length) { say("no listed field matches and the list says related / STEM, left for you"); return NEEDS; }
         say("No (blue)");
-        return FIX(f.type === "checkbox" ? false : "No");
+        return MEANT(false, "degree-in-field question", `the applicant's degree is in ${field}, not one of the listed fields`);
       }
       if (now === null) { say("no expected graduation date in your profile, left for you"); return NEEDS; }
       if (!["radio", "dropdown", "checkgroup", "checkbox"].includes(f.type)) { say("not a choice field, left for you"); return NEEDS; }
-      if (!now) { say(`graduated ${p.expectedGraduation} -> Yes (blue)`); return FIX(f.type === "checkbox" ? true : "Yes"); }
+      if (!now) { say(`graduated ${p.expectedGraduation} -> Yes (blue)`); return MEANT(true, "degree-in-field question", `the applicant holds a ${mine}'s degree in ${field} (graduated)`); }
       if (f.type === "checkbox") { say(`expected graduation ${p.expectedGraduation} is ahead -> checked, yellow so you confirm`); return { value: true, review: true, confirm: true }; }
       const IN_PROGRESS = /\b(in progress|currently (pursuing|enrolled|working towards?|studying|completing)|pursuing|in the process|anticipated|expected|will (graduate|complete|have|receive|earn)|working towards?|currently a student|enrolled)\b/;
       let inProgress = false;
@@ -1624,11 +1687,11 @@
     // current, else the first (most recent) entry.
     // Also "Current or previous employer" / "Current or previous job title" (Stitchly): the most recent
     // experience's company / title, blue, never Claude (no experience in the profile: left for you).
-    const recentJob = () => (p.experiences || []).find((x) => x.current) || (p.experiences || [])[0];
+    const recentJob = () => recentExperience(p)?.x;
     const factLog = (v) => {
       if (!namedLogged.has("fact|" + f.label)) {
         namedLogged.add("fact|" + f.label);
-        dbg(`profile fact: ${f.label.slice(0, 60)} -> ${v ? `"${v}" (most recent experience, blue)` : "no experience in your profile, left for you"}`);
+        dbg(`profile fact: ${f.label.slice(0, 60)} -> ${v ? `"${v}" (most recent experience: ${recentExperience(p)?.why}, blue)` : "no experience in your profile, left for you"}`);
       }
     };
     const NOW_OR_BEFORE = "^(your )?(current|most recent|present|latest)( or (previous|most recent|last|former|past|prior))? ";
@@ -2077,7 +2140,7 @@
       }
       if (r.decision === "yes" && ["radio", "dropdown", "checkgroup"].includes(f.type)) f.yesAlt = livesHereAlt(p);
       if (r.decision === "yes") return FIX(f.type === "checkbox" ? true : "Yes");
-      if (r.decision === "no") return FIX(f.type === "checkbox" ? false : "No");
+      if (r.decision === "no") return MEANT(false, "residence", `the applicant does not live in ${show(r.parts)} (lives in ${homeName(p)})`);
       return NEEDS;
     }
     // "Please select the country where you currently reside" (Stitchly): a profile fact, blue, never Claude.
@@ -2236,7 +2299,7 @@
     // "ever worked with / on / in / using ..." is experience, not employment ("Have you ever worked with Kubernetes?" got
     // the previous-worker No); "worked with us / our team" still is.
     if (T(/(previously|ever|formerly) (been )?(worked|employed)(?! (with|on|in|using)\b(?! (us|our company|our team)\b))|former (employee|worker)|previous worker|previousworker|candidateispreviousworker/))
-      return FIX(workedHereBefore(p) ? "Yes" : "No");
+      return MEANT(workedHereBefore(p), "previous worker", workedHereBefore(p) ? "the applicant has worked for this company before" : "the applicant has never worked for this company (nor as a contractor)");
 
     // Conditional visa questions ("If on F-1 visa, ...", "If you are on OPT / CPT / H-1B, ...", "If you require
     // sponsorship, ..."; Similis's got the work-authorization "Yes"): they don't apply to a U.S. citizen. N/A
@@ -2286,7 +2349,7 @@
     // work without sponsorship" is still this question.
     const asksYesNoProof = ["radio", "dropdown", "checkbox"].includes(f.type) || (f.type === "text" && /^(if hired,? )?(can|will|would|are) you\b/.test(L));
     if (asksYesNoProof && T(/\b(proof|documentation|documents|evidence) of (your )?(eligibility|employment eligibility|work authori[sz]ation|authori[sz]ation to work|right to work|identity and (employment )?eligibility)|\b(provide|furnish|submit|present) (proof|documentation|documents|evidence)\b.*\b(eligib|authori[sz]|right to work)/))
-      return FIX(a.workAuth);
+      return FIXYES(a.workAuth, "work authorization");
     // Work authorization / sponsorship naming only other countries ("Are you legally authorized to work in Canada?" got
     // your U.S. Yes: neither rule read the country): your Options answers are about the United States; a question naming
     // countries, none of them the U.S. (with or without "the": the U.S., USA, US), is yours, never Claude. Statements too.
@@ -2309,13 +2372,13 @@
     // Also "presently authorized under U.S. immigration laws to work", "legally authorized ... under immigration
     // law" (Stackline AV), the words in any order.
     if (!off("work authorization") && T(/authori[sz]ed to work|legally (authorized|eligible|permitted)|eligible to work|right to work|work authori[sz]ation|\bauthori[sz]ed\b.{0,60}\bto work\b|\bauthori[sz]ed\b.{0,40}\bimmigration laws?\b|\bimmigration laws?\b.{0,40}\bauthori[sz]ed\b/)) return ruled("work authorization", FIXYES(a.workAuth, "work authorization"));
-    if (!off("18 or older") && T(/18 years|at least 18|age of 18|over 18|older than 18|legal working age/)) return ruled("18 or older", FIX(a.over18));
+    if (!off("18 or older") && T(/18 years|at least 18|age of 18|over 18|older than 18|legal working age/)) return ruled("18 or older", FIXYES(a.over18, "18 or older"));
     // "Are you a current DataPilot customer?", "...a prospective customer or partner?": No (blue).
     if (["radio", "dropdown", "checkbox", "text"].includes(f.type) && /^(are|is) (you|your (company|employer|organi[sz]ation)) (currently )?(an? )?((current|existing|former|prospective|active) )*(\w+ ){0,3}(customer|client|partner|reseller|vendor)s?\b/.test(L) && !/domestic partner|life partner|partner of an? (current )?employee/.test(L) &&
       // "Are you a Sherwood customer?" alone is product usage (yours, never Claude): only a business
       // relationship (client, partner, reseller, vendor, a prospective customer, your company) is this rule.
       (/\b(client|partner|reseller|vendor)s?\b|\bprospective\b/.test(L) || /^is your\b/.test(L)))
-      return FIX(f.type === "checkbox" ? false : "No");
+      return MEANT(false, "customer / partner", "the applicant is not a customer, client, partner, reseller or vendor of this company");
     // Willing to travel (fixed answer, overrides learned answers): the highest option, Yes, or text.
     if (TRAVEL_Q.test(L) && !/relocat|commut/.test(L) && a.travel) {
       const isText = f.type === "text" || f.type === "textarea";
@@ -2325,7 +2388,10 @@
       return FIX({ choose: travelChoice, text: "Yes, up to 100%", what: "willing to travel" });
     }
     // Employment restrictions / non-compete (fixed answer: none).
-    if (RESTRICTION_Q.test(L) && a.restrictions === "None") return FIX(exact || (f.type === "text" || f.type === "textarea" ? "No, I have no employment restrictions." : "No"));
+    if (RESTRICTION_Q.test(L) && a.restrictions === "None") {
+      if (exact || f.type === "text" || f.type === "textarea") return FIX(exact || "No, I have no employment restrictions.");
+      return MEANT(false, "employment restrictions", "the applicant has no non-compete, non-solicit or other employment restrictions");
+    }
     // Relocation, unless it's also an office question ("open to commuting to our NYC or San Francisco office,
     // or willing to relocate to either location?"): then the office rule below decides.
     // "Which locations would you be interested in relocating to?" as checkboxes (Nimbus: [New York, NY, San Francisco,
@@ -2460,6 +2526,9 @@
         dbg(`office attendance${LQ !== L ? " (from the description)" : ""}: ${why}; ` +
           (hit ? `"${hit.part}" matches "${hit.e}", answering Yes (blue)` : placeQ ? "not in your office locations and not where you live, left for you (never sent to Claude)" : "not in your office locations, left for you"));
       }
+      // The Yes with its meaning: the matching office, picked with the shared place matcher (Tidewater: a bare "Yes" to the
+      // meaning mapper let Haiku pick San Francisco for "Which of our office locations would you be open to working from?").
+      if (hit && ["radio", "dropdown", "checkgroup"].includes(f.type)) f.yesAlt = officeAlt(hit, accepted, p);
       return hit ? FIX(f.type === "checkbox" ? true : "Yes") : NEEDS;
     }
     // Matched but not decided above (a field type it doesn't fill, or a question over 260 characters): every office
@@ -2474,7 +2543,7 @@
       }
       if (!essay) return NEEDS;
     }
-    if (T(/(are you|is your).*(u s|us|united states) citizen|citizen of the united states/)) return FIX(a.citizen);
+    if (T(/(are you|is your).*(u s|us|united states) citizen|citizen of the united states/)) return FIXYES(a.citizen, "U.S. citizen");
     // \b around itar: unbounded, it matched inside "mil-itar-y" and answered DoD/military questions "Yes".
     // ITAR / export control as your status, not experience with it ("Do you have experience with export control compliance?").
     if (T(/u s person|\bus person\b/) || (T(/\bitar\b|export control|export regulation/) && !/\b(experience|familiar|familiarity|knowledge|worked (with|on)|exposure|background in)\b/.test(L))) return FIXYES(a.usPerson, "U.S. person");
@@ -2572,7 +2641,9 @@
         namedLogged.add("sec|" + f.label);
         dbg(`securities licenses: ${none ? "none" : `"${v}"`} in Options${ans ? ` -> ${ans} (blue)` : ", can't tell for this question; left for you (never Claude)"}: ${f.label.slice(0, 80)}`);
       }
-      return ans ? FIX(ans) : NEEDS;
+      if (!ans) return NEEDS;
+      if (ans === "Yes" || ans === "No") return MEANT(ans === "Yes", "securities licenses", ans === "Yes" ? `the applicant holds these securities licenses / registrations: ${v}` : "the applicant holds no securities licenses or registrations");
+      return FIX(ans);
     }
     // "Did You Graduate?" (Steadfast, prefilled Yes): from your education, not the form: the expected graduation ahead = No,
     // passed = Yes; blue, never Claude. A question naming a technical / high school stays with that rule (yours).
@@ -2582,7 +2653,7 @@
         namedLogged.add("grad?|" + f.label);
         dbg(`did you graduate: ${now === null ? "no expected graduation date in Options, left for you" : `expected graduation ${p.expectedGraduation} is ${now ? "ahead -> No" : "past -> Yes"} (blue)`}: ${f.label.slice(0, 80)}`);
       }
-      return now === null ? NEEDS : FIX(now ? "No" : "Yes");
+      return now === null ? NEEDS : MEANT(!now, "did you graduate", now ? `the applicant has not graduated yet (expected ${p.expectedGraduation})` : `the applicant graduated (${p.expectedGraduation})`);
     }
     // "Are you eligible to obtain a U.S. security clearance?", "able / willing to obtain a clearance": Options
     // "Eligible to obtain a US security clearance" (`answers.clearanceEligible`), blue; blank = yellow; never
@@ -2597,7 +2668,7 @@
       return FIX(f.type === "checkbox" ? v === "Yes" : v);
     }
     // "Do you hold an active U.S. Government Security Clearance?" has words between "hold" and "clearance".
-    if (T(/\b(have|hold|possess|maintain)\b( \S+){0,9} clearance\b/) && !/obtain|willing|able to|eligib/.test(L)) return FIX(a.clearance);
+    if (T(/\b(have|hold|possess|maintain)\b( \S+){0,9} clearance\b/) && !/obtain|willing|able to|eligib/.test(L)) return FIXYES(a.clearance, "security clearance");
 
     // Languages you speak as a checkbox group ("Language Skill(s) (Check all that apply)"): every profile
     // language (name or alias) listed is checked, a code in parentheses ignored ("English (ENG)"). Blue; none
@@ -2863,7 +2934,7 @@
         dbg(`currently pursuing a degree: ${now === null ? "no expected graduation date in your profile, left for you" : `expected graduation ${p.expectedGraduation} is ${now ? "ahead -> Yes" : "past -> No"} (blue)`}: ${f.label.slice(0, 80)}`);
       }
       if (now === null) return NEEDS;
-      return FIX(now ? "Yes" : "No");
+      return MEANT(now, "currently pursuing a degree", now ? `the applicant is currently enrolled, pursuing a degree (expected graduation ${p.expectedGraduation})` : `the applicant graduated (${p.expectedGraduation}) and is not enrolled now`);
     }
     // Also "Are you expected to complete a master's or PhD program in Fall 2027 or Spring 2028?" (complete / finish /
     // graduate from a graduate program): the same fact.
@@ -2875,7 +2946,7 @@
         namedLogged.add("gradprog|" + f.label);
         dbg(`graduate program question: ${grad ? "you have a graduate program in your education, left for you (never sent to Claude)" : "no graduate (master's / PhD / MBA) program in your education -> No (blue)"}: ${f.label.slice(0, 80)}`);
       }
-      if (!grad) return FIX(f.type === "checkbox" ? false : "No");
+      if (!grad) return MEANT(false, "graduate program question", "the applicant is in / has a bachelor's program only, no master's, PhD or MBA");
       return NEEDS;
     }
     // Expected graduation: date inputs, or a field that ASKS for the expected / anticipated date.
@@ -3026,5 +3097,5 @@
     const c = compact(name);
     return (CO_ALIASES.find((g) => g.some((x) => compact(x) === c)) || []).filter((x) => compact(x) !== c);
   };
-  Object.assign(AAF, { CLASS_YEAR_Q, classYearChoice, STATE_ABBR, SECURITIES_Q, OPEN_PROMPT, isLinkBox, dateInFormat, gradText, graduationChoice, companyAliases, STUDENT_NOW, studentNow, ageCandidates, ageRange, ageChoice, countryAlts, SCHOOL_NOT_LISTED, rankedPreference, fieldOfStudyValue, highestEducation, HIGHEST_EDU, samePrefill, matchesValue, today, isPreferred, headingBefore, GOV_ATTEST, ATTEST, namedLogged, sameCompany, exactCompany, namedCompanies, placeLevel, namedSchoolAnswer, profileValue, placeKeys, samePlace, mentionsHome, GOV_PROJECTS, GOV_KINDS_RX: GOV_KINDS.map(([, , re]) => re), travelChoice, fullAddress, TRAVEL_Q, RESTRICTION_Q, OFFICE_Q, NEEDS, inMetro, raceChoice, schoolKeyword, DEFAULT_LOCATION, DEFAULT_OFFICE_METRO });
+  Object.assign(AAF, { CLASS_YEAR_Q, classYearChoice, STATE_ABBR, SECURITIES_Q, OPEN_PROMPT, isLinkBox, dateInFormat, gradText, graduationChoice, companyAliases, STUDENT_NOW, studentNow, ageCandidates, ageRange, ageChoice, countryAlts, SCHOOL_NOT_LISTED, rankedPreference, fieldOfStudyValue, highestEducation, HIGHEST_EDU, samePrefill, matchesValue, today, isPreferred, headingBefore, GOV_ATTEST, ATTEST, namedLogged, sameCompany, exactCompany, namedCompanies, placeLevel, namedSchoolAnswer, profileValue, experiencesByRecency, recentExperience, placeKeys, samePlace, mentionsHome, GOV_PROJECTS, GOV_KINDS_RX: GOV_KINDS.map(([, , re]) => re), travelChoice, fullAddress, TRAVEL_Q, RESTRICTION_Q, OFFICE_Q, NEEDS, inMetro, raceChoice, schoolKeyword, DEFAULT_LOCATION, DEFAULT_OFFICE_METRO });
 })();

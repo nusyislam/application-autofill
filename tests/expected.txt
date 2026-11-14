@@ -696,3 +696,19 @@ ashby-home-location :: Do you currently reside in New York City? => = Yes mark=r
 ashby-home-location :: Which U.S. state do you reside in? => = New York mark=review
 ashby-home-location :: !LOG => classified residence: left for you
 ashby-home-location :: !LOG => questions sent, model
+
+# Tidewater (Ashby): "Current Company" / "Current Job Title" (work experience block 1) got work-history entry 1, an old
+# internship: now the most recent experience (marked current, else the latest end date). The office rule's bare "Yes" on
+# "Which of our office locations would you be open to working from? (Select all that apply)" let Haiku pick San Francisco:
+# now the rule picks the matching office itself (New York, NY), never the "not available" option, and no Claude call.
+ashby-current-fields :: curco Current Company => = "Testshop Lab" mark=review
+ashby-current-fields :: curtitle Current Job Title => = "Research Assistant" mark=review
+ashby-current-fields :: offices Our teams work in the office 3 days a week. Which => = New York, NY mark=review
+ashby-current-fields :: officeyn => = Yes mark=review
+ashby-current-fields :: prev Have you previously worked for Tidewater? => = No, I have never worked here
+ashby-current-fields :: !LOG => (Claude (stub-haiku) chose it
+ashby-current-fields :: !LOG => questions sent, model
+ashby-current-fields-marked :: curco Current Company => = "Samplesoft" mark=review
+ashby-current-fields-marked :: curtitle Current Job Title => = "Software Engineer" mark=review
+ashby-current-fields-marked :: offices Our teams work in the office 3 days a week. Which => = New York, NY mark=review
+ashby-current-fields-marked :: !LOG => (Claude (stub-haiku) chose it
