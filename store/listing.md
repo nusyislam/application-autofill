@@ -1,7 +1,7 @@
 # Chrome Web Store listing: Application Autofill
 
 Everything the developer dashboard asks for, ready to paste. Assets in this folder: `screenshot-1-fill.png`,
-`screenshot-2-options.png`, `screenshot-3-learned.png` (1280x800) and `promo-small-440x280.png`, rendered from the
+`screenshot-2-options.png`, `screenshot-3-learned.png`, `screenshot-4-setup.png` (1280x800) and `promo-small-440x280.png`, rendered from the
 fake-data pages in `src/` by `tools/screenshots.ps1`. The package is `dist/application-autofill-<version>.zip`, built by
 `node tools/build.js`.
 
@@ -18,6 +18,8 @@ fake-data pages in `src/` by `tools/screenshots.ps1`. The package is `dist/appli
 **Long description**:
 
 > Application Autofill fills job application forms from a profile you keep in the extension's Options page: contact details, work experience, education, links, your resume, and your fixed answers to the questions most applications ask (work authorization, sponsorship, relocation, clearance, how you heard about the job, and more). Start dates, pay and other questions that are yours alone are always left for you.
+>
+> Getting started: the first time you open Options, a short guide walks you through your profile one step at a time. Upload your resume (and, if you like, LinkedIn's "Save to PDF"): the text is read right in your browser, and the extension suggests your contact details, links and skills from it. With your own API key, Claude also suggests your work history, education and languages. Every suggestion is outlined until you accept it, anything not found in your own text is left out, and nothing you already entered is changed. Work authorization, pay, start dates and self-identification are never filled this way.
 >
 > It supports the most common applicant tracking systems: Workday, Greenhouse, Ashby, Lever, Gem, iCIMS and Rippling, including forms embedded on a company's own careers site.
 >
@@ -43,8 +45,9 @@ fake-data pages in `src/` by `tools/screenshots.ps1`. The package is `dist/appli
 
 **Screenshots** (1280x800):
 1. `screenshot-1-fill.png`: A filled application: plain profile fields, blue outlines on rule answers and the draft, yellow on the pay question, red on the AI-usage question, and the Done summary.
-2. `screenshot-2-options.png`: The Options page where the profile lives (fake data).
+2. `screenshot-2-options.png`: The Options page where the profile lives: short labels with help text under them (fake data).
 3. `screenshot-3-learned.png`: Learned answers waiting for review, each tagged with its category and the company it is scoped to.
+4. `screenshot-4-setup.png`: The setup guide, with contact details suggested from the resume and outlined until accepted.
 
 **Small promo tile** (440x280): `promo-small-440x280.png`.
 
@@ -71,7 +74,7 @@ fake-data pages in `src/` by `tools/screenshots.ps1`. The package is `dist/appli
 
 - [x] **Personally identifiable information**: name, email, phone, address, work and education history, links, the user's own answers to application questions. Entered by the user in Options; stored locally; a text summary is sent to the Anthropic API when the user has turned Claude on and a page has questions no rule answers; the resume and LinkedIn text the user added is also sent when the user asks Options to fill the profile from it (setup prefill).
 - [x] **Authentication information**: the user's own Anthropic API key, stored locally and sent only to api.anthropic.com as the request header.
-- [x] **Website content**: the labels, options and job description of the application page being filled, sent to the Anthropic API for the questions no rule answers (and only then).
+- [x] **Website content**: the labels, options and job description of the application page being filled, sent to the Anthropic API for the questions no rule answers (and only then). Not used by setup prefill, which reads only the user's own resume and LinkedIn text.
 - [ ] Health information
 - [ ] Financial and payment information (compensation questions are never filled or sent)
 - [ ] Personal communications

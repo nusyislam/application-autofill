@@ -1,6 +1,6 @@
 // Store screenshot source (fake data, fictional companies): a chrome.storage stub for options.html, loaded by the
-// screenshot build page before options.js (tools/screenshots.ps1). window.__shot = "options" (the top of the page) or
-// "learned" (only the Learned answers section is shown).
+// screenshot build page before options.js (tools/screenshots.ps1). window.__shot = "options" (the top of the page),
+// "learned" (only the Learned answers section is shown) or "setup" (the setup guide with suggestions from the resume).
 (() => {
   const now = Date.now();
   const STORE = {
@@ -44,6 +44,22 @@
     ],
     resumeFile: { name: "Test_Applicant_Resume.pdf", type: "application/pdf", dataUrl: "data:application/pdf;base64,JVBERi0xLjQK" },
   };
+  // The setup shot: a new profile with only the materials and the key, the guide at step 3 (contact info), and the
+  // contact details suggested from the resume, outlined until accepted.
+  if (window.__shot === "setup") {
+    const P = STORE.profile;
+    STORE.profile = { resumeText: P.resumeText + "\ntest@example.com | 646-555-0100 | Springfield, NY | github.com/test-applicant", linkedinText: P.linkedinText, api: P.api };
+    delete STORE.learned;
+    delete STORE.learnedDeleted;
+    STORE.onboarding = { step: 2 };
+    const from = "resume";
+    STORE.prefill = {
+      at: now, ranFor: "shot",
+      fields: { firstName: { value: "Test", from }, lastName: { value: "Applicant", from }, preferredName: { value: "Tess", from }, email: { value: "test@example.com", from }, phone: { value: "6465550100", from }, city: { value: "Springfield", from }, state: { value: "New York", from }, linkedin: { value: "https://www.linkedin.com/in/test-applicant", from: "LinkedIn profile" }, github: { value: "https://github.com/test-applicant", from } },
+      extras: {}, cards: [], dropped: [], note: "",
+      summary: "Filled 9 fields from your resume; review each step.",
+    };
+  }
   window.chrome = {
     storage: {
       local: {

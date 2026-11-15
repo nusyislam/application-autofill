@@ -3,6 +3,7 @@
 #                                             filled by the real content scripts, like a test fixture)
 #   store\screenshot-2-options.png  1280x800  the Options page (options.html with a chrome.storage stub, store\src\options-stub.js)
 #   store\screenshot-3-learned.png  1280x800  the learned-answers review (the same page, only that section)
+#   store\screenshot-4-setup.png    1280x800  the setup guide at the contact step, with suggestions from the resume
 #   store\promo-small-440x280.png   440x280   the small promo tile (store\src\promo-tile.html)
 #   icons\icon128.png, icon48.png, icon32.png, icon16.png  from icons\source.png (git-ignored; the top-right tile of the
 #                                             2x2 sheet) when present, else from the existing icon128 (store\src\icons.html, a
@@ -72,17 +73,19 @@ $page = Join-Path $build "fill-demo.html"
 [IO.File]::WriteAllText($page, [IO.File]::ReadAllText((Join-Path $store "src\fill-demo.html")).Replace("<!--SCRIPTS-->", ($tags -join "`n")))
 Shot $page (Join-Path $store "screenshot-1-fill.png") 1280 800
 
-# 2 + 3. The Options page with the storage stub, twice: the top of the page, and the learned-answers section alone.
+# 2 + 3 + 4. The Options page with the storage stub, three times: the top of the page, the learned-answers section
+#    alone, and the setup guide with suggestions from the resume. Every page script (options.js, the setup guide,
+#    prefill, import, pdftext) is pointed at the repository; the stub goes before the first one.
 $opts = [IO.File]::ReadAllText((Join-Path $repo "options.html"))
-foreach ($kind in "options", "learned") {
-  $html = $opts.Replace('<script src="shared/learnrules.js"></script>', "<script>window.__shot = '$kind';</script><script src=""$(FileUrl (Join-Path $store 'src\options-stub.js'))""></script><script src=""$(FileUrl (Join-Path $repo 'shared\learnrules.js'))""></script>")
-  $html = $html.Replace('<script src="shared/prefmap.js"></script>', "<script src=""$(FileUrl (Join-Path $repo 'shared\prefmap.js'))""></script>")
-  $html = $html.Replace('<script src="options.js"></script>', "<script src=""$(FileUrl (Join-Path $repo 'options.js'))""></script>")
-  if ($html -eq $opts) { throw "options.html script tags not found" }
+$names = @{ options = "2-options"; learned = "3-learned"; setup = "4-setup" }
+foreach ($kind in "options", "learned", "setup") {
+  $n = 0
+  $html = [regex]::Replace($opts, '<script src="([^"]+)"></script>', { param($m) $script:n++; "<script src=""$(FileUrl (Join-Path $repo $m.Groups[1].Value))""></script>" })
+  if ($n -lt 7) { throw "options.html script tags not found ($n)" }
+  $html = $html -replace '(<script src="file:///[^"]+shared/learnrules\.js"></script>)', "<script>window.__shot = '$kind'; document.documentElement.dataset.theme = 'light';</script><script src=""$(FileUrl (Join-Path $store 'src\options-stub.js'))""></script>`$1"
   $page = Join-Path $build "options-$kind.html"
   [IO.File]::WriteAllText($page, $html)
-  $n = if ($kind -eq "options") { "2-options" } else { "3-learned" }
-  Shot $page (Join-Path $store "screenshot-$n.png") 1280 800
+  Shot $page (Join-Path $store "screenshot-$($names[$kind]).png") 1280 800
 }
 
 # 4. Icon sizes: the canvas page prints each size's PNG as a data URL.
@@ -104,6 +107,7 @@ Write-Host "written:"
 Check (Join-Path $store "screenshot-1-fill.png") "1280 x 800"
 Check (Join-Path $store "screenshot-2-options.png") "1280 x 800"
 Check (Join-Path $store "screenshot-3-learned.png") "1280 x 800"
+Check (Join-Path $store "screenshot-4-setup.png") "1280 x 800"
 Check (Join-Path $store "promo-small-440x280.png") "440 x 280"
 foreach ($s in 16, 32, 48, 128) { Check (Join-Path $repo "icons\icon$s.png") "$s x $s" }
 Remove-Item -Recurse -Force $profiles -ErrorAction SilentlyContinue
