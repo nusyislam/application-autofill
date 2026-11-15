@@ -43,6 +43,13 @@ const scriptRefs = (js) => {
   const out = [];
   for (const m of s.matchAll(/importScripts\(\s*["']([^"']+)["']\s*\)/g)) out.push(m[1]);
   for (const m of s.matchAll(/["'`](icons\/[^"'`\s]+)["'`]/g)) out.push(m[1]);
+  // Bundled libraries a script loads by path (pdftext.js: lib/pdfjs/pdf.min.mjs and its worker), with the library's
+  // LICENSE when it has one (pdf.js is Apache-2.0, which asks for the license to go with it).
+  for (const m of s.matchAll(/["'`](lib\/[^"'`\s]+)["'`]/g)) {
+    out.push(m[1]);
+    const lic = path.posix.join(path.posix.dirname(m[1]), "LICENSE");
+    if (exists(lic)) out.push(lic);
+  }
   return out;
 };
 

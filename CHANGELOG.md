@@ -2,6 +2,13 @@
 
 Company names in this file are fictional stand-ins for the job postings that taught each fix.
 
+## 1.1.0 (unreleased)
+
+- Options: a setup guide the first time Options opens with an empty profile, one section at a time over the real fields: resume and LinkedIn, contact info and links, work experience, education, work authorization and fixed answers, self-identification (optional), the Claude API key (optional, with what gets sent), and a summary of what is filled and what is blank. Back / Next / Skip step on each step, Next saves; "Skip setup" ends it, "Run setup again" restarts it, and closing the tab resumes where you left off.
+- Options: a PDF resume and LinkedIn's "Save to PDF" are read in the browser by a bundled copy of pdf.js (no network, no remote code), and their text goes into Resume text / LinkedIn profile (text) for you to review. Text you typed yourself is kept unless you choose to replace it.
+- Options: "Clear fields" in the bottom bar clears the profile, the saved resume and the materials after a confirmation (with "Export backup first"); the API key and learned answers stay unless you tick them. The setup guide starts again afterwards.
+- Options: follows the system's light or dark mode.
+
 ## 1.0.2 (2026-11-14)
 
 Fixes from real applications, batched since 1.0.1.

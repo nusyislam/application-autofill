@@ -434,16 +434,18 @@ function renderRoleInterests() {
   }
 }
 
+// Saves the page into chrome.storage. Returns false (with the reason shown) when a value is invalid, so the setup
+// guide's Next stays on its step.
 async function save() {
   const grad = $('[data-k="expectedGraduation"]').value.trim();
   if (grad && !/^\d{1,2}\/(\d{1,2}\/)?\d{4}$/.test(grad)) {
     $("#saved").textContent = "Not saved: expected graduation date must be MM/DD/YYYY or MM/YYYY";
-    return;
+    return false;
   }
   const birth = $('[data-k="eeo.birthMonth"]').value.trim();
   if (birth && !/^(0?[1-9]|1[0-2])\/\d{4}$/.test(birth)) {
     $("#saved").textContent = "Not saved: birth month / year must be MM/YYYY";
-    return;
+    return false;
   }
   document.querySelectorAll("[data-k]").forEach((el) => setPath(profile, el.dataset.k, el.value.trim()));
   if (profile.eeo) delete profile.eeo.ageRange; // replaced by Birth month / year
@@ -459,6 +461,7 @@ async function save() {
   await chrome.storage.local.set({ profile, settings, learned });
   $("#saved").textContent = "Saved";
   setTimeout(() => ($("#saved").textContent = ""), 2000);
+  return true;
 }
 
 $("#addExp").addEventListener("click", () => addCard($("#experiences"), "#expTpl"));
@@ -472,6 +475,40 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
+// Text read from a PDF (pdftext.js: the bundled pdf.js, in this browser) goes into the matching text box for review.
+// A box that already holds other text is not overwritten: the status line offers to replace it. Saved with Save / Next.
+const lastPdfText = {};
+async function textFromPdf(file, key, status) {
+  const box = $(`[data-k="${key}"]`);
+  status.className = "status";
+  status.textContent = `Reading ${file.name}…`;
+  let text;
+  try {
+    text = await globalThis.AAF_PDFTEXT.extract(await file.arrayBuffer());
+  } catch (e) {
+    status.className = "status err";
+    status.textContent = `Couldn't read text from ${file.name} (${e?.message || e}). Paste the text below instead.`;
+    return;
+  }
+  if (!text) {
+    status.className = "status err";
+    status.textContent = `No text found in ${file.name} (a scanned image?). Paste the text below instead.`;
+    return;
+  }
+  const apply = () => {
+    box.value = text;
+    lastPdfText[key] = text;
+    status.className = "status";
+    status.textContent = `Read ${text.length} characters from ${file.name} (in this browser). Review and edit it below; it's saved with Save or Next.`;
+  };
+  const cur = box.value.trim();
+  if (!cur || cur === lastPdfText[key]) return apply();
+  status.textContent = `Read ${text.length} characters from ${file.name}. The box below already has text, kept as is. `;
+  const b = Object.assign(document.createElement("button"), { type: "button", className: "linkbtn", textContent: "Replace it with the PDF's text" });
+  b.addEventListener("click", apply);
+  status.append(b);
+}
+
 $("#resumeFile").addEventListener("change", (e) => {
   const file = e.target.files[0];
   if (!file) return;
@@ -481,9 +518,16 @@ $("#resumeFile").addEventListener("change", (e) => {
     $("#resumeName").textContent = `Saved: ${file.name}`;
   };
   r.readAsDataURL(file);
+  if (globalThis.AAF_PDFTEXT?.isPdf(file)) textFromPdf(file, "resumeText", $("#resumeTextStatus"));
+  else $("#resumeTextStatus").textContent = "Not a PDF: paste your resume's text below.";
+});
+// LinkedIn's "Save to PDF": only its text is kept (the LinkedIn profile text box), never the file.
+$("#linkedinPdf").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (file) textFromPdf(file, "linkedinText", $("#linkedinTextStatus"));
 });
 
-$("#export").addEventListener("click", async () => {
+async function exportBackup() {
   await save();
   const data = await chrome.storage.local.get(["profile", "settings", "learned"]);
   if (data.profile?.api) data.profile.api.key = ""; // don't put the key in backups
@@ -491,6 +535,49 @@ $("#export").addEventListener("click", async () => {
   const a = Object.assign(document.createElement("a"), { href: url, download: "application-autofill-backup.json" });
   a.click();
   URL.revokeObjectURL(url);
+}
+$("#export").addEventListener("click", exportBackup);
+
+// Clear fields: the profile (contact info, work history, education, answers, materials) and the saved resume file.
+// The API key (with the model settings) and the learned answers stay unless their boxes are ticked. Settings (AI,
+// learning, drafts toggles) and the classifier caches are kept. Afterwards the setup guide starts again.
+async function clearProfile({ key = false, learnedToo = false } = {}) {
+  const { profile: stored } = await chrome.storage.local.get("profile");
+  const api = { ...(stored?.api || {}) };
+  if (key) delete api.key;
+  await chrome.storage.local.remove(["profile", "resumeFile", ...(learnedToo ? ["learned", "learnedDeleted"] : [])]);
+  if (Object.values(api).some((v) => v)) await chrome.storage.local.set({ profile: { api } });
+  for (const id of ["#resumeFile", "#linkedinPdf"]) $(id).value = "";
+  for (const id of ["#resumeTextStatus", "#linkedinTextStatus"]) $(id).textContent = "";
+  for (const k of Object.keys(lastPdfText)) delete lastPdfText[k];
+  await load();
+  await globalThis.AAF_ONBOARDING?.restart();
+}
+const clearDlg = $("#clearDlg");
+$("#clearAll").addEventListener("click", () => {
+  $("#clearKey").checked = $("#clearLearnedToo").checked = false;
+  $("#clearMsg").textContent = "";
+  clearDlg.showModal();
+  $("#clearCancel").focus();
+});
+$("#clearCancel").addEventListener("click", () => clearDlg.close());
+$("#clearExport").addEventListener("click", async () => {
+  await exportBackup();
+  $("#clearMsg").textContent = "Backup exported (without the API key). You can clear now, or cancel.";
+});
+$("#clearConfirm").addEventListener("click", async () => {
+  const btns = clearDlg.querySelectorAll("button");
+  btns.forEach((b) => (b.disabled = true));
+  try {
+    await clearProfile({ key: $("#clearKey").checked, learnedToo: $("#clearLearnedToo").checked });
+    clearDlg.close();
+    $("#saved").textContent = "Profile cleared";
+    setTimeout(() => ($("#saved").textContent = ""), 3000);
+  } catch (e) {
+    $("#clearMsg").textContent = `Couldn't clear: ${e?.message || e}`;
+  } finally {
+    btns.forEach((b) => (b.disabled = false));
+  }
 });
 
 $("#import").addEventListener("change", async (e) => {
@@ -510,4 +597,5 @@ $("#import").addEventListener("change", async (e) => {
   }
 });
 
-load();
+// onboarding.js waits for this before deciding whether to show the setup guide.
+const optionsReady = load();

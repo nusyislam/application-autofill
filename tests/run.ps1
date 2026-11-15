@@ -97,6 +97,14 @@ if ($failed) { Write-Host "$failed fixture(s) differ or errored" -ForegroundColo
 & node (Join-Path $PSScriptRoot "bg-request.js")
 if ($LASTEXITCODE -ne 0) { Write-Host "background request check failed" -ForegroundColor Red; exit 1 }
 
+# The Options page (tests\options\run.js, Node + headless Edge over a loopback-only server): the setup guide, PDF text
+# extraction with the bundled pdf.js, Next saving, and the Clear fields dialog. A failure fails the run (exit 1).
+# Skipped with -Only (a fixture subset).
+if (-not $Only) {
+  & node (Join-Path $PSScriptRoot "options\run.js")
+  if ($LASTEXITCODE -ne 0) { Write-Host "Options-page tests failed" -ForegroundColor Red; exit 1 }
+}
+
 # The regression corpus: tests\expected.txt holds, for every real-page failure, the answer the field must end with.
 # One per line: <fixture> :: <start of its FIELD line> => <text that line must contain> ("#" starts a comment). Checked
 # against the working tree's output; any miss fails the run (exit 1), unlike before / after differences.

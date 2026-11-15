@@ -1,0 +1,2 @@
+# PDFs are binary: no line-ending conversion (the test PDFs' byte offsets must stay exact).
+*.pdf binary

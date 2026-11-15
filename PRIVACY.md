@@ -1,6 +1,6 @@
 # Privacy policy: Application Autofill
 
-Last updated: 2026-11-08. Applies to the Chrome extension "Application Autofill" (the "extension"), published from
+Last updated: 2026-11-14. Applies to the Chrome extension "Application Autofill" (the "extension"), published from
 https://github.com/nusyislam/application-autofill.
 
 ## Summary
@@ -88,6 +88,7 @@ requirements:
   (profile, key, resume file, learned answers, caches) with it. Export a backup from Options first if you want one.
 - **The API key**: clear the "API key" field in Options and Save.
 - **The resume file**: choose a different file in Options, or remove the extension.
+- **Your profile and materials**: "Clear fields" at the bottom of Options removes the profile, the resume file and the materials; tick its boxes to also remove the API key and the learned answers.
 - **Learned answers**: delete single entries, or "Clear all"; both move entries to "Recently deleted", where "Delete
   permanently" removes them at once (otherwise after 30 days).
 - **Data held by Anthropic**: subject to Anthropic's retention policy for API usage under your own account; manage it

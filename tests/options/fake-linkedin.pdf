@@ -1,0 +1,90 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [6 0 R 8 0 R] /Count 2 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>
+endobj
+5 0 obj
+<< /Length 2469 >>
+stream
+BT /F2 13 Tf 1 0 0 1 36.00 742.00 Tm (Contact) Tj ET
+BT /F1 10 Tf 1 0 0 1 36.00 724.00 Tm (test@example.com) Tj ET
+BT /F1 10 Tf 1 0 0 1 36.00 711.00 Tm (www.linkedin.com/in/test-) Tj ET
+BT /F1 10 Tf 1 0 0 1 36.00 698.00 Tm (applicant-0a1b2c \(LinkedIn\)) Tj ET
+BT /F2 13 Tf 1 0 0 1 36.00 676.00 Tm (Top Skills) Tj ET
+BT /F1 10 Tf 1 0 0 1 36.00 658.00 Tm (Retrieval-Augmented Generation) Tj ET
+BT /F1 10 Tf 1 0 0 1 36.00 645.00 Tm (Python) Tj ET
+BT /F1 10 Tf 1 0 0 1 36.00 632.00 Tm (Docker) Tj ET
+BT /F2 13 Tf 1 0 0 1 36.00 610.00 Tm (Languages) Tj ET
+BT /F1 10 Tf 1 0 0 1 36.00 592.00 Tm (Italian \(Elementary\)) Tj ET
+BT /F2 13 Tf 1 0 0 1 36.00 570.00 Tm (Certifications) Tj ET
+BT /F1 10 Tf 1 0 0 1 36.00 552.00 Tm (Fake Cloud Practitioner) Tj ET
+BT /F1 26 Tf 1 0 0 1 226.00 742.00 Tm (Test Applicant) Tj ET
+BT /F1 12 Tf 1 0 0 1 226.00 720.00 Tm (Computer Engineering Student at Lakeview University) Tj ET
+BT /F1 10 Tf 1 0 0 1 226.00 704.00 Tm (Springfield, New York, United States) Tj ET
+BT /F2 15 Tf 1 0 0 1 226.00 672.00 Tm (Summary) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 226.00 652.00 Tm (Computer engineering student who builds tools other engineers use. I care) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 226.00 639.00 Tm (about measuring what actually ships, so my projects start with offline evals.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 226.00 626.00 Tm (Most of them end with a dashboard the whole team actually opens.) Tj ET
+BT /F2 15 Tf 1 0 0 1 226.00 594.00 Tm (Experience) Tj ET
+BT /F1 12 Tf 1 0 0 1 226.00 574.00 Tm (Northwind) Tj ET
+BT /F1 11 Tf 1 0 0 1 226.00 559.00 Tm (AI Engineer Intern) Tj ET
+BT /F1 10 Tf 1 0 0 1 226.00 545.00 Tm (June 2025 - August 2025 \(3 months\)) Tj ET
+BT /F1 10 Tf 1 0 0 1 226.00 532.00 Tm (Riverton, New Jersey, United States) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 226.00 515.00 Tm (Built an evaluation harness for a retrieval pipeline and replaced the weekly) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 226.00 502.00 Tm (manual spot checks and ad hoc queries with one shared, nightly end-to-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 226.00 489.00 Tm (end regression report that the search team reviewed every morning.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 226.00 476.00 Tm (ï) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 236.00 476.00 Tm (Cut the nightly report runtime from forty minutes to six.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 226.00 463.00 Tm (ï) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 236.00 463.00 Tm (Wrote the on-call runbook for the evaluation jobs.) Tj ET
+BT /F1 9 Tf 1 0 0 1 282.98 20.00 Tm (Page 1 of 2) Tj ET
+
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 5 0 R >>
+endobj
+7 0 obj
+<< /Length 738 >>
+stream
+BT /F1 10.5 Tf 1 0 0 1 226.00 742.00 Tm (ï) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 236.00 742.00 Tm (Presented the results to the search team leads.) Tj ET
+BT /F1 12 Tf 1 0 0 1 226.00 710.00 Tm (Contoso) Tj ET
+BT /F1 11 Tf 1 0 0 1 226.00 695.00 Tm (Software Engineer Intern) Tj ET
+BT /F1 10 Tf 1 0 0 1 226.00 681.00 Tm (June 2026 - August 2026 \(3 months\)) Tj ET
+BT /F1 10 Tf 1 0 0 1 226.00 668.00 Tm (New York, New York, United States) Tj ET
+BT /F2 15 Tf 1 0 0 1 226.00 636.00 Tm (Education) Tj ET
+BT /F1 12 Tf 1 0 0 1 226.00 616.00 Tm (Lakeview University) Tj ET
+BT /F1 10 Tf 1 0 0 1 226.00 601.00 Tm (Bachelor of Engineering - BE, Computer Engineering ∑ \(August 2023 - May 2027\)) Tj ET
+BT /F1 9 Tf 1 0 0 1 282.98 20.00 Tm (Page 2 of 2) Tj ET
+
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 7 0 R >>
+endobj
+xref
+0 9
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000127 00000 n 
+0000000224 00000 n 
+0000000326 00000 n 
+0000002847 00000 n 
+0000002983 00000 n 
+0000003772 00000 n 
+trailer
+<< /Size 9 /Root 1 0 R >>
+startxref
+3908
+%%EOF
