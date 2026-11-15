@@ -652,21 +652,19 @@ $("#clearConfirm").addEventListener("click", async () => {
   }
 });
 
+// Import: a dialog to choose what to take from the backup (importer.js); nothing is written before Import.
 $("#import").addEventListener("change", async (e) => {
   const file = e.target.files[0];
+  e.target.value = ""; // the same file can be chosen again
   if (!file) return;
+  let data;
   try {
-    const data = JSON.parse(await file.text());
-    const cur = await chrome.storage.local.get("profile");
-    if (data.profile && !data.profile.api?.key && cur.profile?.api?.key) data.profile.api.key = cur.profile.api.key;
-    await chrome.storage.local.set(data);
-    // An older backup can contain learned entries the guards now forbid (passwords, dates): purge now.
-    await chrome.runtime.sendMessage({ type: "PURGE_LEARNED" }).catch(() => {});
-    await load();
-    $("#saved").textContent = "Imported";
+    data = JSON.parse(await file.text());
   } catch {
-    alert("That file isn't a valid backup.");
+    $("#importStatus").textContent = "That file isn't a valid backup (not JSON).";
+    return;
   }
+  await globalThis.AAF_IMPORT.open(data);
 });
 
 // onboarding.js waits for this before deciding whether to show the setup guide.

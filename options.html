@@ -102,6 +102,7 @@
   dialog.modal .opts label{font-weight:400;font-size:13px;color:var(--text)}
   dialog.modal .actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
   dialog.modal .actions .left{margin-right:auto}
+  dialog.modal.wide{max-width:600px}
 </style>
 </head>
 <body>
@@ -340,8 +341,9 @@
     <h2>Backup</h2>
     <div class="row">
       <button id="export">Export JSON</button>
-      <label class="check" style="font-weight:400"><input type="file" id="import" accept=".json"> Import</label>
+      <label class="check" style="font-weight:400"><input type="file" id="import" accept=".json"> Import backup (you choose what to take from it)</label>
     </div>
+    <p id="importStatus" class="status" role="status" style="margin:8px 0 0"></p>
   </section>
 </main>
 
@@ -350,6 +352,29 @@
   <span id="unsaved" class="status" hidden>Unsaved changes</span>
   <button type="button" id="clearAll" class="danger-outline">Clear fields</button>
 </div></div>
+
+<dialog id="importDlg" class="modal wide" aria-labelledby="impTitle">
+  <h2 id="impTitle">Import backup</h2>
+  <p>Choose what to take from this backup. Your unsaved changes are saved first. The API key is never imported.</p>
+  <div class="opts">
+    <label class="check"><input type="checkbox" id="impProfile"> <span><b>Profile fields</b>: <span id="impProfileCount"></span></span></label>
+    <label class="check"><input type="checkbox" id="impMaterials"> <span><b>Materials</b>: <span id="impMaterialsCount"></span></span></label>
+    <label class="check"><input type="checkbox" id="impSettings"> <span><b>Settings</b> (toggles, threshold, models): <span id="impSettingsCount"></span></span></label>
+    <label class="check"><input type="checkbox" id="impLearned"> <span><b>Learned answers</b>: <span id="impLearnedCount"></span> (yours win; never one you deleted or one that is never learned)</span></label>
+  </div>
+  <fieldset class="opts" style="border:0;padding:0">
+    <legend style="font-size:13px;font-weight:600;margin-bottom:4px">Profile fields and materials</legend>
+    <label class="check"><input type="radio" name="impMode" value="empty" checked> Only fill empty fields (never changes anything already set)</label>
+    <label class="check"><input type="radio" name="impMode" value="replace"> Replace (the backup's values win)</label>
+    <p id="impWarn" class="status err" hidden></p>
+    <p class="hint" style="margin:0">Jobs, schools and languages: the backup's are added when they don't match one of yours; never duplicated.</p>
+  </fieldset>
+  <div class="actions">
+    <button type="button" id="impCancel">Cancel</button>
+    <button type="button" id="impGo" class="primary">Import</button>
+  </div>
+  <p id="impMsg" class="status err" role="status" style="margin:10px 0 0"></p>
+</dialog>
 
 <dialog id="clearDlg" class="modal" aria-labelledby="clearTitle" aria-describedby="clearDesc">
   <h2 id="clearTitle">Clear your profile?</h2>
@@ -432,5 +457,6 @@
 <script src="options.js"></script>
 <script src="onboarding.js"></script>
 <script src="prefill.js"></script>
+<script src="importer.js"></script>
 </body>
 </html>

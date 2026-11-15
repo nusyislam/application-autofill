@@ -44,6 +44,40 @@
     input.dispatchEvent(new Event("change", { bubbles: true }));
   };
   const click = (sel) => $(sel).click();
+  // A backup file as the export writes it (fake data), chosen in the Import box.
+  const BACKUP = {
+    profile: {
+      firstName: "Test", lastName: "Applicant", email: "backup@example.com", phone: "6465550100", address2: "Apt 4B",
+      resumeText: "Backup resume text", extraNotes: "Notes from the backup", roleInterests: ["Backend"],
+      experiences: [
+        { title: "Software Engineer Intern", company: "Contoso", location: "Remote", current: false, startMonth: "6", startYear: "2026", endMonth: "8", endYear: "2026", description: "From the backup" },
+        { title: "AI Engineer Intern", company: "Northwind", location: "Riverton, NJ", current: false, startMonth: "6", startYear: "2025", endMonth: "8", endYear: "2025", description: "" },
+      ],
+      education: [{ school: "Lakeview University", gpa: "3.8" }],
+      languages: [{ name: "Italian", general: "Elementary" }],
+      answers: { workAuth: "No", travel: "Maximum", noticePeriod: "2 weeks" },
+      eeo: { gender: "Female" },
+      api: { key: "sk-ant-backup-never-imported", model: "claude-haiku-5-5", draftModel: "claude-backup-model" },
+    },
+    settings: { threshold: 0.5, drafts: false },
+    learned: [
+      { q: "What is your T-shirt size?", a: "L", type: "dropdown" },
+      { q: "Favorite color?", a: "Green", type: "text" },
+      { q: "What are your salary expectations?", a: "Open", type: "text" },
+      { q: "What is your favorite programming language?", a: "Python", type: "text" },
+      { q: "Which code editor do you use most?", a: "A text editor", type: "text", pending: true },
+    ],
+    learnedDeleted: [{ q: "Old deleted question?", a: "x", type: "text", deletedAt: Date.now(), reason: "deleted by you" }],
+  };
+  const chooseBackup = async (obj) => {
+    window.__before = JSON.stringify(store());
+    $("#importStatus").textContent = "";
+    const dt = new DataTransfer();
+    dt.items.add(new File([JSON.stringify(obj)], "application-autofill-backup.json", { type: "application/json" }));
+    $("#import").files = dt.files;
+    $("#import").dispatchEvent(new Event("change", { bubbles: true }));
+    await until(() => $("#importDlg").open || /backup/.test($("#importStatus").textContent), 3000);
+  };
   const unsavedShown = () => !!$("#unsaved") && !$("#unsaved").hidden;
   // Would leaving the page ask first? (a beforeunload listener cancelled the event)
   const leaveAsks = () => {
@@ -542,6 +576,67 @@
       }
       await wait(800);
       check("autofilled values during setup are auto-saved", store().profile?.firstName === "Test" && store().profile?.address1 === "1 Test Street" && store().profile?.zip === "10001", JSON.stringify(store().profile && [store().profile.firstName, store().profile.address1]));
+    },
+    // Selective import: "only fill empty fields" into a filled profile (nothing you set changes), Settings unchecked
+    // (untouched), cards added / merged without duplicates, learned answers deduplicated, deleted and blocked ones skipped.
+    async "import-empty"() {
+      await chooseBackup(BACKUP);
+      check("choosing the file opens the import dialog (nothing written yet)", $("#importDlg").open && JSON.stringify(store()) === window.__before);
+      check("the preview counts what's in it", /2 jobs, 1 school, 1 language/.test($("#impProfileCount").textContent) && /4 approved, 1 pending, 1 recently deleted/.test($("#impLearnedCount").textContent) && /Resume text/.test($("#impMaterialsCount").textContent), `${$("#impProfileCount").textContent} | ${$("#impLearnedCount").textContent}`);
+      check("Only fill empty fields is the default, no warning", $('input[name="impMode"][value="empty"]').checked && $("#impWarn").hidden);
+      $("#impSettings").click(); // untick Settings
+      click("#impGo");
+      await until(() => !$("#importDlg").open);
+      await settle();
+      const p = store().profile;
+      check("values you set are unchanged", p.email === "test@example.com" && p.resumeText === "Test Applicant, Lakeview University" && p.answers.workAuth === "Yes" && p.firstName === "Test");
+      check("empty fields are filled from the backup", p.address2 === "Apt 4B" && p.extraNotes === "Notes from the backup" && p.answers.noticePeriod === "2 weeks" && p.eeo.gender === "Female" && JSON.stringify(p.roleInterests) === '["Backend"]');
+      const co = p.experiences.filter((e) => e.company === "Contoso");
+      check("a matching job isn't duplicated; its set fields stay, its empty ones fill", co.length === 1 && co[0].location === "New York, NY" && co[0].description === "From the backup");
+      check("a new job, a new language are added; a matching school only gets its empty fields", p.experiences.some((e) => e.company === "Northwind") && p.experiences.length === 2 && p.languages.length === 1 && p.languages[0].name === "Italian" && p.education.length === 1 && p.education[0].gpa === "3.8");
+      check("the API key is never imported", p.api.key === "sk-ant-test-not-a-real-key");
+      check("an unticked category is untouched (Settings, models)", (store().settings?.threshold ?? 0.75) === 0.75 && store().settings?.drafts !== false && p.api.draftModel !== "claude-backup-model");
+      const L = store().learned;
+      check("learned: yours win on a duplicate", L.filter((x) => x.q === "What is your T-shirt size?").length === 1 && L.find((x) => x.q === "What is your T-shirt size?").a === "M");
+      check("learned: nothing in your Recently deleted comes back", !L.some((x) => x.q === "Favorite color?"));
+      check("learned: a never-learn question (pay) is skipped", !L.some((x) => /salary/i.test(x.q)));
+      check("learned: new ones keep their status", L.find((x) => x.q === "What is your favorite programming language?")?.pending !== true && L.find((x) => x.q === "Which code editor do you use most?")?.pending === true);
+      check("the backup's recently deleted join yours", store().learnedDeleted.some((x) => x.q === "Old deleted question?") && store().learnedDeleted.some((x) => x.q === "Favorite color?"));
+      check("the page shows the imported values", val("address2") === "Apt 4B" && val("email") === "test@example.com");
+      const sum = $("#importStatus").textContent;
+      check("a summary of what happened", sum === "Filled 5 empty fields, added 1 job, added 1 language, updated 2 fields in matching cards, added 2 learned answers, skipped 3 duplicates, skipped 1 in your Recently deleted, skipped 1 that are never learned.", sum);
+    },
+    async "import-replace"() {
+      await chooseBackup(BACKUP);
+      $('input[name="impMode"][value="replace"]').click();
+      const warn = $("#impWarn").textContent;
+      check("Replace warns how many of your values change, and which", !$("#impWarn").hidden && /^Replace changes 4 of your values to the backup's: Email, Authorized to work in the US, Resume text, 1 in matching job \/ school \/ language cards\.$/.test(warn), warn);
+      click("#impGo");
+      await until(() => !$("#importDlg").open);
+      await settle();
+      const p = store().profile;
+      check("the backup's values win", p.email === "backup@example.com" && p.resumeText === "Backup resume text" && p.answers.workAuth === "No");
+      const co = p.experiences.filter((e) => e.company === "Contoso");
+      check("a matching job takes the backup's values, still one card", co.length === 1 && co[0].location === "Remote");
+      check("still never the API key; Settings ticked = imported (models too)", p.api.key === "sk-ant-test-not-a-real-key" && store().settings.threshold === 0.5 && store().settings.drafts === false && p.api.draftModel === "claude-backup-model");
+      check("a fixed answer equal to its default is not pushed onto yours", p.answers.travel === "Maximum");
+      check("summary", /^Filled 5 empty fields, replaced 3, added 1 job/.test($("#importStatus").textContent) && /settings imported\.$/.test($("#importStatus").textContent), $("#importStatus").textContent);
+    },
+    async "import-cancel"() {
+      const before = JSON.stringify(store());
+      await chooseBackup(BACKUP);
+      $('input[name="impMode"][value="replace"]').click();
+      click("#impCancel");
+      await settle();
+      check("Cancel changes nothing", !$("#importDlg").open && JSON.stringify(store()) === before);
+      const dt = new DataTransfer();
+      dt.items.add(new File(["not json"], "notes.txt", { type: "text/plain" }));
+      $("#import").files = dt.files;
+      $("#import").dispatchEvent(new Event("change", { bubbles: true }));
+      await settle();
+      check("a file that isn't JSON: a message, no dialog, nothing written", /isn't a valid backup/.test($("#importStatus").textContent) && !$("#importDlg").open && JSON.stringify(store()) === before);
+      await chooseBackup({ hello: "world" });
+      check("JSON that isn't a backup: a message, no dialog", /isn't a backup from this extension/.test($("#importStatus").textContent) && !$("#importDlg").open);
     },
     // run.js --dump <pdf>: only print what pdftext.js makes of that file (no checks).
     async dump() {
