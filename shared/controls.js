@@ -25,14 +25,64 @@
     return s.replace(/\s+/g, " ").trim();
   }
   const splitValue = (v) => String(v || "").replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2").replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
+  // Options with a description after their title (Lever EEO radios: "Asian (Not Hispanic or Latino)" then "A person
+  // having origins in any of the original peoples of the Far East, Southeast Asia, ..."): only the title is the
+  // option. The description names other groups ("Southeast Asia" made the race matcher reject the Asian option as a
+  // subgroup: "none acceptable", FAIL), so it is never matched on. All portals, every radio / checkbox option.
+  //   1. structure: a title element in the label (class title / name / alternative / option label), else the label
+  //      without its description elements (class desc / description / detail / definition / explanation / help /
+  //      hint / subtext / caption, or a block element after the title's text);
+  //   2. text: the input's value when the text starts with it ("Asian (Not Hispanic or Latino)"), else the text
+  //      before a description sentence: after a closing parenthesis followed by a capitalized sentence, or before
+  //      "A person / An individual / Includes / Refers to / Persons / Individuals / Those ..." (30+ characters left).
+  const TITLE_SEL = '[class*="title" i], [class*="name" i], [class*="alternative" i], [class*="option-label" i], [class*="optionlabel" i], [class*="label-text" i], [class*="heading" i]';
+  const DESC_CLASS = /desc|detail|definition|explanation|help|hint|subtext|sub-text|subtitle|caption|tooltip|note/i;
+  const BLOCK = /^(DIV|P|SMALL|UL|OL|LI|SECTION|BLOCKQUOTE)$/;
+  const DESC_START = /^(.{3,90}?)\s+(?=(?:A|An|Any|All)\s+(?:person|persons|individual|individuals|people|one|man|woman)\b|(?:Includes?|Including|Refers to|Defined as|Persons?|People|Individuals?|Someone|Those|Anyone)\b)/;
+  function titleFrom(el, inp) {
+    if (!el) return "";
+    const full = textOf(el);
+    const kids = [...el.querySelectorAll("*")].filter((x) => x !== inp && !x.contains(inp) && textOf(x));
+    const title = kids.find((x) => x.matches(TITLE_SEL) && !DESC_CLASS.test(x.className || "") && textOf(x).length < full.length);
+    if (title) return textOf(title);
+    // Description elements: by class, or a block element that follows other text (the title) in the label.
+    const desc = kids.filter((x) => {
+      if (kids.some((k) => k !== x && k.contains(x) && DESC_CLASS.test(k.className || ""))) return false;
+      if (DESC_CLASS.test(typeof x.className === "string" ? x.className : "")) return true;
+      if (!BLOCK.test(x.tagName)) return false;
+      const before = document.createRange();
+      before.setStart(el, 0);
+      before.setEndBefore(x);
+      return before.toString().replace(/\s+/g, " ").trim().length >= 2 && textOf(x).length >= 30;
+    });
+    if (!desc.length) return full;
+    const clone = el.cloneNode(true);
+    const all = [...el.querySelectorAll("*")];
+    const call = [...clone.querySelectorAll("*")];
+    for (const d of desc) call[all.indexOf(d)]?.remove();
+    return textOf(clone) || full;
+  }
+  function stripDesc(t, inp) {
+    if (t.length < 40) return t;
+    const v = String(inp.value || "").replace(/\s+/g, " ").trim();
+    if (v.length >= 2 && !/^(on|true|\d+)$/i.test(v) && t.length > v.length + 20 && t.slice(0, v.length).toLowerCase() === v.toLowerCase() && /^\s*[.:\-–—]?\s+[A-Z(]/.test(t.slice(v.length))) return t.slice(0, v.length).trim();
+    const paren = t.match(/^(.{3,90}?\))\s+(?=[A-Z])/);
+    if (paren && t.length - paren[1].length >= 30) return paren[1].trim();
+    const m = t.match(DESC_START);
+    if (m && t.length - m[1].length >= 30) return m[1].replace(/[\s:;,\-–—]+$/, "").trim();
+    return t;
+  }
   function optionText(inp, c) {
+    return stripDesc(rawOptionText(inp, c), inp);
+  }
+  function rawOptionText(inp, c) {
     const sel = inp.id && `label[for="${CSS.escape(inp.id)}"]`;
     const forLab = sel && ((c && c.querySelector(sel)) || document.querySelector(sel));
-    let t = textOf(forLab);
+    let t = titleFrom(forLab, inp);
     // aria-labelledby (Rippling: the radio's text sits in a div the input names, nowhere near it).
-    if (!t && inp.getAttribute("aria-labelledby")) t = inp.getAttribute("aria-labelledby").split(/\s+/).map((id) => textOf(document.getElementById(id))).filter(Boolean).join(" ");
-    if (!t) t = textOf(inp.closest("label"));
-    if (!t && inp.parentElement && inp.parentElement.querySelectorAll("input, select, textarea").length === 1) t = textOf(inp.parentElement);
+    if (!t && inp.getAttribute("aria-labelledby")) t = inp.getAttribute("aria-labelledby").split(/\s+/).map((id) => titleFrom(document.getElementById(id), inp)).filter(Boolean).join(" ");
+    if (!t) t = titleFrom(inp.closest("label"), inp);
+    if (!t && inp.parentElement && inp.parentElement.querySelectorAll("input, select, textarea").length === 1) t = titleFrom(inp.parentElement, inp);
     if (!t) t = adjacentText(inp, "nextSibling") || adjacentText(inp, "previousSibling");
     // The input alone in an empty wrapper (<span><input></span> I AM NOT A PROTECTED VETERAN<br>): the
     // wrapper's neighbours.

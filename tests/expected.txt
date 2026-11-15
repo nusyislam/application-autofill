@@ -712,3 +712,9 @@ ashby-current-fields-marked :: curco Current Company => = "Samplesoft" mark=revi
 ashby-current-fields-marked :: curtitle Current Job Title => = "Software Engineer" mark=review
 ashby-current-fields-marked :: offices Our teams work in the office 3 days a week. Which => = New York, NY mark=review
 ashby-current-fields-marked :: !LOG => (Claude (stub-haiku) chose it
+lever-eeo-descriptions :: Race = => "checked:Asian (Not Hispanic or Latino)" mark=-
+lever-eeo-descriptions :: Which race / ethnicity categories describe you? (S => "checked:r4" mark=-
+lever-eeo-descriptions :: Veteran status = => "checked:v1" mark=-
+lever-eeo-descriptions :: Gender = => "checked:Female" mark=-
+lever-eeo-descriptions :: !LOG => none acceptable
+lever-eeo-descriptions :: !LOG => A person having origins
