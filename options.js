@@ -424,6 +424,7 @@ async function load() {
   renderSkillMisses();
   renderDeleted();
   $("#resumeName").textContent = s.resumeFile ? `Saved: ${s.resumeFile.name}` : "No resume saved yet";
+  refreshText();
   setDirty(false); // the page now shows what's stored
   await globalThis.AAF_PREFILL?.show(); // suggestions from the resume not yet accepted or discarded
 }
@@ -446,6 +447,28 @@ function renderRoleInterests() {
     box.appendChild(label);
   }
 }
+
+// Character counts under the resume, LinkedIn and notes boxes, and text box sizes where the browser can't size them by
+// their content (CSS field-sizing). Refreshed on typing, after load() and after a PDF's text is put in.
+const GROWS = !globalThis.CSS?.supports?.("field-sizing", "content");
+function grow(ta) {
+  if (!GROWS || !ta.offsetParent) return;
+  ta.style.height = "auto";
+  ta.style.height = `${Math.min(ta.scrollHeight + 2, Math.round(innerHeight * 0.6))}px`;
+}
+function refreshText() {
+  for (const el of document.querySelectorAll("[data-count]")) {
+    const n = ($(`[data-k="${el.dataset.count}"]`)?.value || "").length;
+    el.textContent = `${n.toLocaleString("en-US")} character${n === 1 ? "" : "s"}`;
+  }
+  if (GROWS) document.querySelectorAll("main section label > textarea").forEach(grow);
+}
+$("main").addEventListener("input", (e) => {
+  if (e.target.tagName !== "TEXTAREA") return;
+  const c = e.target.dataset.k && $(`[data-count="${e.target.dataset.k}"]`);
+  if (c) refreshText();
+  else grow(e.target);
+});
 
 // Saves the page into chrome.storage. Returns false (with the reason shown) when a value is invalid, so the setup
 // guide's Next stays on its step.
@@ -567,6 +590,7 @@ async function textFromPdf(file, key, status) {
   const apply = async () => {
     box.value = text;
     lastPdfText[key] = text;
+    refreshText();
     status.className = "status";
     await saveMaterial(key, text);
     status.textContent = `Read ${text.length} characters from ${file.name} (in this browser) and saved them. Review and edit them below${inSetup() ? " (changes save as you type)" : ", then Save"}.`;

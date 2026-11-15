@@ -143,6 +143,37 @@
       const gov = [...document.querySelectorAll("#secGov > p.hint")].at(-1);
       check("the government note sits 12px under its dropdowns", Math.round(gov.getBoundingClientRect().top - gov.previousElementSibling.getBoundingClientRect().bottom) === 12, String(gov.getBoundingClientRect().top - gov.previousElementSibling.getBoundingClientRect().bottom));
       check("Suggest fields from my resume shown outside setup, with its hint", getComputedStyle($("#prefillRow")).display !== "none" && $("#prefillBtn").textContent === "Suggest fields from my resume" && $("#prefillRow .hint").textContent === "Only fills empty fields; you review each suggestion.");
+      // Materials: sub-cards Resume (file + text), LinkedIn (PDF right above its text), the suggest row, For Claude
+      // (notes + projects); short bold labels with muted help text; character counts; boxes that grow up to 60vh.
+      const order = [...$("#secResume").children].map((x) => x.id || x.className).join(",");
+      check("materials in sub-cards: Resume, LinkedIn, the suggest row, For Claude", /^,cardResume,cardLinkedIn,after-cards,cardClaude$/.test(order), order);
+      check("each upload sits in the card of its text", !!$('#cardResume #resumeFile') && !!$('#cardResume [data-k="resumeText"]') && !!$('#cardLinkedIn #linkedinPdf') && !!$('#cardLinkedIn [data-k="linkedinText"]') && !!$('#cardClaude [data-k="extraNotes"]') && !!$('#cardClaude [data-k="projectsHighlight"]'));
+      const gapPx = Math.round($("#cardLinkedIn").getBoundingClientRect().top - $("#cardResume").getBoundingClientRect().bottom);
+      check("24px between sub-cards, 16px inside", gapPx === 24 && getComputedStyle($("#cardResume")).paddingTop === "16px", `gap ${gapPx}, padding ${getComputedStyle($("#cardResume")).paddingTop}`);
+      const lab = $('[data-k="resumeText"]').closest("label");
+      check("short bold label, explanation as muted help under it", lab.firstChild.textContent.trim() === "Resume text" && getComputedStyle(lab.querySelector(".help")).fontWeight === "400" && getComputedStyle(lab).fontWeight === "600");
+      const longLabels = [...document.querySelectorAll("main label")].filter((l) => !l.classList.contains("check") && (l.firstChild?.textContent || "").trim().length > 60);
+      check("no long bold labels left (the explanation is help text)", !longLabels.length, longLabels.map((l) => l.firstChild.textContent.trim().slice(0, 50)).join(" | "));
+      // Grids (fixed answers, government, self-ID, contact, the cards): the controls of one row line up at the bottom.
+      $("#addExp").click();
+      $("#addEdu").click();
+      const ragged = [];
+      for (const g of document.querySelectorAll("main .grid")) {
+        const rows = {};
+        for (const l of g.querySelectorAll(":scope > label:not(.check)")) {
+          const c = l.querySelector(":scope > input, :scope > select, :scope > textarea");
+          if (c && l.offsetParent) (rows[Math.round(l.getBoundingClientRect().top)] ||= []).push(Math.round(c.getBoundingClientRect().bottom));
+        }
+        for (const [top, b] of Object.entries(rows)) if (Math.max(...b) - Math.min(...b) > 1) ragged.push(`${g.closest("section").id || g.closest("section").querySelector("h2").textContent} row at ${top}: ${b.join("/")}`);
+      }
+      check("every grid row's controls line up at the bottom (labels / help above may differ)", !ragged.length, ragged.join(" | "));
+      const rt = $('[data-k="resumeText"]');
+      const six = rt.getBoundingClientRect().height;
+      type("resumeText", "line\n".repeat(400));
+      const big = rt.getBoundingClientRect().height;
+      const cap = Math.round(innerHeight * 0.6);
+      check("text boxes: six lines at least, grow with the text up to 60% of the window, then scroll", six >= 6 * 14 && big > six && Math.abs(big - cap) <= 2 && rt.scrollHeight > rt.clientHeight, `min ${six}, full ${big}, cap ${cap}`);
+      check("character count under resume / LinkedIn / notes", $('[data-count="resumeText"]').textContent === "2,000 characters" && /^\d[\d,]* characters?$/.test($('[data-count="linkedinText"]').textContent) && /^\d[\d,]* characters?$/.test($('[data-count="extraNotes"]').textContent), $('[data-count="resumeText"]').textContent);
       click("#runSetup");
       await settle();
       check("Walk through setup opens step 1", guideOpen() && title() === "Resume and LinkedIn");

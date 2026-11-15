@@ -24,7 +24,24 @@
   label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--label);font-weight:600}
   input,select,textarea{font:inherit;font-weight:400;padding:7px 9px;border:1px solid var(--inb);border-radius:8px;background:var(--surface);color:var(--text)}
   textarea{min-height:70px;resize:vertical}
+  /* Text boxes grow with their text up to 60% of the window, then scroll; at least six lines. (field-sizing also follows
+     values set by code: load, a PDF's text; options.js sizes them itself where it isn't supported.) */
+  main section label > textarea{field-sizing:content;min-height:calc(6 * 1.45em + 16px);max-height:60vh;overflow-y:auto;box-sizing:border-box}
+  /* A label is a short bold name; its explanation is the muted help text under it. */
+  .help{display:block;font-size:12px;font-weight:400;color:var(--mut);margin:-2px 0 2px}
+  .check .help{margin:2px 0 0}
+  .count{font-size:11px;color:var(--mut);margin:-10px 0 0;text-align:right}
+  /* Sub-cards inside a section (Resume / LinkedIn / For Claude): 24px apart, 16px inside. */
+  .subcard{border:1px solid var(--b);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:16px}
+  .subcard, .after-cards{margin-top:24px}
+  h2 + .subcard{margin-top:4px}
+  body.onboarding .after-cards:has(#prefillStatus:empty){display:none}
+  .subcard h3{font-size:14px;margin:0}
+  .subcard .status:empty, .after-cards .status:empty{display:none}
+  .after-cards{display:flex;flex-direction:column;gap:8px}
   .full{grid-column:1/-1}
+  /* In a grid row the labels / help text above may differ in length; the controls line up at the bottom. */
+  .grid > label:not(.check) > :is(input,select,textarea){margin-top:auto}
   .hint{color:var(--mut);font-size:12px;font-weight:400;margin:-6px 0 12px}
   /* Help text below fields (not right under a heading) keeps clear of them. */
   section > :not(h2):not(.sugg-bar) + p.hint{margin-top:12px}
@@ -144,21 +161,21 @@
     <div class="grid">
       <label>First name<input data-k="firstName" id="fname" name="fname" autocomplete="given-name"></label>
       <label>Last name<input data-k="lastName" id="lname" name="lname" autocomplete="family-name"></label>
-      <label>Preferred first name (blank = none)<input data-k="preferredName" id="nickname" name="nickname" autocomplete="nickname"></label>
+      <label>Preferred first name<span class="help">Blank = none.</span><input data-k="preferredName" id="nickname" name="nickname" autocomplete="nickname"></label>
       <label>Email<input data-k="email" id="email" name="email" autocomplete="email" type="email"></label>
       <label>Phone (digits)<input data-k="phone" id="phone" name="phone" autocomplete="tel"></label>
-      <label>Phone device type (in order of preference, separated by |; plain Home / Landline / Work / Business are never picked)<input data-k="phoneType" autocomplete="off"></label>
+      <label>Phone device type<span class="help">In order of preference, separated by |. Plain Home / Landline / Work / Business are never picked.</span><input data-k="phoneType" autocomplete="off"></label>
       <label>Phone country<input data-k="phoneCountry" autocomplete="off"></label>
       <label class="full">Address line 1<input data-k="address1" id="address1" name="address1" autocomplete="address-line1"></label>
       <label>Address line 2<input data-k="address2" id="address2" name="address2" autocomplete="address-line2"></label>
       <label>City<input data-k="city" id="city" name="city" autocomplete="address-level2"></label>
       <label>State<input data-k="state" id="state" name="state" autocomplete="address-level1"></label>
       <label>ZIP<input data-k="zip" id="zip" name="zip" autocomplete="postal-code"></label>
-      <label>Application location: search term (typed into Location / City autocomplete fields)<input data-k="applicationLocation.search" autocomplete="off"></label>
-      <label class="full">Application location: accepted suggestions, in order (|-separated; only an exact match is picked, otherwise the field is left for you)<input data-k="applicationLocation.matches" autocomplete="off"></label>
+      <label>Application location: search term<span class="help">Typed into Location / City autocomplete fields.</span><input data-k="applicationLocation.search" autocomplete="off"></label>
+      <label class="full">Application location: accepted suggestions<span class="help">In order, |-separated. Only an exact match is picked; otherwise the field is left for you.</span><input data-k="applicationLocation.matches" autocomplete="off"></label>
       <label>Country<input data-k="country" id="country" name="country" autocomplete="country-name"></label>
-      <label>How did you hear about us (dropdowns; fallbacks separated by |, in order: the first option that matches wins)<input data-k="source" autocomplete="off"></label>
-      <label>How did you hear (free text: typed into text boxes asking how / where you heard about the role)<input data-k="hearText" autocomplete="off"></label>
+      <label>How did you hear about us<span class="help">For dropdowns. Fallbacks separated by |, in order: the first option that matches wins.</span><input data-k="source" autocomplete="off"></label>
+      <label>How did you hear (free text)<span class="help">Typed into text boxes asking how / where you heard about the role.</span><input data-k="hearText" autocomplete="off"></label>
       <label>LinkedIn URL<input data-k="linkedin" autocomplete="off"></label>
       <label>GitHub URL<input data-k="github" autocomplete="off"></label>
       <label>Other website<input data-k="website" autocomplete="off"></label>
@@ -167,33 +184,47 @@
   </section>
 
   <section id="secResume" data-step="materials">
-    <h2>Resume</h2>
-    <div class="row">
-      <label class="check" style="font-weight:400">Resume file (uploaded to applications) <input type="file" id="resumeFile" accept=".pdf,.doc,.docx"></label>
-      <span id="resumeName" class="hint" style="margin:0"></span>
+    <h2>Resume and materials</h2>
+    <div class="subcard" id="cardResume">
+      <h3>Resume</h3>
+      <div class="row">
+        <label class="check" style="font-weight:400">Resume file (uploaded to applications) <input type="file" id="resumeFile" accept=".pdf,.doc,.docx"></label>
+        <span id="resumeName" class="hint" style="margin:0"></span>
+      </div>
+      <p id="resumeTextStatus" class="status" role="status" style="margin:0"></p>
+      <label class="full">Resume text<span class="help">Paste it, or upload a PDF resume above and it's read here, in this browser. Claude reads this for application questions.</span>
+        <textarea data-k="resumeText"></textarea>
+      </label>
+      <p class="count" data-count="resumeText" aria-hidden="true"></p>
     </div>
-    <p id="resumeTextStatus" class="status" role="status" style="margin:6px 0 0"></p>
-    <label class="full" style="margin-top:12px">Resume text (paste it, or upload a PDF resume above and it's read here, in this browser; Claude reads this for application questions)
-      <textarea data-k="resumeText" style="min-height:140px"></textarea>
-    </label>
-    <label class="full" style="margin-top:10px">Extra notes for Claude (optional: interests, availability facts, anything you want it to know)
-      <textarea data-k="extraNotes"></textarea>
-    </label>
-    <label class="full" style="margin-top:10px">Projects to highlight (one per line, a short note on what each shows best, e.g. "Application Autofill: building with AI agents, iterating on real-world bugs"). Drafts prefer these when they fit a question.
-      <textarea data-k="projectsHighlight" style="min-height:70px"></textarea>
-    </label>
-    <div class="row" style="margin-top:12px">
-      <label class="check" style="font-weight:400">LinkedIn profile PDF (on your LinkedIn profile: More &gt; Save to PDF) <input type="file" id="linkedinPdf" accept=".pdf,application/pdf"></label>
+    <div class="subcard" id="cardLinkedIn">
+      <h3>LinkedIn</h3>
+      <div class="row">
+        <label class="check" style="font-weight:400">LinkedIn profile PDF (on your LinkedIn profile: More &gt; Save to PDF) <input type="file" id="linkedinPdf" accept=".pdf,application/pdf"></label>
+      </div>
+      <p id="linkedinTextStatus" class="status" role="status" style="margin:0"></p>
+      <label class="full">LinkedIn profile text<span class="help">Paste your profile, or upload LinkedIn's PDF above and its text is read here, in this browser; add any accuracy notes. Draft mode uses it with your resume and notes to draft open-ended answers.</span>
+        <textarea data-k="linkedinText"></textarea>
+      </label>
+      <p class="count" data-count="linkedinText" aria-hidden="true"></p>
     </div>
-    <p id="linkedinTextStatus" class="status" role="status" style="margin:6px 0 0"></p>
-    <div class="row" id="prefillRow" style="margin-top:12px">
-      <button type="button" id="prefillBtn">Suggest fields from my resume</button>
-      <span class="hint" style="margin:0">Only fills empty fields; you review each suggestion.</span>
+    <div class="after-cards">
+      <div class="row" id="prefillRow">
+        <button type="button" id="prefillBtn">Suggest fields from my resume</button>
+        <span class="hint" style="margin:0">Only fills empty fields; you review each suggestion.</span>
+      </div>
+      <div id="prefillStatus" class="status" role="status" style="margin:0"></div>
     </div>
-    <div id="prefillStatus" class="status" role="status" style="margin:6px 0 0"></div>
-    <label class="full" style="margin-top:10px">LinkedIn profile (text): paste your profile, or upload LinkedIn's PDF above and its text is read here, in this browser; add any accuracy notes. Draft mode uses it with your resume and notes to draft open-ended answers.
-      <textarea data-k="linkedinText" style="min-height:140px"></textarea>
-    </label>
+    <div class="subcard" id="cardClaude">
+      <h3>For Claude</h3>
+      <label class="full">Extra notes for Claude<span class="help">Optional: interests, availability facts, anything you want it to know.</span>
+        <textarea data-k="extraNotes"></textarea>
+      </label>
+      <p class="count" data-count="extraNotes" aria-hidden="true"></p>
+      <label class="full">Projects to highlight<span class="help">One per line, with a short note on what each shows best, e.g. "Application Autofill: building with AI agents, iterating on real-world bugs". Drafts prefer these when they fit a question.</span>
+        <textarea data-k="projectsHighlight"></textarea>
+      </label>
+    </div>
   </section>
 
   <section id="secWork" data-step="work">
@@ -201,7 +232,7 @@
     <p class="hint">Months as numbers (1–12). Order here = order on Workday.</p>
     <div id="experiences"></div>
     <button id="addExp">+ Add job</button>
-    <label style="margin-top:10px">Count a current internship as prior ("How many prior internships have you had?" counts the jobs whose title says Intern)<select data-k="answers.countCurrentIntern"><option>Yes</option><option>No</option></select></label>
+    <label style="margin-top:10px">Count a current internship as prior<span class="help">"How many prior internships have you had?" counts the jobs whose title says Intern.</span><select data-k="answers.countCurrentIntern"><option>Yes</option><option>No</option></select></label>
   </section>
 
   <section>
@@ -212,7 +243,7 @@
 
   <section id="secEdu" data-step="education">
     <h2>Education</h2>
-    <label>Expected graduation date: full date MM/DD/YYYY (e.g. 05/21/2027) or month and year MM/YYYY (e.g. 05/2027). Fills Month, Day, and Year when the form has all three, Month and Year when it has no Day box.<input data-k="expectedGraduation" pattern="\d{1,2}/(\d{1,2}/)?\d{4}"></label>
+    <label>Expected graduation date<span class="help">Full date MM/DD/YYYY (e.g. 05/21/2027) or month and year MM/YYYY (e.g. 05/2027). Fills Month, Day, and Year when the form has all three, Month and Year when it has no Day box.</span><input data-k="expectedGraduation" pattern="\d{1,2}/(\d{1,2}/)?\d{4}"></label>
     <div id="education"></div>
     <button id="addEdu">+ Add school</button>
   </section>
@@ -226,10 +257,10 @@
 
   <section id="secSkills" data-step="work">
     <h2>Skills</h2>
-    <label class="full">Comma separated (each one is searched in Workday's skills box). A skill can list aliases with |, tried in order until one is found, e.g. "C++ Programming Language | C++ | C++ (Programming Language)"
+    <label class="full">Skills<span class="help">Comma separated (each one is searched in Workday's skills box). A skill can list aliases with |, tried in order until one is found, e.g. "C++ Programming Language | C++ | C++ (Programming Language)".</span>
       <textarea data-k="skills"></textarea>
     </label>
-    <label class="full" style="margin-top:10px">Certifications (one per line)
+    <label class="full" style="margin-top:10px">Certifications<span class="help">One per line.</span>
       <textarea data-k="certifications"></textarea>
     </label>
     <p class="hint">Skills a Workday site's list doesn't have (not found there; skipped on that site for 7 days):</p>
@@ -248,17 +279,17 @@
       <label>US person (export control)<select data-k="answers.usPerson"><option></option><option>Yes</option><option>No</option></select></label>
       <label>Willing to relocate<select data-k="answers.relocate"><option></option><option>Yes</option><option>No</option></select></label>
       <label>Currently hold a security clearance<select data-k="answers.clearance"><option></option><option>Yes</option><option>No</option></select></label>
-      <label>Eligible to obtain a US security clearance (blank = left for you)<select data-k="answers.clearanceEligible"><option></option><option>Yes</option><option>No</option></select></label>
-      <label>Willing to travel (Maximum = the highest option offered, Yes on yes/no, "Yes, up to 100%" in text)<select data-k="answers.travel"><option></option><option>Maximum</option><option>No</option></select></label>
-      <label>Employment restrictions / non-compete (None = No on yes/no, "No, I have no employment restrictions." in text)<select data-k="answers.restrictions"><option></option><option>None</option></select></label>
-      <label>Additional office preference (2nd / 3rd location preference questions; e.g. "I do not have flexibility to consider another office location"; blank = left for you)<input data-k="answers.extraOfficePref"></label>
-      <label>Employment type preference ("Full-time / Internship / Contract" questions, blue; blank = left for you)<select data-k="answers.employmentType"><option></option><option>Full-time</option><option>Internship</option><option>Contract</option><option>Open to both</option></select></label>
-      <label>Notice period for current employer (e.g. "2 weeks"; filled in notice-period questions, blue; blank = left for you)<input data-k="answers.noticePeriod"></label>
-      <label>Preferred interview language (e.g. "Python"; "What is your preferred programming language for interviews?", blue; blank = left for you, never Claude)<input data-k="answers.interviewLanguage"></label>
-      <label>Securities licenses / registrations (default "None"; or list them, e.g. "SIE, Series 7, Series 63". FINRA registered, SIE and Series exam questions: No when none, else from the list; text boxes get the list; blue, never Claude)<input data-k="answers.securitiesLicenses"></label>
-      <label>Restrictive agreements (NDA, non-compete, non-solicit): "None", or what you are subject to (e.g. "NDA with Examplecorp, ends 2026"). Questions about non-disclosure / confidentiality / restrictive agreements get the reply they ask for ("N/A") when None, else your text; blank = left for you, never Claude<input data-k="answers.restrictiveAgreements"></label>
-      <label>Companies I've worked for (answers "previously worked here?" Yes for these)<input data-k="answers.previousEmployers"></label>
-      <label class="full">Office attendance: job locations you can come into the office for (|-separated). "Are you able to come into the office N days per week?" / "work on-site / hybrid" = Yes when the job's location is one of these, otherwise it's left for you.<input data-k="answers.officeMetro"></label>
+      <label>Eligible to obtain a US security clearance<span class="help">Blank = left for you.</span><select data-k="answers.clearanceEligible"><option></option><option>Yes</option><option>No</option></select></label>
+      <label>Willing to travel<span class="help">Maximum = the highest option offered, Yes on yes/no, "Yes, up to 100%" in text.</span><select data-k="answers.travel"><option></option><option>Maximum</option><option>No</option></select></label>
+      <label>Employment restrictions / non-compete<span class="help">None = No on yes/no, "No, I have no employment restrictions." in text.</span><select data-k="answers.restrictions"><option></option><option>None</option></select></label>
+      <label>Additional office preference<span class="help">2nd / 3rd location preference questions, e.g. "I do not have flexibility to consider another office location". Blank = left for you.</span><input data-k="answers.extraOfficePref"></label>
+      <label>Employment type preference<span class="help">"Full-time / Internship / Contract" questions, blue. Blank = left for you.</span><select data-k="answers.employmentType"><option></option><option>Full-time</option><option>Internship</option><option>Contract</option><option>Open to both</option></select></label>
+      <label>Notice period for current employer<span class="help">E.g. "2 weeks"; filled in notice-period questions, blue. Blank = left for you.</span><input data-k="answers.noticePeriod"></label>
+      <label>Preferred interview language<span class="help">E.g. "Python", for "What is your preferred programming language for interviews?", blue. Blank = left for you, never Claude.</span><input data-k="answers.interviewLanguage"></label>
+      <label>Securities licenses / registrations<span class="help">Default "None", or list them, e.g. "SIE, Series 7, Series 63". FINRA registered, SIE and Series exam questions: No when none, else from the list; text boxes get the list; blue, never Claude.</span><input data-k="answers.securitiesLicenses"></label>
+      <label>Restrictive agreements (NDA, non-compete, non-solicit)<span class="help">"None", or what you are subject to (e.g. "NDA with Examplecorp, ends 2026"). Questions about non-disclosure / confidentiality / restrictive agreements get the reply they ask for ("N/A") when None, else your text. Blank = left for you, never Claude.</span><input data-k="answers.restrictiveAgreements"></label>
+      <label>Companies I've worked for<span class="help">Answers "previously worked here?" Yes for these.</span><input data-k="answers.previousEmployers"></label>
+      <label class="full">Office attendance locations<span class="help">Job locations you can come into the office for, |-separated. "Are you able to come into the office N days per week?" / "work on-site / hybrid" = Yes when the job's location is one of these; otherwise it's left for you.</span><input data-k="answers.officeMetro"></label>
     </div>
   </section>
 
@@ -266,8 +297,8 @@
     <h2>Government / military history</h2>
     <p class="hint">Factual history questions ("Have you ever been employed by the U.S. Government?", "Have you ever served in the armed forces?", "Are you a military spouse?"). Filled blue, never sent to Claude. Blank = left for you. Statements to agree to and signatures are always left for you.</p>
     <div class="grid">
-      <label>Ever employed by a US government agency (federal, state or local)<select data-k="answers.govEmployee"><option></option><option>Yes</option><option>No</option></select></label>
-      <label>Ever served in the US Armed Forces (incl. Guard/Reserves)<select data-k="answers.armedForces"><option></option><option>Yes</option><option>No</option></select></label>
+      <label>Ever employed by a US government agency<span class="help">Federal, state or local.</span><select data-k="answers.govEmployee"><option></option><option>Yes</option><option>No</option></select></label>
+      <label>Ever served in the US Armed Forces<span class="help">Including the Guard / Reserves.</span><select data-k="answers.armedForces"><option></option><option>Yes</option><option>No</option></select></label>
       <label>Current or former military spouse/partner<select data-k="answers.militarySpouse"><option></option><option>Yes</option><option>No</option></select></label>
       <label>Current or former non-US government official<select data-k="answers.foreignOfficial"><option></option><option>Yes</option><option>No</option></select></label>
       <label>Open to government / defense projects<select data-k="answers.govProjects"><option></option><option>Yes</option><option>No</option></select></label>
@@ -291,7 +322,7 @@
         <option>Native Hawaiian or Other Pacific Islander</option><option>White</option><option value="Two or More Races|Two or more">Two or more races</option>
         <option value="Decline">Decline to answer</option>
       </select></label>
-      <label class="full">Race, in order of preference (|-separated; overrides Race when set). Exact options first, then the broad category; never a different subgroup (e.g. East Asian for Asian).<input data-k="eeo.racePrefs" autocomplete="off"></label>
+      <label class="full">Race, in order of preference<span class="help">|-separated; overrides Race when set. Exact options first, then the broad category; never a different subgroup (e.g. East Asian for Asian).</span><input data-k="eeo.racePrefs" autocomplete="off"></label>
       <label>Veteran status<select data-k="eeo.veteran" autocomplete="off">
         <option value=""></option>
         <option value="I am not a protected veteran|I am not a veteran|not a veteran">Not a veteran</option>
@@ -299,12 +330,12 @@
         <option value="I am a veteran but not a protected veteran|not a protected veteran">Veteran, not protected</option>
         <option value="Decline">Decline to answer</option>
       </select></label>
-      <label>LGBTQ+ / sexual orientation (the option's wording, |-separated in order, e.g. "No | Heterosexual | Straight"; exact option first, then a whole phrase; blank = left for you)<input data-k="eeo.lgbtq" autocomplete="off"></label>
-      <label>Transgender (e.g. "No"; matched the same way; blank = left for you)<input data-k="eeo.transgender" autocomplete="off"></label>
-      <label>Pronouns (the option's wording, |-separated in order, e.g. "She/her/hers | she/her"; matched the same way; blank = left for you)<input data-k="eeo.pronouns" autocomplete="off"></label>
-      <label>Identify as LGBTQ+ ("Do you identify as part of the LGBTQ+ community?"; blank = derived from sexual orientation and transgender)<select data-k="eeo.lgbtqMember" autocomplete="off"><option value=""></option><option>Yes</option><option>No</option><option>Prefer not to say</option></select></label>
-      <label>Birth month / year (MM/YYYY; age questions get your age or the range holding it, blue; blank = left for you)<input data-k="eeo.birthMonth" autocomplete="off"></label>
-      <label>Communities (options to check in "Which communities do you belong to? Select all that apply", |-separated, e.g. "None of the above"; blank = left for you)<input data-k="eeo.communities" autocomplete="off"></label>
+      <label>LGBTQ+ / sexual orientation<span class="help">The option's wording, |-separated in order, e.g. "No | Heterosexual | Straight". Exact option first, then a whole phrase. Blank = left for you.</span><input data-k="eeo.lgbtq" autocomplete="off"></label>
+      <label>Transgender<span class="help">E.g. "No"; matched the same way. Blank = left for you.</span><input data-k="eeo.transgender" autocomplete="off"></label>
+      <label>Pronouns<span class="help">The option's wording, |-separated in order, e.g. "She/her/hers | she/her"; matched the same way. Blank = left for you.</span><input data-k="eeo.pronouns" autocomplete="off"></label>
+      <label>Identify as LGBTQ+<span class="help">"Do you identify as part of the LGBTQ+ community?" Blank = derived from sexual orientation and transgender.</span><select data-k="eeo.lgbtqMember" autocomplete="off"><option value=""></option><option>Yes</option><option>No</option><option>Prefer not to say</option></select></label>
+      <label>Birth month / year<span class="help">MM/YYYY. Age questions get your age or the range holding it, blue. Blank = left for you.</span><input data-k="eeo.birthMonth" autocomplete="off"></label>
+      <label>Communities<span class="help">Options to check in "Which communities do you belong to? Select all that apply", |-separated, e.g. "None of the above". Blank = left for you.</span><input data-k="eeo.communities" autocomplete="off"></label>
       <label>Disability<select data-k="eeo.disability" autocomplete="off">
         <option value=""></option>
         <option value="Yes, I have a disability|Yes">Yes</option>
@@ -318,11 +349,11 @@
     <h2>Claude API</h2>
     <div class="grid">
       <label class="full">API key<input data-k="api.key" type="password" autocomplete="off" placeholder="sk-ant-..."></label>
-      <label>Model (regular questions)<input data-k="api.model"></label>
-      <label>Draft model (open-ended answers in draft mode)<input data-k="api.draftModel"></label>
+      <label>Model<span class="help">Regular questions.</span><input data-k="api.model"></label>
+      <label>Draft model<span class="help">Open-ended answers in draft mode.</span><input data-k="api.draftModel"></label>
       <label>Min confidence to auto-fill (0–1)<input id="threshold" type="number" min="0" max="1" step="0.05"></label>
-      <label class="check full"><input type="checkbox" id="notifyDone"> <span>Desktop notification when done (when the fill ends while you're on another tab or window)</span></label>
-      <label class="check full"><input type="checkbox" id="cleanParsedPanels"> <span>Clean up resume-parsed work / education panels (Workday: delete panels the portal's "Autofill with Resume" made from junk, like an empty company or a project as a job)</span></label>
+      <label class="check full"><input type="checkbox" id="notifyDone"> <span>Desktop notification when done<span class="help">When the fill ends while you're on another tab or window.</span></span></label>
+      <label class="check full"><input type="checkbox" id="cleanParsedPanels"> <span>Clean up resume-parsed work / education panels<span class="help">Workday: delete panels the portal's "Autofill with Resume" made from junk, like an empty company or a project as a job.</span></span></label>
     </div>
   </section>
 
@@ -333,7 +364,7 @@
     <p class="hint">Answers learned since your last review. They aren't reused until you approve them. Edit the answer first if needed.</p>
     <div class="row" style="margin:0 0 8px"><button id="approveAll">Approve all</button> <button id="rejectAll">Reject all</button></div>
     <table id="learnedPending"></table>
-    <label class="check" style="margin:8px 0 14px"><input type="checkbox" id="learnNoReview"> <span>Reuse learned answers without review (new answers are used right away)</span></label>
+    <label class="check" style="margin:8px 0 14px"><input type="checkbox" id="learnNoReview"> <span>Reuse learned answers without review<span class="help">New answers are used right away.</span></span></label>
     <h2>Approved</h2>
     <table id="learned"></table>
     <div class="row" style="margin-top:10px"><button id="clearLearned">Clear all</button></div>
@@ -404,7 +435,7 @@
       <label>Company<input data-f="company"></label>
       <label>Location<input data-f="location"></label>
       <label class="check"><input type="checkbox" data-f="current"> <span>I currently work here</span></label>
-      <label>Type (blank = from the title: Intern = internship, Fellow = fellowship, Teaching / Research Assistant = academic, else full-time; "years of professional experience (non-internship)" counts full-time only)<select data-f="type"><option value="">Automatic (from the title)</option><option value="full-time">Full-time</option><option value="part-time">Part-time</option><option value="internship">Internship</option><option value="fellowship">Fellowship</option><option value="academic">Academic</option></select></label>
+      <label>Type<span class="help">Blank = from the title: Intern = internship, Fellow = fellowship, Teaching / Research Assistant = academic, else full-time. "Years of professional experience (non-internship)" counts full-time only.</span><select data-f="type"><option value="">Automatic (from the title)</option><option value="full-time">Full-time</option><option value="part-time">Part-time</option><option value="internship">Internship</option><option value="fellowship">Fellowship</option><option value="academic">Academic</option></select></label>
       <label>Start month<input data-f="startMonth"></label>
       <label>Start year<input data-f="startYear"></label>
       <label>End month<input data-f="endMonth"></label>
@@ -419,13 +450,13 @@
     <button class="rm">Remove</button>
     <div class="grid">
       <label>School<input data-f="school"></label>
-      <label class="full">School aliases (separated by |, tried in order if the main name finds nothing; also accepted when a listed school contains one, e.g. "LSU Lakeview University")<input data-f="schoolAliases"></label>
-      <label>School search keyword (typed into searchable school fields, e.g. Greenhouse; results containing it are accepted)<input data-f="schoolSearch"></label>
-      <label class="full">Degree, in order of preference (one step per line, alternatives separated by |). The first match in the dropdown wins. Lines 3 and later are substitutes and get a blue double-check outline.<textarea data-f="degreeOptions" rows="4"></textarea></label>
+      <label class="full">School aliases<span class="help">Separated by |, tried in order if the main name finds nothing; also accepted when a listed school contains one, e.g. "LSU Lakeview University".</span><input data-f="schoolAliases"></label>
+      <label>School search keyword<span class="help">Typed into searchable school fields, e.g. Greenhouse; results containing it are accepted.</span><input data-f="schoolSearch"></label>
+      <label class="full">Degree, in order of preference<span class="help">One step per line, alternatives separated by |. The first match in the dropdown wins. Lines 3 and later are substitutes and get a blue double-check outline.</span><textarea data-f="degreeOptions" rows="4"></textarea></label>
       <label>Field of study<input data-f="field"></label>
-      <label class="full">Field of study fallbacks (separated by |, in order: used when the list has no option for your field; words in any order and abbreviations like "Engring" are matched. Fallbacks after your own field get a blue double-check outline.)<input data-f="fieldFallbacks"></label>
+      <label class="full">Field of study fallbacks<span class="help">Separated by |, in order: used when the list has no option for your field. Words in any order and abbreviations like "Engring" are matched. Fallbacks after your own field get a blue double-check outline.</span><input data-f="fieldFallbacks"></label>
       <label>GPA<input data-f="gpa"></label>
-      <label>Start month (1-12 or a name, e.g. 8 or August; blank = start-month dropdowns left for you)<input data-f="startMonth"></label>
+      <label>Start month<span class="help">1-12 or a name, e.g. 8 or August. Blank = start-month dropdowns left for you.</span><input data-f="startMonth"></label>
       <label>Start year<input data-f="startYear"></label>
       <label>End / expected year<input data-f="endYear"></label>
     </div>
@@ -437,7 +468,7 @@
     <button class="rm">Remove</button>
     <div class="grid">
       <label>Language<input data-f="name"></label>
-      <label>Name aliases (separated by |)<input data-f="aliases"></label>
+      <label>Name aliases<span class="help">Separated by |.</span><input data-f="aliases"></label>
       <label class="check"><input type="checkbox" data-f="fluent"> <span>I am fluent in this language</span></label>
       <label class="full">Comprehension<input data-f="comprehension"></label>
       <label class="check"><input type="checkbox" data-f="comprehensionReview"> <span>blue</span></label>
@@ -449,7 +480,7 @@
       <label class="check"><input type="checkbox" data-f="speakingReview"> <span>blue</span></label>
       <label class="full">Writing<input data-f="writing"></label>
       <label class="check"><input type="checkbox" data-f="writingReview"> <span>blue</span></label>
-      <label class="full">Combined / general (one field for everything: "Written and Spoken", "Proficiency", "Proficiency Level", "Level", "Fluency")<input data-f="general"></label>
+      <label class="full">Combined / general<span class="help">One field for everything: "Written and Spoken", "Proficiency", "Proficiency Level", "Level", "Fluency".</span><input data-f="general"></label>
       <label class="check"><input type="checkbox" data-f="generalReview"> <span>blue</span></label>
     </div>
   </div>

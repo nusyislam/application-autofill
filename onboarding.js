@@ -12,7 +12,7 @@
       title: "Resume and LinkedIn",
       text: [
         "Choose the resume file applications should get (PDF, DOC or DOCX). If it's a PDF, its text is read right here, in this browser, into Resume text.",
-        "Then, on your LinkedIn profile, choose More > Save to PDF and upload that PDF below: its text goes into LinkedIn profile (text). Only the text is kept, never the LinkedIn file.",
+        "Then, on your LinkedIn profile, choose More > Save to PDF and upload that PDF below: its text goes into LinkedIn profile text. Only the text is kept, never the LinkedIn file.",
         "Nothing is uploaded anywhere. Check the text and fix anything that came out wrong. During setup, everything you enter is saved as you go.",
       ],
     },
