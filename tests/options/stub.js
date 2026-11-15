@@ -26,7 +26,7 @@
     skipped: { onboarding: { finished: true, how: "skipped" } },
     pdf: {},
     next: {},
-    done: { profile: { firstName: "Test", lastName: "Applicant", email: "test@example.com", answers: { workAuth: "Yes" } }, onboarding: { step: 7 } },
+    done: { profile: { firstName: "Test", lastName: "Applicant", email: "test@example.com", city: "Springfield", state: "New York", answers: { workAuth: "Yes" } }, onboarding: { step: 7 } },
     "clear-default": full(),
     "clear-ticked": full(),
     "clear-cancel": full(),

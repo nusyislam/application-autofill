@@ -101,23 +101,27 @@
     const gov = ["govEmployee", "armedForces", "militarySpouse", "foreignOfficial"];
     const eeo = ["gender", "hispanic", "race", "veteran", "disability"];
     const chars = (s) => `${String(s || "").trim().length} characters`;
+    // Each item: filled (everything it covers is set), partial (some of it), blank (nothing).
+    const st = (n, of) => (n >= of ? "filled" : n > 0 ? "partial" : "blank");
+    const b = (v) => (v ? "filled" : "blank");
+    const addr = ["address1", "city", "state", "zip"];
     return [
-      ["Resume file", !!resumeFile, resumeFile?.name || "", ix("materials")],
-      ["Resume text", has(p.resumeText), chars(p.resumeText), ix("materials")],
-      ["LinkedIn profile text", has(p.linkedinText), chars(p.linkedinText), ix("materials")],
-      ["Name", has(p.firstName) && has(p.lastName), [p.firstName, p.lastName].filter(has).join(" "), ix("contact")],
-      ["Email", has(p.email), p.email, ix("contact")],
-      ["Phone", has(p.phone), p.phone, ix("contact")],
-      ["Address", has(p.address1) && has(p.city) && has(p.zip), [p.city, p.state].filter(has).join(", "), ix("contact")],
-      ["LinkedIn URL", has(p.linkedin), "", ix("contact")],
-      ["GitHub / website", has(p.github) || has(p.website), "", ix("contact"), true],
-      ["Work experience", jobs > 0, `${jobs} job${jobs === 1 ? "" : "s"}`, ix("work")],
-      ["Education", schools > 0, `${schools} school${schools === 1 ? "" : "s"}`, ix("education")],
-      ["Expected graduation date", has(p.expectedGraduation), p.expectedGraduation, ix("education"), true],
-      ["Work authorization and fixed answers", count(a, fixed) === fixed.length, `${count(a, fixed)} of ${fixed.length} set`, ix("answers")],
-      ["Government / military history", count(a, gov) === gov.length, `${count(a, gov)} of ${gov.length} set`, ix("answers")],
-      ["Self-identification", count(e, eeo) > 0, `${count(e, eeo)} of ${eeo.length} set`, ix("eeo"), true],
-      ["Claude API key", has(p.api?.key), "", ix("api"), true],
+      ["Resume file", b(resumeFile), resumeFile?.name || "", ix("materials")],
+      ["Resume text", b(has(p.resumeText)), chars(p.resumeText), ix("materials")],
+      ["LinkedIn profile text", b(has(p.linkedinText)), chars(p.linkedinText), ix("materials")],
+      ["Name", st(count(p, ["firstName", "lastName"]), 2), [p.firstName, p.lastName].filter(has).join(" "), ix("contact")],
+      ["Email", b(has(p.email)), p.email, ix("contact")],
+      ["Phone", b(has(p.phone)), p.phone, ix("contact")],
+      ["Address", st(count(p, addr), addr.length), [p.address1, p.city, p.state, p.zip].filter(has).join(", "), ix("contact")],
+      ["LinkedIn URL", b(has(p.linkedin)), "", ix("contact")],
+      ["GitHub / website", b(has(p.github) || has(p.website)), "", ix("contact"), true],
+      ["Work experience", b(jobs > 0), `${jobs} job${jobs === 1 ? "" : "s"}`, ix("work")],
+      ["Education", b(schools > 0), `${schools} school${schools === 1 ? "" : "s"}`, ix("education")],
+      ["Expected graduation date", b(has(p.expectedGraduation)), p.expectedGraduation, ix("education"), true],
+      ["Work authorization and fixed answers", st(count(a, fixed), fixed.length), `${count(a, fixed)} of ${fixed.length} set`, ix("answers")],
+      ["Government / military history", st(count(a, gov), gov.length), `${count(a, gov)} of ${gov.length} set`, ix("answers")],
+      ["Self-identification", st(count(e, eeo), eeo.length), `${count(e, eeo)} of ${eeo.length} set`, ix("eeo"), true],
+      ["Claude API key", b(has(p.api?.key)), "", ix("api"), true],
     ];
   }
 
@@ -129,16 +133,18 @@
     const ul = document.createElement("ul");
     ul.className = "summary";
     ul.setAttribute("aria-label", "Setup summary");
-    for (const [what, filled, detail, goto, optional] of await summary()) {
+    const TAG = { filled: "filled", partial: "partly filled", blank: "blank" };
+    for (const [what, state, detail, goto, optional] of await summary()) {
+      const filled = state === "filled";
       const li = document.createElement("li");
       li.dataset.item = what;
-      li.dataset.state = filled ? "filled" : "blank";
+      li.dataset.state = state;
       const w = document.createElement("span");
       w.className = "what";
       w.textContent = what + (optional ? " (optional)" : "") + (detail ? `: ${detail}` : "");
       const tag = document.createElement("span");
-      tag.className = "tag" + (filled ? " filled" : "");
-      tag.textContent = filled ? "filled" : "blank";
+      tag.className = `tag ${state}`;
+      tag.textContent = TAG[state];
       li.append(w, tag);
       if (!filled) {
         const b = Object.assign(document.createElement("button"), { type: "button", textContent: "Go to step" });

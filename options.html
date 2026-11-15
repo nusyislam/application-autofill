@@ -26,6 +26,8 @@
   textarea{min-height:70px;resize:vertical}
   .full{grid-column:1/-1}
   .hint{color:var(--mut);font-size:12px;font-weight:400;margin:-6px 0 12px}
+  /* Help text below fields (not right under a heading) keeps clear of them. */
+  section > :not(h2):not(.sugg-bar) + p.hint{margin-top:12px}
   .card{border:1px solid var(--b);border-radius:10px;padding:12px;margin-bottom:10px;position:relative}
   .rm{position:absolute;top:8px;right:8px;border:0;background:none;color:var(--red);cursor:pointer;font-size:12px}
   button{font:inherit;padding:7px 12px;border-radius:8px;border:1px solid var(--inb);background:var(--surface);color:var(--text);cursor:pointer}
@@ -74,6 +76,7 @@
   .ob ul.summary li{display:flex;gap:10px;align-items:center;padding:5px 0;border-top:1px solid var(--b)}
   .ob ul.summary .what{flex:1}
   .ob ul.summary .tag.filled{background:var(--accent);color:var(--surface)}
+  .ob ul.summary .tag.partial{background:var(--warn-bg);color:var(--warn-text)}
   body.onboarding main > section:not(.ob-on){display:none}
   body.onboarding main > section.ob-on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
   .ob-hook{border-left:3px solid var(--accent);padding-left:10px}
@@ -223,7 +226,7 @@
     <label class="full" style="margin-top:10px">Certifications (one per line)
       <textarea data-k="certifications"></textarea>
     </label>
-    <p class="hint" style="margin-top:10px">Skills a Workday site's list doesn't have (not found there; skipped on that site for 7 days):</p>
+    <p class="hint">Skills a Workday site's list doesn't have (not found there; skipped on that site for 7 days):</p>
     <table id="skillMisses"></table>
     <div class="row" style="margin-top:6px"><button id="clearSkillMisses">Clear</button></div>
   </section>

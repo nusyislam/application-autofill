@@ -72,6 +72,15 @@
       check("guide not shown on a filled profile", !guideOpen());
       check("all sections shown", !/^secResume$/.test(shown()) && shown().split(",").length >= 8, shown());
       check("no onboarding state written", !("onboarding" in store()), JSON.stringify(store().onboarding));
+      // Help text below fields (not right under a heading) keeps a gap of about 12px in every section.
+      const tight = [...document.querySelectorAll("main > section > p.hint")].filter((h) => {
+        const prev = h.previousElementSibling;
+        if (!prev || prev.matches("h2, .sugg-bar")) return false;
+        return h.getBoundingClientRect().top - prev.getBoundingClientRect().bottom < 10;
+      });
+      check("help text below fields has a top margin in every section", !tight.length, tight.map((h) => `${h.closest("section").id || h.closest("section").querySelector("h2").textContent}: ${h.textContent.slice(0, 40)}`).join(" | "));
+      const gov = [...document.querySelectorAll("#secGov > p.hint")].at(-1);
+      check("the government note sits 12px under its dropdowns", Math.round(gov.getBoundingClientRect().top - gov.previousElementSibling.getBoundingClientRect().bottom) === 12, String(gov.getBoundingClientRect().top - gov.previousElementSibling.getBoundingClientRect().bottom));
       check("Suggest fields from my resume shown outside setup, with its hint", getComputedStyle($("#prefillRow")).display !== "none" && $("#prefillBtn").textContent === "Suggest fields from my resume" && $("#prefillRow .hint").textContent === "Only fills empty fields; you review each suggestion.");
       click("#runSetup");
       await settle();
@@ -254,7 +263,10 @@
       check("step 8 shows a summary", title() === "Done" && shown() === "", `${title()} / ${shown()}`);
       const state = (what) => document.querySelector(`#obBody li[data-item="${what}"]`)?.dataset.state;
       check("summary: filled items", state("Name") === "filled" && state("Email") === "filled", `${state("Name")} ${state("Email")}`);
-      check("summary: blank items", state("Phone") === "blank" && state("Resume file") === "blank" && state("Claude API key") === "blank" && state("Work authorization and fixed answers") === "blank");
+      check("summary: blank items", state("Phone") === "blank" && state("Resume file") === "blank" && state("Claude API key") === "blank" && state("Government / military history") === "blank");
+      const li = (what) => document.querySelector(`#obBody li[data-item="${what}"]`);
+      check("summary: some but not all set = partly filled, with Go to step (Address: city / state, no street / ZIP; 1 of 7 fixed answers)", state("Address") === "partial" && state("Work authorization and fixed answers") === "partial" && li("Address").querySelector(".tag").textContent === "partly filled" && !!li("Address").querySelector("button") && !!li("Work authorization and fixed answers").querySelector("button") && /1 of 7 set/.test(li("Work authorization and fixed answers").textContent));
+      check("summary: blank only when nothing is set", li("Phone").querySelector(".tag").textContent === "blank" && state("Self-identification") === "blank");
       check("blank items link to their step", !!document.querySelector('#obBody li[data-item="Phone"] button'));
       document.querySelector('#obBody li[data-item="Phone"] button').click();
       await settle();
