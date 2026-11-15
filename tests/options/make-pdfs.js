@@ -160,6 +160,17 @@ r.text("Lakeview University", { bold: true });
 r.right("Expected May 2027");
 r.down(12.5);
 r.text("B.E. Computer Engineering, GPA 3.8");
+// Not degrees: a certificate (suggested as a certification) and a fellowship at an organization that is also a job.
+r.down(12.5);
+r.text("Litware Online Academy", { bold: true });
+r.right("Mar 2024 – Jun 2024");
+r.down(12.5);
+r.text("Online Certification in Data Analytics");
+r.down(12.5);
+r.text("Lakeview Research Group", { bold: true });
+r.right("2025");
+r.down(12.5);
+r.text("Summer Research Fellowship");
 // "Label: list" lines, each reaching the right edge; the third has a bold label; the last tests the sentence-spacing
 // fix's exceptions (a decimal, "e.g.", a link and an email with capitals).
 r.down(28);
@@ -194,7 +205,8 @@ s("Python");
 s("Docker");
 s("deployhub.io", {}, 22);
 s("Languages", { size: 13, bold: true }, 18);
-s("Italian (Elementary)", {}, 22);
+s("Italian (Elementary)");
+s("Spanish (Native or Bilingual)", {}, 22);
 s("Certifications", { size: 13, bold: true }, 18);
 s("Fake Cloud Practitioner");
 p1.text("Test Applicant", { size: 26 });

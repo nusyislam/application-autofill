@@ -369,7 +369,46 @@
     return (hit ? [hit, ...defaults.filter((x) => x !== hit)] : [degree, ...defaults]).join("\n");
   }
   const eduCard = (e) => ({ school: e.school, schoolAliases: "", schoolSearch: schoolKeyword(e.school), degreeOptions: degreeSteps(e.degree), field: e.field || "", fieldFallbacks: e.field || "", gpa: "", startMonth: mm(e.start), startYear: yy(e.start), endYear: yy(e.end) });
-  const langCard = (l) => ({ name: l.name, aliases: "", fluent: /native|fluent|bilingual/i.test(l.proficiency || ""), general: l.proficiency || "" });
+  // One overall level (LinkedIn's "Native or Bilingual", "Elementary"): the Combined field only; never "I am fluent" or
+  // the separate reading / writing / speaking / comprehension levels (the card says to set those yourself).
+  const langCard = (l) => ({ name: l.name, aliases: "", fluent: false, general: l.proficiency || "" });
+  const LANG_NOTE = "Only one overall level was given, so it fills Combined. Set reading/writing yourself if they differ.";
+
+  // Education entries that are no degree (a certificate, "Online Certification in ...", a bootcamp, a fellowship) become
+  // certification suggestions. A card needs a degree-like credential (bachelor / master / PhD / associate / BS / BA /
+  // BE / MBA / high school ...) or, with no credential named, an expected graduation in the text and no non-degree word.
+  const DEGREE = /\b(bachelor'?s?|master'?s?|ph\.?\s?d|doctor(ate)?|associate'?s?|mba|b\.?\s?s\.?c?|b\.?\s?a|b\.?\s?e(ng)?|m\.?\s?s\.?c?|m\.?\s?a|m\.?\s?eng|a\.?\s?a\.?s?|high school|secondary school|ged|degree)\b/i;
+  const NON_DEGREE = /\b(certificat(e|ion)s?|bootcamp|boot camp|fellowships?|nanodegree|courses?|online program|professional program|micro-?credentials?|training)\b/i;
+  function isDegree(e, sources) {
+    const cred = e.degree || "";
+    if (NON_DEGREE.test(cred) || (!cred && NON_DEGREE.test(e.school))) return false;
+    if (DEGREE.test(cred)) return true;
+    if (cred) return false;
+    return !!(e.inProgress || /expected graduation/i.test(sources));
+  }
+  // Splits merged education into degree cards and certification names; a non-degree entry is skipped when it's
+  // already a certification or its organization is a job (suggested or on the page).
+  function splitEducation(education, experience, certs, sources) {
+    const jobs = [...experience.map((x) => x.entry.company), ...[...document.querySelectorAll('#experiences .card:not(.suggested) [data-f="company"]')].map((el) => el.value)].filter(Boolean);
+    const have = [...certs, ...splitLines($('[data-k="certifications"]').value)];
+    const degrees = [];
+    const moreCerts = [];
+    for (const x of education) {
+      if (isDegree(x.entry, sources)) {
+        degrees.push(x);
+        continue;
+      }
+      const name = x.entry.degree ? `${x.entry.degree}, ${x.entry.school}` : x.entry.school;
+      if (jobs.some((co) => same(co, x.entry.school))) log(`education entry "${name}": not a degree, and ${x.entry.school} is already a job; not added`);
+      else if (have.some((c) => norm(c).includes(norm(x.entry.degree || x.entry.school)))) log(`education entry "${name}": not a degree, already a certification; not added`);
+      else {
+        log(`education entry "${name}": not a degree; suggested as a certification`);
+        moreCerts.push(name);
+      }
+    }
+    return { degrees, moreCerts };
+  }
+  const splitLines = (s) => String(s || "").split("\n").map((x) => x.trim()).filter(Boolean);
 
   // ---- state (chrome.storage.local `prefill`): { at, fields: { key: { value, from } }, cards: [{ id, kind, item, from,
   // conflict }], summary, dropped: [], ranFor }
@@ -431,10 +470,12 @@
         const m = merge(r, l);
         m.experience.forEach((x, i) => cards.push({ id: `exp${i}`, kind: "experience", item: expCard(x.entry), from: x.from, conflict: x.conflict || null }));
         newDescs = m.experience.filter((x) => x.alt).map((x) => ({ company: x.entry.company, title: x.entry.title, ...x.alt }));
-        m.education.forEach((x, i) => cards.push({ id: `edu${i}`, kind: "education", item: eduCard(x.entry), from: x.from, conflict: x.conflict || null }));
-        m.languages.forEach((x, i) => cards.push({ id: `lang${i}`, kind: "language", item: langCard(x), from: "resume / LinkedIn" }));
-        if (m.certifications.length) fields.certifications = { value: m.certifications.join("\n"), from: "resume / LinkedIn" };
-        const grad = m.education.find((x) => x.entry.inProgress && x.entry.end?.month);
+        const { degrees, moreCerts } = splitEducation(m.education, m.experience, m.certifications, `${resume}\n${linkedin}`);
+        degrees.forEach((x, i) => cards.push({ id: `edu${i}`, kind: "education", item: eduCard(x.entry), from: x.from, conflict: x.conflict || null }));
+        m.languages.forEach((x, i) => cards.push({ id: `lang${i}`, kind: "language", item: langCard(x), from: "resume / LinkedIn", note: LANG_NOTE }));
+        const certs = [...m.certifications, ...moreCerts];
+        if (certs.length) fields.certifications = { value: certs.join("\n"), from: "resume / LinkedIn" };
+        const grad = degrees.find((x) => x.entry.inProgress && x.entry.end?.month);
         if (grad) fields.expectedGraduation = { value: `${String(grad.entry.end.month).padStart(2, "0")}/${grad.entry.end.year}`, from: grad.from };
         for (const d of dropped) log("dropped", d);
       }
@@ -596,6 +637,8 @@
         counts.conflicts++;
       }
       node.prepend(head);
+      // A note that stays after Accept (a language with one overall level).
+      if (c.note) node.querySelector(".grid").after(Object.assign(document.createElement("p"), { className: "hint card-note", textContent: c.note }));
       counts.filled++;
     }
     state.cards = state.cards.filter((c) => !c.skip);

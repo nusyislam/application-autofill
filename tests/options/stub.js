@@ -68,7 +68,11 @@
         { company: "Lakeview University", title: "Teaching Assistant", location: "Springfield, NY", start: { month: 9, year: 2025 }, end: null, current: true, bullets: ["Held weekly office hours for an introductory programming course and graded labs."] },
         { company: "Quantum Widgets", title: "Chief Technology Officer", location: "Remote", start: { month: 1, year: 2020 }, end: { month: 12, year: 2022 }, current: false, bullets: ["Scaled the platform to ten million users."] },
       ],
-      education: [{ school: "Lakeview University", degree: "B.E.", field: "Computer Engineering", start: null, end: { month: 5, year: 2027 }, inProgress: true }],
+      education: [
+        { school: "Lakeview University", degree: "B.E.", field: "Computer Engineering", start: null, end: { month: 5, year: 2027 }, inProgress: true },
+        { school: "Litware Online Academy", degree: "Online Certification in Data Analytics", field: null, start: { month: 3, year: 2024 }, end: { month: 6, year: 2024 }, inProgress: false },
+        { school: "Lakeview Research Group", degree: "Summer Research Fellowship", field: null, start: null, end: { month: null, year: 2025 }, inProgress: false },
+      ],
       languages: [],
       certifications: [],
     },
@@ -79,7 +83,7 @@
         { company: "Fabrikam", title: "Volunteer Tutor", location: "Springfield, New York, United States", start: { month: 1, year: 2024 }, end: { month: 5, year: 2024 }, current: false, bullets: ["Tutored first-year students in introductory programming twice a week."] },
       ],
       education: [{ school: "Lakeview University", degree: "Bachelor of Engineering - BE", field: "Computer Engineering", start: { month: 8, year: 2023 }, end: { month: 5, year: 2027 }, inProgress: true }],
-      languages: [{ name: "Italian", proficiency: "Elementary" }],
+      languages: [{ name: "Italian", proficiency: "Elementary" }, { name: "Spanish", proficiency: "Native or Bilingual" }],
       certifications: ["Fake Cloud Practitioner"],
     },
   };
