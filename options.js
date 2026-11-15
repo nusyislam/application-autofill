@@ -505,7 +505,10 @@ async function autoSave() {
 // Edits that Save saves. Not: file inputs (the resume file is saved when chosen; the LinkedIn PDF only gives text),
 // Pending review answer boxes (saved by Approve), and learned-answer category pickers (saved when changed).
 const savedBySave = (el) => el.type !== "file" && !el.closest("#learnedPending") && !(el.tagName === "SELECT" && el.closest("#learned"));
+// Both: typing fires input, the browser's address autofill fires input and change (a change alone counts too).
 for (const ev of ["input", "change"]) $("main").addEventListener(ev, (e) => savedBySave(e.target) && changed());
+// The contact fields sit in a <form> only so the browser's address autofill fills them; it never submits (Save saves).
+$("#contactForm").addEventListener("submit", (e) => e.preventDefault());
 window.addEventListener("beforeunload", (e) => {
   if (!dirty) return;
   if (inSetup()) autoSave(); // a pending auto-save; ask anyway, it may not finish before the page goes

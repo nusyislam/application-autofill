@@ -34,6 +34,8 @@
     "reload-setup": {},
     "reload-outside": { profile: structuredClone(FILLED), resumeFile: RESUME },
     "leave-warns": { profile: structuredClone(FILLED), resumeFile: RESUME },
+    "autofill-outside": { profile: structuredClone(FILLED), resumeFile: RESUME },
+    "autofill-setup": { onboarding: { step: 2 } },
     "prefill-setup": {},
     "prefill-nokey": {},
     "prefill-existing": { profile: structuredClone(FILLED), resumeFile: RESUME, onboarding: { finished: true, how: "done" } },

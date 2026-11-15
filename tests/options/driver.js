@@ -488,6 +488,49 @@
       check("after a reload: the description toggle is still offered", /Use LinkedIn description instead/.test(nwr?.querySelector(".desc-alt")?.textContent || ""));
       check("after a reload: fixed answers still as stored", store().profile?.answers?.workAuth === "Yes" && store().profile?.answers?.clearance === "No");
     },
+    // The browser's address autofill: the contact fields in a form with standard autocomplete tokens, never submitted;
+    // an autofilled value (input / change, or a change alone) counts as an edit. Self-ID and the API key: off.
+    async "autofill-outside"() {
+      const TOKENS = { firstName: "given-name", lastName: "family-name", preferredName: "nickname", email: "email", phone: "tel", address1: "address-line1", address2: "address-line2", city: "address-level2", state: "address-level1", zip: "postal-code", country: "country-name" };
+      const form = $("#contactForm");
+      const bad = Object.entries(TOKENS).filter(([k, tok]) => {
+        const el = $(`[data-k="${k}"]`);
+        return el.getAttribute("autocomplete") !== tok || el.form !== form || !el.name || !el.id;
+      });
+      check("contact fields: in one form, with standard autocomplete tokens, names and ids", !!form && !bad.length, bad.map(([k]) => k).join(", "));
+      const offs = [...document.querySelectorAll('[data-k^="eeo."], [data-k="api.key"]')];
+      check("self-ID fields and the API key: autocomplete off", offs.length >= 13 && offs.every((el) => el.getAttribute("autocomplete") === "off"), String(offs.length));
+      check("other My Information boxes don't invite autofill", ["phoneType", "phoneCountry", "source", "hearText", "linkedin", "github", "website", "applicationLocation.search"].every((k) => $(`[data-k="${k}"]`).getAttribute("autocomplete") === "off"));
+      const sub = new Event("submit", { cancelable: true });
+      form.dispatchEvent(sub);
+      check("the form never submits", sub.defaultPrevented);
+      check("nothing changed yet", !unsavedShown() && !leaveAsks());
+      // Autofill as Chrome does it: the value, then input and change.
+      for (const [k, v] of [["address1", "2 Sample Avenue"], ["city", "Riverton"], ["zip", "10002"]]) {
+        const el = $(`[data-k="${k}"]`);
+        el.value = v;
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      check("autofilled values: Unsaved changes, and leaving asks", unsavedShown() && leaveAsks());
+      click("#save");
+      await until(() => store().profile?.address1 === "2 Sample Avenue");
+      check("Save stores the autofilled values", store().profile?.city === "Riverton" && store().profile?.zip === "10002" && !unsavedShown());
+      const st = $('[data-k="state"]');
+      st.value = "New Jersey";
+      st.dispatchEvent(new Event("change", { bubbles: true }));
+      check("a change event alone counts too", unsavedShown());
+    },
+    async "autofill-setup"() {
+      check("setup is on the contact step", guideOpen() && title() === "Contact info and links", title());
+      for (const [k, v] of [["firstName", "Test"], ["lastName", "Applicant"], ["address1", "1 Test Street"], ["zip", "10001"]]) {
+        const el = $(`[data-k="${k}"]`);
+        el.value = v;
+        el.dispatchEvent(new Event("change", { bubbles: true })); // a change alone
+      }
+      await wait(800);
+      check("autofilled values during setup are auto-saved", store().profile?.firstName === "Test" && store().profile?.address1 === "1 Test Street" && store().profile?.zip === "10001", JSON.stringify(store().profile && [store().profile.firstName, store().profile.address1]));
+    },
     // run.js --dump <pdf>: only print what pdftext.js makes of that file (no checks).
     async dump() {
       const f = new URLSearchParams(location.search).get("f");

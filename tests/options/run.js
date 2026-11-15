@@ -25,7 +25,7 @@ const only = arg("--only") || "";
 // --dump <pdf under the repo>: print the text pdftext.js extracts from that file (e.g. your own resume saved as
 // tests/options/<name>-raw.pdf, git-ignored), nothing else.
 const dump = arg("--dump");
-const SCENARIOS = dump ? ["dump"] : ["empty", "api-only", "filled", "resume", "skipped", "pdf", "next", "done", "clear-default", "clear-ticked", "clear-cancel", "clear-export", "reload-setup", "reload-outside", "leave-warns", "prefill-setup", "prefill-nokey", "prefill-existing", "prefill-links"].filter((s) => s.startsWith(only));
+const SCENARIOS = dump ? ["dump"] : ["empty", "api-only", "filled", "resume", "skipped", "pdf", "next", "done", "clear-default", "clear-ticked", "clear-cancel", "clear-export", "reload-setup", "reload-outside", "leave-warns", "prefill-setup", "prefill-nokey", "prefill-existing", "prefill-links", "autofill-outside", "autofill-setup"].filter((s) => s.startsWith(only));
 const query = (s) => `s=${encodeURIComponent(s)}` + (s === "dump" ? `&f=${encodeURIComponent(path.relative(repo, path.resolve(dump)).split(path.sep).join("/"))}` : "");
 const edge = [path.join(process.env["ProgramFiles(x86)"] || "", "Microsoft/Edge/Application/msedge.exe"), path.join(process.env.ProgramFiles || "", "Microsoft/Edge/Application/msedge.exe")].find((p) => fs.existsSync(p));
 if (!edge) {

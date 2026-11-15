@@ -130,28 +130,31 @@
 
   <section id="secInfo" data-step="contact">
     <h2>My Information</h2>
+    <!-- A form so the browser's address autofill fills these (it never submits: options.js stops it; Save saves). -->
+    <form id="contactForm" autocomplete="on" novalidate>
     <div class="grid">
-      <label>First name<input data-k="firstName"></label>
-      <label>Last name<input data-k="lastName"></label>
-      <label>Preferred first name (blank = none)<input data-k="preferredName"></label>
-      <label>Email<input data-k="email" type="email"></label>
-      <label>Phone (digits)<input data-k="phone"></label>
-      <label>Phone device type (in order of preference, separated by |; plain Home / Landline / Work / Business are never picked)<input data-k="phoneType"></label>
-      <label>Phone country<input data-k="phoneCountry"></label>
-      <label class="full">Address line 1<input data-k="address1"></label>
-      <label>Address line 2<input data-k="address2"></label>
-      <label>City<input data-k="city"></label>
-      <label>State<input data-k="state"></label>
-      <label>ZIP<input data-k="zip"></label>
-      <label>Application location: search term (typed into Location / City autocomplete fields)<input data-k="applicationLocation.search"></label>
-      <label class="full">Application location: accepted suggestions, in order (|-separated; only an exact match is picked, otherwise the field is left for you)<input data-k="applicationLocation.matches"></label>
-      <label>Country<input data-k="country"></label>
-      <label>How did you hear about us (dropdowns; fallbacks separated by |, in order: the first option that matches wins)<input data-k="source"></label>
-      <label>How did you hear (free text: typed into text boxes asking how / where you heard about the role)<input data-k="hearText"></label>
-      <label>LinkedIn URL<input data-k="linkedin"></label>
-      <label>GitHub URL<input data-k="github"></label>
-      <label>Other website<input data-k="website"></label>
+      <label>First name<input data-k="firstName" id="fname" name="fname" autocomplete="given-name"></label>
+      <label>Last name<input data-k="lastName" id="lname" name="lname" autocomplete="family-name"></label>
+      <label>Preferred first name (blank = none)<input data-k="preferredName" id="nickname" name="nickname" autocomplete="nickname"></label>
+      <label>Email<input data-k="email" id="email" name="email" autocomplete="email" type="email"></label>
+      <label>Phone (digits)<input data-k="phone" id="phone" name="phone" autocomplete="tel"></label>
+      <label>Phone device type (in order of preference, separated by |; plain Home / Landline / Work / Business are never picked)<input data-k="phoneType" autocomplete="off"></label>
+      <label>Phone country<input data-k="phoneCountry" autocomplete="off"></label>
+      <label class="full">Address line 1<input data-k="address1" id="address1" name="address1" autocomplete="address-line1"></label>
+      <label>Address line 2<input data-k="address2" id="address2" name="address2" autocomplete="address-line2"></label>
+      <label>City<input data-k="city" id="city" name="city" autocomplete="address-level2"></label>
+      <label>State<input data-k="state" id="state" name="state" autocomplete="address-level1"></label>
+      <label>ZIP<input data-k="zip" id="zip" name="zip" autocomplete="postal-code"></label>
+      <label>Application location: search term (typed into Location / City autocomplete fields)<input data-k="applicationLocation.search" autocomplete="off"></label>
+      <label class="full">Application location: accepted suggestions, in order (|-separated; only an exact match is picked, otherwise the field is left for you)<input data-k="applicationLocation.matches" autocomplete="off"></label>
+      <label>Country<input data-k="country" id="country" name="country" autocomplete="country-name"></label>
+      <label>How did you hear about us (dropdowns; fallbacks separated by |, in order: the first option that matches wins)<input data-k="source" autocomplete="off"></label>
+      <label>How did you hear (free text: typed into text boxes asking how / where you heard about the role)<input data-k="hearText" autocomplete="off"></label>
+      <label>LinkedIn URL<input data-k="linkedin" autocomplete="off"></label>
+      <label>GitHub URL<input data-k="github" autocomplete="off"></label>
+      <label>Other website<input data-k="website" autocomplete="off"></label>
     </div>
+    </form>
   </section>
 
   <section id="secResume" data-step="materials">
@@ -267,33 +270,33 @@
     <h2>Voluntary disclosures &amp; self-identify</h2>
     <p class="hint">Blank = skip (you'll fill it).</p>
     <div class="grid">
-      <label>Gender<select data-k="eeo.gender">
+      <label>Gender<select data-k="eeo.gender" autocomplete="off">
         <option value=""></option><option>Female</option><option>Male</option><option value="Non-binary|Nonbinary">Non-binary</option><option value="Decline">Decline to answer</option>
       </select></label>
-      <label>Hispanic or Latino<select data-k="eeo.hispanic">
+      <label>Hispanic or Latino<select data-k="eeo.hispanic" autocomplete="off">
         <option value=""></option><option>Yes</option><option>No</option><option value="Decline">Decline to answer</option>
       </select></label>
-      <label>Race<select data-k="eeo.race">
+      <label>Race<select data-k="eeo.race" autocomplete="off">
         <option value=""></option>
         <option>American Indian or Alaska Native</option><option>Asian</option><option>Black or African American</option>
         <option>Native Hawaiian or Other Pacific Islander</option><option>White</option><option value="Two or More Races|Two or more">Two or more races</option>
         <option value="Decline">Decline to answer</option>
       </select></label>
-      <label class="full">Race, in order of preference (|-separated; overrides Race when set). Exact options first, then the broad category; never a different subgroup (e.g. East Asian for Asian).<input data-k="eeo.racePrefs"></label>
-      <label>Veteran status<select data-k="eeo.veteran">
+      <label class="full">Race, in order of preference (|-separated; overrides Race when set). Exact options first, then the broad category; never a different subgroup (e.g. East Asian for Asian).<input data-k="eeo.racePrefs" autocomplete="off"></label>
+      <label>Veteran status<select data-k="eeo.veteran" autocomplete="off">
         <option value=""></option>
         <option value="I am not a protected veteran|I am not a veteran|not a veteran">Not a veteran</option>
         <option value="I identify as one or more of the classifications of protected veteran|protected veteran">Protected veteran</option>
         <option value="I am a veteran but not a protected veteran|not a protected veteran">Veteran, not protected</option>
         <option value="Decline">Decline to answer</option>
       </select></label>
-      <label>LGBTQ+ / sexual orientation (the option's wording, |-separated in order, e.g. "No | Heterosexual | Straight"; exact option first, then a whole phrase; blank = left for you)<input data-k="eeo.lgbtq"></label>
-      <label>Transgender (e.g. "No"; matched the same way; blank = left for you)<input data-k="eeo.transgender"></label>
-      <label>Pronouns (the option's wording, |-separated in order, e.g. "She/her/hers | she/her"; matched the same way; blank = left for you)<input data-k="eeo.pronouns"></label>
-      <label>Identify as LGBTQ+ ("Do you identify as part of the LGBTQ+ community?"; blank = derived from sexual orientation and transgender)<select data-k="eeo.lgbtqMember"><option value=""></option><option>Yes</option><option>No</option><option>Prefer not to say</option></select></label>
-      <label>Birth month / year (MM/YYYY; age questions get your age or the range holding it, blue; blank = left for you)<input data-k="eeo.birthMonth"></label>
-      <label>Communities (options to check in "Which communities do you belong to? Select all that apply", |-separated, e.g. "None of the above"; blank = left for you)<input data-k="eeo.communities"></label>
-      <label>Disability<select data-k="eeo.disability">
+      <label>LGBTQ+ / sexual orientation (the option's wording, |-separated in order, e.g. "No | Heterosexual | Straight"; exact option first, then a whole phrase; blank = left for you)<input data-k="eeo.lgbtq" autocomplete="off"></label>
+      <label>Transgender (e.g. "No"; matched the same way; blank = left for you)<input data-k="eeo.transgender" autocomplete="off"></label>
+      <label>Pronouns (the option's wording, |-separated in order, e.g. "She/her/hers | she/her"; matched the same way; blank = left for you)<input data-k="eeo.pronouns" autocomplete="off"></label>
+      <label>Identify as LGBTQ+ ("Do you identify as part of the LGBTQ+ community?"; blank = derived from sexual orientation and transgender)<select data-k="eeo.lgbtqMember" autocomplete="off"><option value=""></option><option>Yes</option><option>No</option><option>Prefer not to say</option></select></label>
+      <label>Birth month / year (MM/YYYY; age questions get your age or the range holding it, blue; blank = left for you)<input data-k="eeo.birthMonth" autocomplete="off"></label>
+      <label>Communities (options to check in "Which communities do you belong to? Select all that apply", |-separated, e.g. "None of the above"; blank = left for you)<input data-k="eeo.communities" autocomplete="off"></label>
+      <label>Disability<select data-k="eeo.disability" autocomplete="off">
         <option value=""></option>
         <option value="Yes, I have a disability|Yes">Yes</option>
         <option value="No, I do not have a disability|No">No</option>
@@ -305,7 +308,7 @@
   <section id="secApi" data-step="api">
     <h2>Claude API</h2>
     <div class="grid">
-      <label class="full">API key<input data-k="api.key" type="password" placeholder="sk-ant-..."></label>
+      <label class="full">API key<input data-k="api.key" type="password" autocomplete="off" placeholder="sk-ant-..."></label>
       <label>Model (regular questions)<input data-k="api.model"></label>
       <label>Draft model (open-ended answers in draft mode)<input data-k="api.draftModel"></label>
       <label>Min confidence to auto-fill (0–1)<input id="threshold" type="number" min="0" max="1" step="0.05"></label>
