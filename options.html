@@ -36,6 +36,11 @@
   .linkbtn{border:0;background:none;padding:0;color:var(--accent);text-decoration:underline;font-size:13px}
   .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
   .check{flex-direction:row;align-items:center;gap:6px;flex-wrap:wrap}
+  /* A checkbox / radio row: the box on the left, its text a block beside it, so wrapped lines stay indented under the
+     first one (file-input rows keep wrapping). */
+  .check:has(> input[type=checkbox]), .check:has(> input[type=radio]){flex-wrap:nowrap;align-items:flex-start;gap:10px}
+  .check > input[type=checkbox], .check > input[type=radio]{flex:none;margin:2px 0 0}
+  .check > input[type=checkbox] + span, .check > input[type=radio] + span{flex:1;min-width:0}
   input[type=file]{max-width:100%;box-sizing:border-box}
   table{width:100%;border-collapse:collapse;font-size:13px}
   td{border-top:1px solid var(--b);padding:6px 4px;vertical-align:top}
@@ -316,8 +321,8 @@
       <label>Model (regular questions)<input data-k="api.model"></label>
       <label>Draft model (open-ended answers in draft mode)<input data-k="api.draftModel"></label>
       <label>Min confidence to auto-fill (0–1)<input id="threshold" type="number" min="0" max="1" step="0.05"></label>
-      <label class="check full"><input type="checkbox" id="notifyDone"> Desktop notification when done (when the fill ends while you're on another tab or window)</label>
-      <label class="check full"><input type="checkbox" id="cleanParsedPanels"> Clean up resume-parsed work / education panels (Workday: delete panels the portal's "Autofill with Resume" made from junk, like an empty company or a project as a job)</label>
+      <label class="check full"><input type="checkbox" id="notifyDone"> <span>Desktop notification when done (when the fill ends while you're on another tab or window)</span></label>
+      <label class="check full"><input type="checkbox" id="cleanParsedPanels"> <span>Clean up resume-parsed work / education panels (Workday: delete panels the portal's "Autofill with Resume" made from junk, like an empty company or a project as a job)</span></label>
     </div>
   </section>
 
@@ -328,7 +333,7 @@
     <p class="hint">Answers learned since your last review. They aren't reused until you approve them. Edit the answer first if needed.</p>
     <div class="row" style="margin:0 0 8px"><button id="approveAll">Approve all</button> <button id="rejectAll">Reject all</button></div>
     <table id="learnedPending"></table>
-    <label class="check" style="margin:8px 0 14px"><input type="checkbox" id="learnNoReview"> Reuse learned answers without review (new answers are used right away)</label>
+    <label class="check" style="margin:8px 0 14px"><input type="checkbox" id="learnNoReview"> <span>Reuse learned answers without review (new answers are used right away)</span></label>
     <h2>Approved</h2>
     <table id="learned"></table>
     <div class="row" style="margin-top:10px"><button id="clearLearned">Clear all</button></div>
@@ -364,8 +369,8 @@
   </div>
   <fieldset class="opts" style="border:0;padding:0">
     <legend style="font-size:13px;font-weight:600;margin-bottom:4px">Profile fields and materials</legend>
-    <label class="check"><input type="radio" name="impMode" value="empty" checked> Only fill empty fields (never changes anything already set)</label>
-    <label class="check"><input type="radio" name="impMode" value="replace"> Replace (the backup's values win)</label>
+    <label class="check"><input type="radio" name="impMode" value="empty" checked> <span>Only fill empty fields (never changes anything already set)</span></label>
+    <label class="check"><input type="radio" name="impMode" value="replace"> <span>Replace (the backup's values win)</span></label>
     <p id="impWarn" class="status err" hidden></p>
     <p class="hint" style="margin:0">Jobs, schools and languages: the backup's are added when they don't match one of yours; never duplicated.</p>
   </fieldset>
@@ -380,8 +385,8 @@
   <h2 id="clearTitle">Clear your profile?</h2>
   <p id="clearDesc">This removes your contact info, work history, education, answers, resume and materials from this browser.</p>
   <div class="opts">
-    <label class="check"><input type="checkbox" id="clearKey"> Also clear API key</label>
-    <label class="check"><input type="checkbox" id="clearLearnedToo"> Also clear learned answers</label>
+    <label class="check"><input type="checkbox" id="clearKey"> <span>Also clear API key</span></label>
+    <label class="check"><input type="checkbox" id="clearLearnedToo"> <span>Also clear learned answers</span></label>
   </div>
   <div class="actions">
     <button type="button" id="clearExport" class="left">Export backup first</button>
@@ -398,7 +403,7 @@
       <label>Job title<input data-f="title"></label>
       <label>Company<input data-f="company"></label>
       <label>Location<input data-f="location"></label>
-      <label class="check"><input type="checkbox" data-f="current"> I currently work here</label>
+      <label class="check"><input type="checkbox" data-f="current"> <span>I currently work here</span></label>
       <label>Type (blank = from the title: Intern = internship, Fellow = fellowship, Teaching / Research Assistant = academic, else full-time; "years of professional experience (non-internship)" counts full-time only)<select data-f="type"><option value="">Automatic (from the title)</option><option value="full-time">Full-time</option><option value="part-time">Part-time</option><option value="internship">Internship</option><option value="fellowship">Fellowship</option><option value="academic">Academic</option></select></label>
       <label>Start month<input data-f="startMonth"></label>
       <label>Start year<input data-f="startYear"></label>
@@ -433,19 +438,19 @@
     <div class="grid">
       <label>Language<input data-f="name"></label>
       <label>Name aliases (separated by |)<input data-f="aliases"></label>
-      <label class="check"><input type="checkbox" data-f="fluent"> I am fluent in this language</label>
+      <label class="check"><input type="checkbox" data-f="fluent"> <span>I am fluent in this language</span></label>
       <label class="full">Comprehension<input data-f="comprehension"></label>
-      <label class="check"><input type="checkbox" data-f="comprehensionReview"> blue</label>
+      <label class="check"><input type="checkbox" data-f="comprehensionReview"> <span>blue</span></label>
       <label class="full">Overall<input data-f="overall"></label>
-      <label class="check"><input type="checkbox" data-f="overallReview"> blue</label>
+      <label class="check"><input type="checkbox" data-f="overallReview"> <span>blue</span></label>
       <label class="full">Reading<input data-f="reading"></label>
-      <label class="check"><input type="checkbox" data-f="readingReview"> blue</label>
+      <label class="check"><input type="checkbox" data-f="readingReview"> <span>blue</span></label>
       <label class="full">Speaking<input data-f="speaking"></label>
-      <label class="check"><input type="checkbox" data-f="speakingReview"> blue</label>
+      <label class="check"><input type="checkbox" data-f="speakingReview"> <span>blue</span></label>
       <label class="full">Writing<input data-f="writing"></label>
-      <label class="check"><input type="checkbox" data-f="writingReview"> blue</label>
+      <label class="check"><input type="checkbox" data-f="writingReview"> <span>blue</span></label>
       <label class="full">Combined / general (one field for everything: "Written and Spoken", "Proficiency", "Proficiency Level", "Level", "Fluency")<input data-f="general"></label>
-      <label class="check"><input type="checkbox" data-f="generalReview"> blue</label>
+      <label class="check"><input type="checkbox" data-f="generalReview"> <span>blue</span></label>
     </div>
   </div>
 </template>

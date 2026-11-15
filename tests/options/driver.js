@@ -44,6 +44,30 @@
     input.dispatchEvent(new Event("change", { bubbles: true }));
   };
   const click = (sel) => $(sel).click();
+  // Checkbox / radio rows: the box on the left, its text a block beside it; every line of the text (wrapped ones too)
+  // starts right of the box, and the box sits on the first line. Returns the rows that don't, and how many wrap.
+  const rowLayout = (root) => {
+    const bad = [];
+    let wrapped = 0;
+    for (const row of root.querySelectorAll(".check")) {
+      const cb = row.querySelector(":scope > input[type=checkbox], :scope > input[type=radio]");
+      if (!cb || !row.getClientRects().length) continue;
+      const span = cb.nextElementSibling;
+      const name = row.textContent.trim().slice(0, 40);
+      if (!span || span.tagName !== "SPAN") {
+        bad.push(`no text block: ${name}`);
+        continue;
+      }
+      const c = cb.getBoundingClientRect();
+      const r = document.createRange();
+      r.selectNodeContents(span);
+      const lines = [...r.getClientRects()].filter((x) => x.width > 0);
+      const tops = [...new Set(lines.map((x) => Math.round(x.top)))];
+      if (tops.length > 1) wrapped++;
+      if (lines.some((x) => x.left < c.right + 6) || Math.abs(Math.min(...tops) - c.top) > 8) bad.push(name);
+    }
+    return { bad, wrapped };
+  };
   // A backup file as the export writes it (fake data), chosen in the Import box.
   const BACKUP = {
     profile: {
@@ -113,6 +137,9 @@
         return h.getBoundingClientRect().top - prev.getBoundingClientRect().bottom < 10;
       });
       check("help text below fields has a top margin in every section", !tight.length, tight.map((h) => `${h.closest("section").id || h.closest("section").querySelector("h2").textContent}: ${h.textContent.slice(0, 40)}`).join(" | "));
+      $("#addLang").click(); // a language card (its "I am fluent" / "blue" rows)
+      const page = rowLayout(document.querySelector("main"));
+      check("every checkbox row on the page (settings, role interests, job and language cards) has its text beside the box", !page.bad.length && page.wrapped >= 1, `${page.bad.join(" | ")} (wrapped: ${page.wrapped})`);
       const gov = [...document.querySelectorAll("#secGov > p.hint")].at(-1);
       check("the government note sits 12px under its dropdowns", Math.round(gov.getBoundingClientRect().top - gov.previousElementSibling.getBoundingClientRect().bottom) === 12, String(gov.getBoundingClientRect().top - gov.previousElementSibling.getBoundingClientRect().bottom));
       check("Suggest fields from my resume shown outside setup, with its hint", getComputedStyle($("#prefillRow")).display !== "none" && $("#prefillBtn").textContent === "Suggest fields from my resume" && $("#prefillRow .hint").textContent === "Only fills empty fields; you review each suggestion.");
@@ -584,6 +611,8 @@
       check("choosing the file opens the import dialog (nothing written yet)", $("#importDlg").open && JSON.stringify(store()) === window.__before);
       check("the preview counts what's in it", /2 jobs, 1 school, 1 language/.test($("#impProfileCount").textContent) && /4 approved, 1 pending, 1 recently deleted/.test($("#impLearnedCount").textContent) && /Resume text/.test($("#impMaterialsCount").textContent), `${$("#impProfileCount").textContent} | ${$("#impLearnedCount").textContent}`);
       check("Only fill empty fields is the default, no warning", $('input[name="impMode"][value="empty"]').checked && $("#impWarn").hidden);
+      const lay = rowLayout($("#importDlg"));
+      check("import dialog: each checkbox / radio row keeps its text beside the box, wrapped lines indented", !lay.bad.length && lay.wrapped >= 2, `${lay.bad.join(" | ")} (wrapped: ${lay.wrapped})`);
       $("#impSettings").click(); // untick Settings
       click("#impGo");
       await until(() => !$("#importDlg").open);
@@ -652,6 +681,7 @@
       check("dialog text", /Clear your profile\?/.test($("#clearDlg").textContent) && /removes your contact info, work history, education, answers, resume and materials from this browser/.test($("#clearDlg").textContent));
       check("boxes start unticked", !$("#clearKey").checked && !$("#clearLearnedToo").checked);
       check("focus starts on Cancel", document.activeElement === $("#clearCancel"));
+      check("Clear fields dialog: checkbox rows laid out the same way", !rowLayout($("#clearDlg")).bad.length);
       click("#clearConfirm");
       await until(() => !$("#clearDlg").open);
       await settle();

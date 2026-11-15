@@ -434,13 +434,15 @@ function renderRoleInterests() {
   const mine = Array.isArray(profile.roleInterests) ? profile.roleInterests : [];
   box.textContent = "";
   for (const area of globalThis.AAF_PREFMAP?.ROLE_AREAS || []) {
+    // The same checkbox row as everywhere (.check): the box, then its text as a block.
     const label = document.createElement("label");
-    label.style.cssText = "display:flex;gap:6px;align-items:center;flex-direction:row";
+    label.className = "check";
+    label.style.fontWeight = "400";
     const cb = document.createElement("input");
     cb.type = "checkbox";
     cb.value = area;
     cb.checked = mine.includes(area);
-    label.append(cb, area);
+    label.append(cb, Object.assign(document.createElement("span"), { textContent: area }));
     box.appendChild(label);
   }
 }
