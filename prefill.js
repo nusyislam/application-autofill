@@ -349,8 +349,7 @@
       if (!m) languages.push(x);
       else if (!m.proficiency) m.proficiency = x.proficiency;
     }
-    const certifications = [...r.certifications];
-    for (const c of l.certifications) if (!certifications.some((x) => norm(x) === norm(c))) certifications.push(c);
+    const certifications = [...r.certifications, ...l.certifications]; // deduplicated by core name in run()
     // Most recent first (the order Workday shows): current, then by end, then by start.
     const when = (e) => (e.current ? 9e5 : 0) + ((e.end || e.start)?.year || 0) * 13 + ((e.end || e.start)?.month || 0);
     experience.sort((a, b) => when(b.entry) - when(a.entry));
@@ -386,8 +385,30 @@
     if (cred) return false;
     return !!(e.inProgress || /expected graduation/i.test(sources));
   }
-  // Splits merged education into degree cards and certification names; a non-degree entry is skipped when it's
-  // already a certification or its organization is a job (suggested or on the page).
+  // Certification names compared by their core: generic words set aside ("Online Certification in Machine Learning
+  // Foundations" and "Machine Learning Foundations" are one), one containing the other as whole words = the same.
+  const GENERIC_CERT = /\b(online|certifications?|certificates?|certified|courses?|programs?|in|of|the)\b/g;
+  const coreName = (s) => norm(s).replace(GENERIC_CERT, " ").replace(/\s+/g, " ").trim();
+  const sameCore = (a, b) => {
+    const x = coreName(a);
+    const y = coreName(b);
+    return !!x && !!y && (x === y || ` ${x} `.includes(` ${y} `) || ` ${y} `.includes(` ${x} `));
+  };
+  // Keeps the first of each core name: the list comes resume first, so the resume's wording wins.
+  function dedupeCerts(list) {
+    const out = [];
+    for (const c of list) {
+      const dup = out.find((k) => sameCore(k, c));
+      if (dup) log(`certification "${c}" is "${dup}" (same name); kept once`);
+      else out.push(c);
+    }
+    return out;
+  }
+  // An organization that already has a job card: the company / organization names compared like certifications.
+  const sameOrg = (org, company) => same(org, company) || sameCore(org, company);
+
+  // Splits merged education into degree cards and certification names ({ name, from }); a non-degree entry is skipped
+  // when it's already a certification or its organization has a job card (suggested or on the page).
   function splitEducation(education, experience, certs, sources) {
     const jobs = [...experience.map((x) => x.entry.company), ...[...document.querySelectorAll('#experiences .card:not(.suggested) [data-f="company"]')].map((el) => el.value)].filter(Boolean);
     const have = [...certs, ...splitLines($('[data-k="certifications"]').value)];
@@ -399,11 +420,11 @@
         continue;
       }
       const name = x.entry.degree ? `${x.entry.degree}, ${x.entry.school}` : x.entry.school;
-      if (jobs.some((co) => same(co, x.entry.school))) log(`education entry "${name}": not a degree, and ${x.entry.school} is already a job; not added`);
-      else if (have.some((c) => norm(c).includes(norm(x.entry.degree || x.entry.school)))) log(`education entry "${name}": not a degree, already a certification; not added`);
+      if (jobs.some((co) => sameOrg(x.entry.school, co))) log(`education entry "${name}": not a degree, and ${x.entry.school} is already a job; not added`);
+      else if (have.some((c) => sameCore(c, x.entry.degree || x.entry.school))) log(`education entry "${name}": not a degree, already a certification; not added`);
       else {
         log(`education entry "${name}": not a degree; suggested as a certification`);
-        moreCerts.push(name);
+        moreCerts.push({ name, from: x.from });
       }
     }
     return { degrees, moreCerts };
@@ -470,10 +491,13 @@
         const m = merge(r, l);
         m.experience.forEach((x, i) => cards.push({ id: `exp${i}`, kind: "experience", item: expCard(x.entry), from: x.from, conflict: x.conflict || null }));
         newDescs = m.experience.filter((x) => x.alt).map((x) => ({ company: x.entry.company, title: x.entry.title, ...x.alt }));
-        const { degrees, moreCerts } = splitEducation(m.education, m.experience, m.certifications, `${resume}\n${linkedin}`);
+        const { degrees, moreCerts } = splitEducation(m.education, m.experience, [...r.certifications, ...l.certifications], `${resume}\n${linkedin}`);
         degrees.forEach((x, i) => cards.push({ id: `edu${i}`, kind: "education", item: eduCard(x.entry), from: x.from, conflict: x.conflict || null }));
         m.languages.forEach((x, i) => cards.push({ id: `lang${i}`, kind: "language", item: langCard(x), from: "resume / LinkedIn", note: LANG_NOTE }));
-        const certs = [...m.certifications, ...moreCerts];
+        // Resume first (its wording wins), then LinkedIn's: the resume's certifications and non-degree Education
+        // entries, then LinkedIn's.
+        const fromResume = (x) => /resume/.test(x.from);
+        const certs = dedupeCerts([...r.certifications, ...moreCerts.filter(fromResume).map((x) => x.name), ...l.certifications, ...moreCerts.filter((x) => !fromResume(x)).map((x) => x.name)]);
         if (certs.length) fields.certifications = { value: certs.join("\n"), from: "resume / LinkedIn" };
         const grad = degrees.find((x) => x.entry.inProgress && x.entry.end?.month);
         if (grad) fields.expectedGraduation = { value: `${String(grad.entry.end.month).padStart(2, "0")}/${grad.entry.end.year}`, from: grad.from };
@@ -841,7 +865,7 @@
     setSummary("");
   }
 
-  globalThis.AAF_PREFILL = { run, show, render, reset, acceptIn, discardIn, discardCard, deterministic, validate, verify, merge, FIELDS };
+  globalThis.AAF_PREFILL = { run, show, render, reset, acceptIn, discardIn, discardCard, deterministic, validate, verify, merge, coreName, dedupeCerts, sameOrg, FIELDS };
   // The setup guide calls this after the API key step (onboarding.js `hooks.afterMaterials`).
   if (globalThis.AAF_ONBOARDING) AAF_ONBOARDING.hooks.afterMaterials = (t) => run({ ...t, auto: true });
   // The first load() may finish before this file has loaded (load() calls show() too, for later loads): draw the

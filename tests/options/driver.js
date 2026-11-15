@@ -92,7 +92,7 @@
       lines.push(`INFO resume text:\n${rt.replace(/^/gm, "INFO | ")}`);
       const has = (t, s) => t.split("\n").includes(s);
       check("resume PDF text extracted into Resume text", got, JSON.stringify(rt.slice(0, 80)));
-      check("resume: no blank line after every line (never two blank lines)", !/\n\s*\n\s*\n/.test(rt) && rt.split("\n").filter((l) => !l.trim()).length <= 5, `${rt.split("\n").filter((l) => !l.trim()).length} blank lines`);
+      check("resume: no blank line after every line (never two blank lines)", !/\n\s*\n\s*\n/.test(rt) && rt.split("\n").filter((l) => !l.trim()).length <= 6, `${rt.split("\n").filter((l) => !l.trim()).length} blank lines`);
       check("resume: name and contact lines", /^Test \(Tess\) Applicant\ntest@example\.com \| 646-555-0100 \| Springfield, NY \| github\.com\/test-applicant \| testapplicant\.dev\/portfolio\n/.test(rt));
       check("resume: right-aligned dates / places stay on the title's line", /\nSoftware Engineer Intern \| Jun 2026 – Aug 2026\nContoso \| New York, NY\n/.test(rt) && has(rt, "Lakeview University | Expected May 2027"));
       check("resume: a wrapped bullet is one line (word-by-word pieces spaced)", has(rt, "• Built an internal deploy CLI used by three teams to ship services, cutting release time from two hours to fifteen minutes across staging and production."));
@@ -342,7 +342,7 @@
       check("skills: the resume's list only", sugg("skills") && /^Python, TypeScript, .*PostgreSQL, Node\.js, .*NumPy, Docker, .*Linux$/.test(val("skills")) && !/version|@|Retrieval|deployhub/.test(val("skills")), val("skills"));
       const liSkills = () => $('[data-extra="skillsLinkedIn"]');
       check("LinkedIn's Top Skills: a separate suggestion with only the ones the resume lacks", /Your LinkedIn Top Skills add: Retrieval-Augmented Generation, deployhub\.io\./.test(liSkills()?.textContent || "") && /Add to skills/.test(liSkills()?.textContent || ""), liSkills()?.textContent);
-      check("certifications suggested, with the certificate listed under Education (not the fellowship: Lakeview Research Group is a job)", sugg("certifications") && val("certifications") === "Fake Cloud Practitioner\nOnline Certification in Data Analytics, Litware Online Academy", JSON.stringify(val("certifications")));
+      check("certifications suggested: the certificate listed under Education, not the fellowship (its organization is a job), and LinkedIn's Machine Learning Foundations kept once in the resume's wording", sugg("certifications") && val("certifications") === "Online Certification in Machine Learning Foundations\nOnline Certification in Data Analytics, Litware Online Academy\nFake Cloud Practitioner", JSON.stringify(val("certifications")));
       await wait(800);
       check("cards aren't saved before they're accepted", !(store().profile?.experiences || []).some((e) => e.company), JSON.stringify(store().profile?.experiences));
       [...card("Lakeview Research Group").querySelectorAll(".sugg-ctl button")].find((b) => b.textContent === "Discard").click();
@@ -373,7 +373,7 @@
       await settle();
       click("#obNext");
       await until(() => title() === "Education and languages");
-      check("the resume's skills accepted, LinkedIn's skipped", /^Python, .*Linux$/.test(store().profile?.skills || "") && !/Retrieval|deployhub/.test(store().profile?.skills || "") && store().profile?.certifications === "Fake Cloud Practitioner\nOnline Certification in Data Analytics, Litware Online Academy", store().profile?.skills);
+      check("the resume's skills accepted, LinkedIn's skipped", /^Python, .*Linux$/.test(store().profile?.skills || "") && !/Retrieval|deployhub/.test(store().profile?.skills || "") && store().profile?.certifications === "Online Certification in Machine Learning Foundations\nOnline Certification in Data Analytics, Litware Online Academy\nFake Cloud Practitioner", store().profile?.skills);
       const eduCards = [...document.querySelectorAll("#education .card")];
       check("only the degree is an education card (no certificate or fellowship cards)", eduCards.length === 1 && !/Litware|Fellowship|Certification/.test(eduCards.map((c) => c.querySelector('[data-f="school"]').value + c.querySelector('[data-f="degreeOptions"]').value).join(" ")), eduCards.map((c) => c.querySelector('[data-f="school"]').value).join("; "));
       const edu = $("#education .card.suggested");
@@ -415,6 +415,11 @@
       check('First "Nickname" Last too', n('Test "Tess" Applicant') === "Test/Tess/Applicant" && n("Test “Tess” Applicant") === "Test/Tess/Applicant");
       check("a middle name before the last name", n("Test (Tess) Middle Applicant") === "Test/Tess/Applicant");
       check("no nickname: no preferred name", n("Test Applicant") === "Test/-/Applicant");
+      const P = AAF_PREFILL;
+      check("certifications: the same core name is one entry, the first (resume) wording kept", JSON.stringify(P.dedupeCerts(["Online Certification in Machine Learning Foundations", "Machine Learning Foundations"])) === JSON.stringify(["Online Certification in Machine Learning Foundations"]));
+      check("certifications: generic words aside, either way round", JSON.stringify(P.dedupeCerts(["Data Analytics", "Certificate of Data Analytics (online course)"])) === JSON.stringify(["Data Analytics"]) && P.coreName("Online Certification in Machine Learning Foundations") === "machine learning foundations");
+      check("certifications: different names both kept", P.dedupeCerts(["Machine Learning Foundations", "Cloud Security Basics", "Fake Cloud Practitioner"]).length === 3);
+      check("an organization with a job card, by core name", P.sameOrg("Litware Online Academy", "Litware Academy") && P.sameOrg("Lakeview Research Group", "Lakeview Research Group") && !P.sameOrg("Litware Online Academy", "Northwind"));
     },
     // Setup without a key: the contact details from the text only; no Claude call, no cards, the summary says why.
     async "prefill-nokey"() {

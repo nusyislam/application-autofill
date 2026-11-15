@@ -74,7 +74,7 @@
         { school: "Lakeview Research Group", degree: "Summer Research Fellowship", field: null, start: null, end: { month: null, year: 2025 }, inProgress: false },
       ],
       languages: [],
-      certifications: [],
+      certifications: ["Online Certification in Machine Learning Foundations"],
     },
     linkedin: {
       experience: [
@@ -84,7 +84,7 @@
       ],
       education: [{ school: "Lakeview University", degree: "Bachelor of Engineering - BE", field: "Computer Engineering", start: { month: 8, year: 2023 }, end: { month: 5, year: 2027 }, inProgress: true }],
       languages: [{ name: "Italian", proficiency: "Elementary" }, { name: "Spanish", proficiency: "Native or Bilingual" }],
-      certifications: ["Fake Cloud Practitioner"],
+      certifications: ["Fake Cloud Practitioner", "Machine Learning Foundations"],
     },
   };
   window.__messages = JSON.parse(sessionStorage.getItem("__aafMessages") || "[]");
