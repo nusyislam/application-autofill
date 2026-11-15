@@ -17,6 +17,15 @@
       ],
     },
     {
+      id: "api",
+      title: "Claude API key (optional)",
+      text: [
+        "Optional. With a key, Claude reads your resume and LinkedIn text into the next steps (work history, education, languages) as suggestions for you to accept, and later answers application questions no built-in rule answers and drafts open-ended answers for you to review.",
+        "It uses your own Anthropic API key (bring your own key, from console.anthropic.com), so requests are billed to your Anthropic account. Requests go straight from this browser to api.anthropic.com; there is no other server.",
+        "What a request can contain: your resume and LinkedIn text (for these suggestions and for drafts), the unanswered questions and their options, the job description, a summary of your profile and your notes. Never sent: self-identification answers, attestations, pay, passwords and other sensitive fields, and the resume file itself.",
+        "Without a key everything else still works: your contact details, links and skills are still suggested from the text, and you fill in the rest.",
+      ],
+    },    {
       id: "contact",
       title: "Contact info and links",
       text: [
@@ -26,13 +35,13 @@
     },
     {
       id: "work",
-      title: "Work experience",
-      text: ["One card per job, most recent first. Months as numbers (1-12). Tick \"I currently work here\" for a job you still have."],
+      title: "Work experience and skills",
+      text: ["One card per job, most recent first. Months as numbers (1-12). Tick \"I currently work here\" for a job you still have. Then your skills (searched in Workday's skills box) and certifications."],
     },
     {
       id: "education",
-      title: "Education",
-      text: ["Your school, the degree wordings in order of preference, your field of study, and your expected graduation date (MM/DD/YYYY or MM/YYYY)."],
+      title: "Education and languages",
+      text: ["Your school, the degree wordings in order of preference, your field of study, and your expected graduation date (MM/DD/YYYY or MM/YYYY). Then the languages you speak, if any."],
     },
     {
       id: "answers",
@@ -50,25 +59,15 @@
         "Leaving them blank is fine: those questions are then left for you. Use Skip step if you'd rather not.",
       ],
     },
-    {
-      id: "api",
-      title: "Claude API key (optional)",
-      text: [
-        "Optional. Claude can answer application questions no built-in rule answers, and draft open-ended answers for you to review.",
-        "It uses your own Anthropic API key (bring your own key, from console.anthropic.com), so requests are billed to your Anthropic account. Requests go straight from this browser to api.anthropic.com; there is no other server.",
-        "What a request can contain: the unanswered questions and their options, the job description, a summary of your profile and, for drafts, your resume text, LinkedIn text and notes. Never sent: self-identification answers, attestations, pay, passwords and other sensitive fields, and the resume file itself.",
-        "Without a key everything else still works; those questions are left for you.",
-      ],
-    },
     { id: "done", title: "Done", text: ["Here's what's filled and what's still blank. Blank fields aren't a problem: those questions are left for you on forms. You can change anything on this page later."] },
   ];
 
-  // Hook for the rest of the "First-run setup" issue: prefilling profile fields from the resume / LinkedIn text.
-  // Called after step 1's Next has saved, with the text boxes' contents; set it to an async function that fills the
-  // fields of the later steps (it runs before step 2 is shown). Nothing is registered yet.
+  // Prefill from the resume / LinkedIn text (prefill.js registers it): called after the API key step's Next has saved
+  // (so the key, if any, is known), with the saved texts, before the contact step is shown.
   const hooks = { afterMaterials: null };
 
   let step = -1;
+  const ix = (id) => STEPS.findIndex((s) => s.id === id);
   const $ = (s) => document.querySelector(s);
   const store = (v) => chrome.storage.local.set({ onboarding: v });
 
@@ -103,22 +102,22 @@
     const eeo = ["gender", "hispanic", "race", "veteran", "disability"];
     const chars = (s) => `${String(s || "").trim().length} characters`;
     return [
-      ["Resume file", !!resumeFile, resumeFile?.name || "", 0],
-      ["Resume text", has(p.resumeText), chars(p.resumeText), 0],
-      ["LinkedIn profile text", has(p.linkedinText), chars(p.linkedinText), 0],
-      ["Name", has(p.firstName) && has(p.lastName), [p.firstName, p.lastName].filter(has).join(" "), 1],
-      ["Email", has(p.email), p.email, 1],
-      ["Phone", has(p.phone), p.phone, 1],
-      ["Address", has(p.address1) && has(p.city) && has(p.zip), [p.city, p.state].filter(has).join(", "), 1],
-      ["LinkedIn URL", has(p.linkedin), "", 1],
-      ["GitHub / website", has(p.github) || has(p.website), "", 1, true],
-      ["Work experience", jobs > 0, `${jobs} job${jobs === 1 ? "" : "s"}`, 2],
-      ["Education", schools > 0, `${schools} school${schools === 1 ? "" : "s"}`, 3],
-      ["Expected graduation date", has(p.expectedGraduation), p.expectedGraduation, 3, true],
-      ["Work authorization and fixed answers", count(a, fixed) === fixed.length, `${count(a, fixed)} of ${fixed.length} set`, 4],
-      ["Government / military history", count(a, gov) === gov.length, `${count(a, gov)} of ${gov.length} set`, 4],
-      ["Self-identification", count(e, eeo) > 0, `${count(e, eeo)} of ${eeo.length} set`, 5, true],
-      ["Claude API key", has(p.api?.key), "", 6, true],
+      ["Resume file", !!resumeFile, resumeFile?.name || "", ix("materials")],
+      ["Resume text", has(p.resumeText), chars(p.resumeText), ix("materials")],
+      ["LinkedIn profile text", has(p.linkedinText), chars(p.linkedinText), ix("materials")],
+      ["Name", has(p.firstName) && has(p.lastName), [p.firstName, p.lastName].filter(has).join(" "), ix("contact")],
+      ["Email", has(p.email), p.email, ix("contact")],
+      ["Phone", has(p.phone), p.phone, ix("contact")],
+      ["Address", has(p.address1) && has(p.city) && has(p.zip), [p.city, p.state].filter(has).join(", "), ix("contact")],
+      ["LinkedIn URL", has(p.linkedin), "", ix("contact")],
+      ["GitHub / website", has(p.github) || has(p.website), "", ix("contact"), true],
+      ["Work experience", jobs > 0, `${jobs} job${jobs === 1 ? "" : "s"}`, ix("work")],
+      ["Education", schools > 0, `${schools} school${schools === 1 ? "" : "s"}`, ix("education")],
+      ["Expected graduation date", has(p.expectedGraduation), p.expectedGraduation, ix("education"), true],
+      ["Work authorization and fixed answers", count(a, fixed) === fixed.length, `${count(a, fixed)} of ${fixed.length} set`, ix("answers")],
+      ["Government / military history", count(a, gov) === gov.length, `${count(a, gov)} of ${gov.length} set`, ix("answers")],
+      ["Self-identification", count(e, eeo) > 0, `${count(e, eeo)} of ${eeo.length} set`, ix("eeo"), true],
+      ["Claude API key", has(p.api?.key), "", ix("api"), true],
     ];
   }
 
@@ -184,12 +183,16 @@
     if (STEPS[step].id === "done") return finish("done");
     $("#obNext").disabled = true;
     try {
+      // Next accepts this step's suggestions from the resume (prefill.js), then saves.
+      await globalThis.AAF_PREFILL?.acceptIn([...document.querySelectorAll("main > section.ob-on")]);
       if (!(await save())) {
         $("#obMsg").className = "status err";
         $("#obMsg").textContent = "Not saved: fix the value named in the bar below, then Next.";
         return;
       }
-      if (STEPS[step].id === "materials" && hooks.afterMaterials) {
+      if (STEPS[step].id === "api" && hooks.afterMaterials) {
+        $("#obMsg").className = "status";
+        $("#obMsg").textContent = "Reading your resume into the form…";
         await hooks.afterMaterials({ resumeText: profile.resumeText || "", linkedinText: profile.linkedinText || "" });
       }
       await show(step + 1);

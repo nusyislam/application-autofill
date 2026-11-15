@@ -69,7 +69,7 @@ fake-data pages in `src/` by `tools/screenshots.ps1`. The package is `dist/appli
 
 **Data usage** (what the extension collects or uses):
 
-- [x] **Personally identifiable information**: name, email, phone, address, work and education history, links, the user's own answers to application questions. Entered by the user in Options; stored locally; a text summary is sent to the Anthropic API when the user has turned Claude on and a page has questions no rule answers.
+- [x] **Personally identifiable information**: name, email, phone, address, work and education history, links, the user's own answers to application questions. Entered by the user in Options; stored locally; a text summary is sent to the Anthropic API when the user has turned Claude on and a page has questions no rule answers; the resume and LinkedIn text the user added is also sent when the user asks Options to fill the profile from it (setup prefill).
 - [x] **Authentication information**: the user's own Anthropic API key, stored locally and sent only to api.anthropic.com as the request header.
 - [x] **Website content**: the labels, options and job description of the application page being filled, sent to the Anthropic API for the questions no rule answers (and only then).
 - [ ] Health information

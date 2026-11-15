@@ -60,6 +60,9 @@
   .status.err{color:var(--red)}
   /* Setup guide (onboarding.js): one step at a time, showing the real sections of this page for that step. */
   .topline{display:flex;gap:14px;align-items:baseline;flex-wrap:wrap;margin:0 0 10px}
+  .setup-link{display:inline-flex;flex-direction:column;align-items:flex-start;gap:2px}
+  /* The setup guide runs the resume suggestions itself. */
+  body.onboarding #prefillRow{display:none}
   .ob{background:var(--accent-soft);border:1px solid var(--accent);border-radius:12px;padding:16px;margin:16px 0}
   .ob[hidden]{display:none}
   .ob .progress{font-size:12px;color:var(--mut);font-weight:600;margin:0 0 4px}
@@ -74,6 +77,18 @@
   body.onboarding main > section:not(.ob-on){display:none}
   body.onboarding main > section.ob-on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
   .ob-hook{border-left:3px solid var(--accent);padding-left:10px}
+  /* Suggestions from the resume (prefill.js): outlined until accepted. */
+  .suggested{outline:2px dashed var(--accent);outline-offset:1px;background:var(--accent-soft)}
+  .card.suggested{border-color:var(--accent)}
+  .sugg-ctl,.sugg-bar{display:block;font-size:12px;font-weight:400;color:var(--mut);margin-top:4px}
+  .card .sugg-ctl{margin:0 70px 8px 0}
+  .sugg-bar{margin:-6px 0 12px;padding:6px 10px;border-radius:8px;background:var(--accent-soft);color:var(--text)}
+  .sugg-conflict{color:var(--warn-text);background:var(--warn-bg);border-radius:6px;padding:1px 6px;margin-left:4px}
+  #prefillSummary:not(:empty){margin-top:8px}
+  .desc-alt{display:block;font-size:12px;color:var(--mut);margin-top:-4px}
+  .desc-warn{font-size:12px;color:var(--warn-text);background:var(--warn-bg);border-radius:6px;padding:4px 8px}
+  .desc-warn[hidden]{display:none}
+  details{margin-top:4px}
   /* Clear fields dialog (a <dialog>, not window.confirm). */
   dialog.modal{border:1px solid var(--b);border-radius:12px;background:var(--surface);color:var(--text);padding:20px;max-width:460px;width:calc(100% - 32px);box-sizing:border-box}
   dialog.modal::backdrop{background:var(--shade)}
@@ -89,7 +104,10 @@
 <main>
   <div class="topline">
     <h1>Application Autofill</h1>
-    <button type="button" class="linkbtn" id="runSetup">Run setup again</button>
+    <span class="setup-link">
+      <button type="button" class="linkbtn" id="runSetup">Walk through setup</button>
+      <span class="hint" id="runSetupHint" style="margin:0">Your answers are kept. To start over, use Clear fields.</span>
+    </span>
   </div>
   <p class="hint" style="margin:0">Everything stays in this browser. When Claude is on, the question text and the materials you add here (profile summary, resume text, LinkedIn text, notes) are sent to Anthropic with your key. Self-identification answers never are.</p>
 
@@ -98,6 +116,7 @@
     <p class="progress" id="obProgress"></p>
     <h2 id="obTitle" tabindex="-1"></h2>
     <div id="obBody"></div>
+    <div id="prefillSummary" class="status" role="status"></div>
     <div class="actions">
       <button type="button" id="obBack">Back</button>
       <button type="button" id="obSkipStep">Skip step</button>
@@ -154,6 +173,11 @@
       <label class="check" style="font-weight:400">LinkedIn profile PDF (on your LinkedIn profile: More &gt; Save to PDF) <input type="file" id="linkedinPdf" accept=".pdf,application/pdf"></label>
     </div>
     <p id="linkedinTextStatus" class="status" role="status" style="margin:6px 0 0"></p>
+    <div class="row" id="prefillRow" style="margin-top:12px">
+      <button type="button" id="prefillBtn">Suggest fields from my resume</button>
+      <span class="hint" style="margin:0">Only fills empty fields; you review each suggestion.</span>
+    </div>
+    <div id="prefillStatus" class="status" role="status" style="margin:6px 0 0"></div>
     <label class="full" style="margin-top:10px">LinkedIn profile (text): paste your profile, or upload LinkedIn's PDF above and its text is read here, in this browser; add any accuracy notes. Draft mode uses it with your resume and notes to draft open-ended answers.
       <textarea data-k="linkedinText" style="min-height:140px"></textarea>
     </label>
@@ -180,17 +204,20 @@
     <button id="addEdu">+ Add school</button>
   </section>
 
-  <section>
+  <section id="secLang" data-step="education">
     <h2>Languages</h2>
     <p class="hint">One entry per language. Proficiency levels are tried in order (separated by |); the first one the company's dropdown offers wins. Tick "blue" to mark that field for double-checking.</p>
     <div id="languages"></div>
     <button id="addLang">+ Add language</button>
   </section>
 
-  <section>
+  <section id="secSkills" data-step="work">
     <h2>Skills</h2>
     <label class="full">Comma separated (each one is searched in Workday's skills box). A skill can list aliases with |, tried in order until one is found, e.g. "C++ Programming Language | C++ | C++ (Programming Language)"
       <textarea data-k="skills"></textarea>
+    </label>
+    <label class="full" style="margin-top:10px">Certifications (one per line)
+      <textarea data-k="certifications"></textarea>
     </label>
     <p class="hint" style="margin-top:10px">Skills a Workday site's list doesn't have (not found there; skipped on that site for 7 days):</p>
     <table id="skillMisses"></table>
@@ -397,5 +424,6 @@
 <script src="pdftext.js"></script>
 <script src="options.js"></script>
 <script src="onboarding.js"></script>
+<script src="prefill.js"></script>
 </body>
 </html>

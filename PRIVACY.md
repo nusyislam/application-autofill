@@ -1,6 +1,6 @@
 # Privacy policy: Application Autofill
 
-Last updated: 2026-11-14. Applies to the Chrome extension "Application Autofill" (the "extension"), published from
+Last updated: 2026-11-15. Applies to the Chrome extension "Application Autofill" (the "extension"), published from
 https://github.com/nusyislam/application-autofill.
 
 ## Summary
@@ -33,8 +33,8 @@ in its manifest.
 
 ## What is sent, and where
 
-Nothing is sent anywhere unless "Use Claude" is on and an API key is set. Then, and only for questions no built-in rule
-could answer, the extension calls `https://api.anthropic.com/v1/messages` directly from your browser with your key.
+Nothing is sent anywhere unless "Use Claude" is on and an API key is set. Then, only for questions no built-in rule
+could answer and for a setup prefill you start, the extension calls `https://api.anthropic.com/v1/messages` directly from your browser with your key.
 There is no intermediary: the developer runs no server and never sees these requests.
 
 What a request can contain:
@@ -44,6 +44,7 @@ What a request can contain:
 - A text summary of your profile (name, location, education, work history, skills, fixed answers), and, for drafts of
   open-ended answers, your resume text, LinkedIn profile text, extra notes and projects to highlight.
 - For "Do you have experience with X?" questions: the question and the same materials, so the model can quote them.
+- For setup prefill (Options: the setup guide after the API key step, or "Suggest fields from my resume"): your resume text and LinkedIn profile text, the same materials drafts use, to turn them into work history, education, languages and certifications that you review and accept before anything is saved. Contact details, links and skills are read from the text in your browser, without a request.
 - For the learning classifier: the question text only, never your answer.
 - For option mapping: the question's options and the preferences you checked in Options.
 

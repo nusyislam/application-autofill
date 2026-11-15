@@ -63,6 +63,7 @@ const calls = {
   "question classifier (classifyAsk)": () => ctx.classifyAsk({ questions: [{ id: 1, question: "What is your favorite color?", type: "text" }], site: "test" }),
   "preference mapper (mapPrefs)": () => ctx.mapPrefs({ question: "Which teams?", options: ["Search & Ranking"], prefs: ["Infrastructure"] }),
   "learning classifier (classifyQuestions)": () => ctx.classifyQuestions(["What is your favorite color?"]),
+  "setup prefill (prefillAI)": () => ctx.prefillAI({ resumeText: "Test Applicant\nSoftware Engineer Intern, Contoso", linkedinText: "" }),
 };
 
 const BANNED = ["temperature", "top_p", "top_k"];

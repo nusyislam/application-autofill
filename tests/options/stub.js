@@ -22,7 +22,7 @@
     filled: { profile: structuredClone(FILLED), resumeFile: RESUME },
     // Only the API settings saved (what Clear leaves): still an empty profile.
     "api-only": { profile: { api: { key: "sk-ant-test-not-a-real-key" } } },
-    resume: { onboarding: { step: 3 } },
+    resume: { onboarding: { step: 4 } },
     skipped: { onboarding: { finished: true, how: "skipped" } },
     pdf: {},
     next: {},
@@ -34,6 +34,9 @@
     "reload-setup": {},
     "reload-outside": { profile: structuredClone(FILLED), resumeFile: RESUME },
     "leave-warns": { profile: structuredClone(FILLED), resumeFile: RESUME },
+    "prefill-setup": {},
+    "prefill-nokey": {},
+    "prefill-existing": { profile: structuredClone(FILLED), resumeFile: RESUME, onboarding: { finished: true, how: "done" } },
   };
   // The storage survives a reload of the page (sessionStorage), like chrome.storage does: the reload scenarios check
   // what was saved before it.
@@ -53,8 +56,42 @@
     }
     return out;
   };
+  // The setup prefill's Claude reply (background.js PREFILL), as the fake PDFs read: three real jobs plus the current
+  // one, and two things that are NOT in the texts (an invented job and an invented bullet: both must be dropped), and
+  // Contoso starting in May on LinkedIn but June on the resume (a conflict to flag).
+  const PREFILL = {
+    resume: {
+      experience: [
+        { company: "Contoso", title: "Software Engineer Intern", location: "New York, NY", start: { month: 6, year: 2026 }, end: { month: 8, year: 2026 }, current: false, bullets: ["Built an internal deploy CLI used by three teams to ship services, cutting release time from two hours to fifteen minutes across staging and production.", "Wrote retrieval quality checks, labeling guidelines and the first set of offline ranking evals. Most regressions were then caught before code review, and the shared test suite now runs end-to-end on every pull request.", "Led a team of forty engineers across three continents."] },
+        { company: "Northwind", title: "AI Engineer Intern", location: "Riverton, NJ", start: { month: 6, year: 2025 }, end: { month: 8, year: 2025 }, current: false, bullets: ["Built a retrieval evaluation harness and a citation checker for the support pilot, so that every generated answer quoted its sources and followed the strict evidence rules that the compliance reviewers set."] },
+        { company: "Lakeview Research Group", title: "Research Assistant", location: null, start: null, end: null, current: false, bullets: ["Ran ablations on chunk size and reranking for a campus search prototype, and wrote the weekly summaries the lab used to plan the next round of experiments and the quarterly grant reports to the department."] },
+        { company: "Lakeview University", title: "Teaching Assistant", location: "Springfield, NY", start: { month: 9, year: 2025 }, end: null, current: true, bullets: ["Held weekly office hours for an introductory programming course and graded labs."] },
+        { company: "Quantum Widgets", title: "Chief Technology Officer", location: "Remote", start: { month: 1, year: 2020 }, end: { month: 12, year: 2022 }, current: false, bullets: ["Scaled the platform to ten million users."] },
+      ],
+      education: [{ school: "Lakeview University", degree: "B.E.", field: "Computer Engineering", start: null, end: { month: 5, year: 2027 }, inProgress: true }],
+      languages: [],
+      certifications: [],
+    },
+    linkedin: {
+      experience: [
+        { company: "Northwind", title: "AI Engineer Intern", location: "Riverton, New Jersey, United States", start: { month: 6, year: 2025 }, end: { month: 8, year: 2025 }, current: false, bullets: ["Built an evaluation harness for a retrieval pipeline and replaced the weekly manual spot checks and ad hoc queries with one shared, nightly end-to-end regression report that the search team reviewed every morning.", "Cut the nightly report runtime from forty minutes to six.", "Wrote the on-call runbook for the evaluation jobs.", "Presented the results to the search team leads."] },
+        { company: "Contoso", title: "Software Engineer Intern", location: "New York, New York, United States", start: { month: 5, year: 2026 }, end: { month: 8, year: 2026 }, current: false, bullets: [] },
+        { company: "Fabrikam", title: "Volunteer Tutor", location: "Springfield, New York, United States", start: { month: 1, year: 2024 }, end: { month: 5, year: 2024 }, current: false, bullets: ["Tutored first-year students in introductory programming twice a week."] },
+      ],
+      education: [{ school: "Lakeview University", degree: "Bachelor of Engineering - BE", field: "Computer Engineering", start: { month: 8, year: 2023 }, end: { month: 5, year: 2027 }, inProgress: true }],
+      languages: [{ name: "Italian", proficiency: "Elementary" }],
+      certifications: ["Fake Cloud Practitioner"],
+    },
+  };
+  window.__messages = JSON.parse(sessionStorage.getItem("__aafMessages") || "[]");
+  const sendMessage = async (msg) => {
+    window.__messages.push({ type: msg?.type, resumeChars: (msg?.resumeText || "").length, linkedinChars: (msg?.linkedinText || "").length, resumeHasContoso: /Contoso/.test(msg?.resumeText || ""), linkedinHasNorthwind: /Northwind/.test(msg?.linkedinText || "") });
+    sessionStorage.setItem("__aafMessages", JSON.stringify(window.__messages));
+    if (msg?.type === "PREFILL") return { model: "claude-sonnet-5-5", answers: [{ id: 0, answer: structuredClone(PREFILL) }] };
+    return {};
+  };
   window.chrome = {
-    runtime: { id: "test", sendMessage: async () => ({}), getManifest: () => ({ version: "test" }) },
+    runtime: { id: "test", sendMessage, getManifest: () => ({ version: "test" }) },
     storage: {
       local: {
         get: async (keys) => pick(keys),

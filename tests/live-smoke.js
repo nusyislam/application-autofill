@@ -40,6 +40,7 @@ const paths = {
   "preference mapper": () => bg.mapPrefs({ question: "Which teams interest you?", options: ["Search & Ranking", "Payroll"], prefs: ["Machine learning"] }),
   "learning classifier": () => bg.classifyQuestions([`What is your favorite color? (${Date.now()})`]),
   "YC note": () => bg.ycNoteAI({ founder: "Alex", company: "Examplecorp", job: { title: "Software Engineer", description: "Developer tools." } }),
+  "setup prefill": () => bg.prefillAI({ resumeText: "Test Applicant\nSoftware Engineer Intern, Contoso, Jun 2026 - Aug 2026\n- Built a deploy CLI.", linkedinText: "" }),
 };
 
 (async () => {

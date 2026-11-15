@@ -67,6 +67,8 @@ const DEFAULT_PROFILE = {
   // Languages you speak: none by default (Options adds them; see the language fields there for the levels).
   languages: [],
   skills: "",
+  // One per line (setup prefill fills it from the resume / LinkedIn; not used on forms yet).
+  certifications: "",
   answers: {
     workAuth: "",
     sponsorship: "",
@@ -122,13 +124,17 @@ function addCard(box, tplId, item = {}) {
     else el.value = v ?? "";
   });
   node.querySelector(".rm").addEventListener("click", () => {
+    // A suggested card (prefill.js) isn't in the profile yet: Remove discards the suggestion.
+    if (node.classList.contains("suggested")) return globalThis.AAF_PREFILL?.discardCard(node.dataset.sid);
     node.remove();
     changed();
   });
   box.appendChild(node);
+  return node;
 }
+// The cards Save saves: not suggestions from the resume (prefill.js) until they are accepted.
 function readList(container) {
-  return [...$(container).querySelectorAll(".card")].map((card) => {
+  return [...$(container).querySelectorAll(".card:not(.suggested)")].map((card) => {
     const o = {};
     card.querySelectorAll("[data-f]").forEach((el) => (o[el.dataset.f] = el.type === "checkbox" ? el.checked : el.value.trim()));
     return o;
@@ -419,6 +425,7 @@ async function load() {
   renderDeleted();
   $("#resumeName").textContent = s.resumeFile ? `Saved: ${s.resumeFile.name}` : "No resume saved yet";
   setDirty(false); // the page now shows what's stored
+  await globalThis.AAF_PREFILL?.show(); // suggestions from the resume not yet accepted or discarded
 }
 
 // Role interests: a fixed checklist of standard areas (shared/prefmap.js), empty by default.
@@ -452,7 +459,8 @@ async function save() {
     $("#saved").textContent = "Not saved: birth month / year must be MM/YYYY";
     return false;
   }
-  document.querySelectorAll("[data-k]").forEach((el) => setPath(profile, el.dataset.k, el.value.trim()));
+  // A suggested value (prefill.js, outlined) isn't saved until it's accepted: the stored value stays.
+  document.querySelectorAll("[data-k]").forEach((el) => !el.dataset.suggest && setPath(profile, el.dataset.k, el.value.trim()));
   if (profile.eeo) delete profile.eeo.ageRange; // replaced by Birth month / year
   profile.experiences = readList("#experiences");
   profile.education = readList("#education");
@@ -605,7 +613,8 @@ async function clearProfile({ key = false, learnedToo = false } = {}) {
   const { profile: stored } = await chrome.storage.local.get("profile");
   const api = { ...(stored?.api || {}) };
   if (key) delete api.key;
-  await chrome.storage.local.remove(["profile", "resumeFile", ...(learnedToo ? ["learned", "learnedDeleted"] : [])]);
+  await chrome.storage.local.remove(["profile", "resumeFile", "prefill", ...(learnedToo ? ["learned", "learnedDeleted"] : [])]);
+  await globalThis.AAF_PREFILL?.reset();
   if (Object.values(api).some((v) => v)) await chrome.storage.local.set({ profile: { api } });
   for (const id of ["#resumeFile", "#linkedinPdf"]) $(id).value = "";
   for (const id of ["#resumeTextStatus", "#linkedinTextStatus"]) $(id).textContent = "";
