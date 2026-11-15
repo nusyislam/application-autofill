@@ -2,7 +2,7 @@
 // options.html (stub.js seeded the storage) and writes PASS / FAIL lines into <pre id="aaf-report"> between @@BEGIN
 // and @@END. Fake data only.
 (() => {
-  const lines = [];
+  const lines = JSON.parse(sessionStorage.getItem("__aafLines") || "[]"); // lines from before a reload
   const check = (name, ok, detail = "") => lines.push(`${ok ? "PASS" : "FAIL"} ${name}${ok && !detail ? "" : detail ? ` (${detail})` : ""}`);
   const $ = (s) => document.querySelector(s);
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -44,6 +44,13 @@
     input.dispatchEvent(new Event("change", { bubbles: true }));
   };
   const click = (sel) => $(sel).click();
+  const unsavedShown = () => !!$("#unsaved") && !$("#unsaved").hidden;
+  // Would leaving the page ask first? (a beforeunload listener cancelled the event)
+  const leaveAsks = () => {
+    const e = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(e);
+    return e.defaultPrevented;
+  };
   const settle = () => wait(300);
 
   const SCENARIOS = {
@@ -125,7 +132,70 @@
       check("own text kept, replace offered", val("linkedinText") === "My own pasted text" && !!$("#linkedinTextStatus button"));
       $("#linkedinTextStatus button").click();
       check("replace puts the PDF text in", /AI Engineer Intern/.test(val("linkedinText")));
-      check("nothing saved to the profile before Next / Save", !store().profile);
+      await until(() => /AI Engineer Intern/.test(store().profile?.linkedinText || ""), 3000);
+      check("extracted texts are saved at once (setup), without Next", /Built an internal deploy CLI/.test(store().profile?.resumeText || "") && /AI Engineer Intern/.test(store().profile?.linkedinText || ""));
+    },
+    // Setup: extract a PDF and type in a field, reload without Next: the step, the file and the texts are kept. Then
+    // Next, type on step 2, reload again: step 2 with the typed value.
+    async "reload-setup"() {
+      const phase = sessionStorage.getItem("__aafPhase") || "1";
+      if (phase === "1") {
+        await upload("#resumeFile", "tests/options/fake-resume.pdf", "application/pdf");
+        await until(() => /Built an internal deploy CLI/.test(val("resumeText")), 15000);
+        type("extraNotes", "Notes typed during setup");
+        check("no Unsaved changes note during setup", !unsavedShown());
+        await wait(800); // the 500 ms auto-save
+        check("nothing unsaved after the auto-save: leaving doesn't ask", !leaveAsks());
+        sessionStorage.setItem("__aafPhase", "2");
+        return "reload";
+      }
+      if (phase === "2") {
+        check("after a reload: setup resumes on step 1", guideOpen() && title() === "Resume and LinkedIn", title());
+        check("after a reload: the resume file is kept", $("#resumeName").textContent === "Saved: fake-resume.pdf", $("#resumeName").textContent);
+        check("after a reload: the extracted resume text is kept (no Next)", /Built an internal deploy CLI/.test(val("resumeText")) && /^Test Applicant\n/.test(val("resumeText")));
+        check("after a reload: a typed field is kept (auto-saved)", val("extraNotes") === "Notes typed during setup", JSON.stringify(val("extraNotes")));
+        click("#obNext");
+        await until(() => title() === "Contact info and links");
+        type("phone", "6465550100");
+        await wait(800);
+        sessionStorage.setItem("__aafPhase", "3");
+        return "reload";
+      }
+      check("after a second reload: setup resumes on step 2", guideOpen() && title() === "Contact info and links", title());
+      check("after a second reload: the step 2 value typed without Next is kept", val("phone") === "6465550100", JSON.stringify(val("phone")));
+      check("and step 1's text too", /Built an internal deploy CLI/.test(val("resumeText")));
+    },
+    // Outside setup: an extracted PDF text is saved with it at once (only that box), so a reload keeps it.
+    async "reload-outside"() {
+      const phase = sessionStorage.getItem("__aafPhase") || "1";
+      if (phase === "1") {
+        check("setup not shown (filled profile)", !guideOpen());
+        await upload("#linkedinPdf", "tests/options/fake-linkedin.pdf", "application/pdf");
+        await until(() => /AI Engineer Intern/.test(store().profile?.linkedinText || ""), 15000);
+        check("the extracted text alone leaves nothing unsaved", !unsavedShown() && !leaveAsks());
+        check("only that box was written (other fields as stored)", store().profile?.email === "test@example.com" && store().profile?.resumeText === "Test Applicant, Lakeview University");
+        sessionStorage.setItem("__aafPhase", "2");
+        return "reload";
+      }
+      check("after a reload: the extracted LinkedIn text is kept", /AI Engineer Intern/.test(val("linkedinText")));
+    },
+    // Outside setup: an edit shows "Unsaved changes" and leaving asks first; Save clears both.
+    async "leave-warns"() {
+      check("nothing changed: no note, leaving doesn't ask", !unsavedShown() && !leaveAsks());
+      type("email", "changed@example.com");
+      check("an edit shows Unsaved changes next to Save", unsavedShown() && $("#unsaved").textContent === "Unsaved changes" && $(".bar #unsaved") !== null);
+      check("leaving with unsaved changes asks first (beforeunload)", leaveAsks());
+      await wait(800);
+      check("outside setup nothing is saved on its own", store().profile?.email === "test@example.com");
+      click("#save");
+      await until(() => store().profile?.email === "changed@example.com");
+      check("Save saves and clears the note", store().profile?.email === "changed@example.com" && !unsavedShown() && !leaveAsks());
+      click("#addExp");
+      check("adding a job card counts as a change", leaveAsks() && unsavedShown());
+      click("#save");
+      await settle();
+      $("#experiences .card:last-child .rm").click();
+      check("removing a card counts as a change", leaveAsks());
     },
     async next() {
       type("resumeText", "Test Applicant resume text");
@@ -136,9 +206,13 @@
       check("progress saved as step 2", store().onboarding?.step === 1, JSON.stringify(store().onboarding));
       check("focus moves to the step title", document.activeElement === $("#obTitle"));
       type("email", "test@example.com");
+      await wait(200);
+      check("an edit isn't saved before the 500 ms auto-save delay", store().profile?.email === "", JSON.stringify(store().profile?.email));
+      await wait(600);
+      check("an edit during setup is auto-saved (no Next)", store().profile?.email === "test@example.com", JSON.stringify(store().profile?.email));
       click("#obBack");
       await settle();
-      check("Back goes to step 1 without saving", title() === "Resume and LinkedIn" && store().profile?.email === "", JSON.stringify(store().profile?.email));
+      check("Back goes to step 1", title() === "Resume and LinkedIn");
       click("#obNext");
       await until(() => title() === "Contact info and links");
       click("#obNext");
@@ -273,7 +347,13 @@
         await wait(800);
       } else await optionsReady;
       await wait(400);
-      await run();
+      // A scenario that reloads the page returns "reload": its lines so far are carried over (sessionStorage) and the
+      // report is written after the last phase.
+      if ((await run()) === "reload") {
+        sessionStorage.setItem("__aafLines", JSON.stringify(lines));
+        location.reload();
+        return;
+      }
     } catch (e) {
       lines.push(`FAIL ${e.message || e}`);
     }

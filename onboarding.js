@@ -3,7 +3,8 @@
 // sections are hidden while the guide is open. Shown automatically the first time Options opens with an empty
 // profile; "Run setup again" restarts it, "Skip setup" ends it. Progress is kept in chrome.storage.local
 // `onboarding` ({ step } while open, { finished, how } after), so closing the tab resumes at the same step.
-// Next saves the page (save() in options.js); Back and Skip step don't.
+// While the guide is open, options.js saves every change on its own (500 ms after the last edit, at once after a PDF's
+// text), so a reload resumes the step with everything kept; Next saves too and moves on.
 (() => {
   const STEPS = [
     {
@@ -12,7 +13,7 @@
       text: [
         "Choose the resume file applications should get (PDF, DOC or DOCX). If it's a PDF, its text is read right here, in this browser, into Resume text.",
         "Then, on your LinkedIn profile, choose More > Save to PDF and upload that PDF below: its text goes into LinkedIn profile (text). Only the text is kept, never the LinkedIn file.",
-        "Nothing is uploaded anywhere. Check the text and fix anything that came out wrong.",
+        "Nothing is uploaded anywhere. Check the text and fix anything that came out wrong. During setup, everything you enter is saved as you go.",
       ],
     },
     {

@@ -31,8 +31,16 @@
     "clear-ticked": full(),
     "clear-cancel": full(),
     "clear-export": full(),
+    "reload-setup": {},
+    "reload-outside": { profile: structuredClone(FILLED), resumeFile: RESUME },
+    "leave-warns": { profile: structuredClone(FILLED), resumeFile: RESUME },
   };
-  const store = structuredClone(SEEDS[scenario] || {});
+  // The storage survives a reload of the page (sessionStorage), like chrome.storage does: the reload scenarios check
+  // what was saved before it.
+  const kept = sessionStorage.getItem("__aafStore");
+  const store = kept ? JSON.parse(kept) : structuredClone(SEEDS[scenario] || {});
+  const persist = () => sessionStorage.setItem("__aafStore", JSON.stringify(store));
+  persist();
   window.__store = store;
   window.__scenario = scenario;
   const pick = (keys) => {
@@ -50,8 +58,8 @@
     storage: {
       local: {
         get: async (keys) => pick(keys),
-        set: async (obj) => void Object.assign(store, structuredClone(obj)),
-        remove: async (keys) => void [].concat(keys).forEach((k) => delete store[k]),
+        set: async (obj) => void (Object.assign(store, structuredClone(obj)), persist()),
+        remove: async (keys) => void ([].concat(keys).forEach((k) => delete store[k]), persist()),
       },
     },
   };

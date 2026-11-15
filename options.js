@@ -121,7 +121,10 @@ function addCard(box, tplId, item = {}) {
     if (el.type === "checkbox") el.checked = !!v;
     else el.value = v ?? "";
   });
-  node.querySelector(".rm").addEventListener("click", () => node.remove());
+  node.querySelector(".rm").addEventListener("click", () => {
+    node.remove();
+    changed();
+  });
   box.appendChild(node);
 }
 function readList(container) {
@@ -415,6 +418,7 @@ async function load() {
   renderSkillMisses();
   renderDeleted();
   $("#resumeName").textContent = s.resumeFile ? `Saved: ${s.resumeFile.name}` : "No resume saved yet";
+  setDirty(false); // the page now shows what's stored
 }
 
 // Role interests: a fixed checklist of standard areas (shared/prefmap.js), empty by default.
@@ -437,6 +441,7 @@ function renderRoleInterests() {
 // Saves the page into chrome.storage. Returns false (with the reason shown) when a value is invalid, so the setup
 // guide's Next stays on its step.
 async function save() {
+  const at = changes; // edits made while this save runs keep the page "unsaved"
   const grad = $('[data-k="expectedGraduation"]').value.trim();
   if (grad && !/^\d{1,2}\/(\d{1,2}\/)?\d{4}$/.test(grad)) {
     $("#saved").textContent = "Not saved: expected graduation date must be MM/DD/YYYY or MM/YYYY";
@@ -459,14 +464,64 @@ async function save() {
   settings.learnNoReview = $("#learnNoReview").checked;
   learned = learned.filter((x) => x.a !== "");
   await chrome.storage.local.set({ profile, settings, learned });
+  if (changes === at) setDirty(false);
   $("#saved").textContent = "Saved";
   setTimeout(() => ($("#saved").textContent = ""), 2000);
   return true;
 }
 
-$("#addExp").addEventListener("click", () => addCard($("#experiences"), "#expTpl"));
-$("#addEdu").addEventListener("click", () => addCard($("#education"), "#eduTpl"));
-$("#addLang").addEventListener("click", () => addCard($("#languages"), "#langTpl"));
+// Unsaved changes. During setup every change is saved on its own (500 ms after the last edit, at once after a PDF's
+// text is put in its box), so a reload resumes the step with everything kept. Outside setup the Save button saves;
+// until then "Unsaved changes" shows next to it and leaving the page asks first (beforeunload).
+let dirty = false;
+let changes = 0;
+let autoTimer = null;
+const inSetup = () => document.body.classList.contains("onboarding");
+function setDirty(v) {
+  dirty = v;
+  $("#unsaved").hidden = !v || inSetup();
+}
+function changed() {
+  changes++;
+  setDirty(true);
+  if (inSetup()) {
+    clearTimeout(autoTimer);
+    autoTimer = setTimeout(autoSave, 500);
+  }
+}
+async function autoSave() {
+  clearTimeout(autoTimer);
+  autoTimer = null;
+  if (dirty) await save();
+}
+// Edits that Save saves. Not: file inputs (the resume file is saved when chosen; the LinkedIn PDF only gives text),
+// Pending review answer boxes (saved by Approve), and learned-answer category pickers (saved when changed).
+const savedBySave = (el) => el.type !== "file" && !el.closest("#learnedPending") && !(el.tagName === "SELECT" && el.closest("#learned"));
+for (const ev of ["input", "change"]) $("main").addEventListener(ev, (e) => savedBySave(e.target) && changed());
+window.addEventListener("beforeunload", (e) => {
+  if (!dirty) return;
+  if (inSetup()) autoSave(); // a pending auto-save; ask anyway, it may not finish before the page goes
+  e.preventDefault();
+  e.returnValue = "";
+});
+document.addEventListener("visibilitychange", () => document.hidden && inSetup() && dirty && autoSave());
+
+// The text read from a PDF is saved with the file, right away: during setup with the rest of the page (auto-save),
+// outside setup only that text box (other edits still wait for Save).
+async function saveMaterial(key, text) {
+  if (inSetup()) {
+    changed();
+    return autoSave();
+  }
+  const { profile: stored = {} } = await chrome.storage.local.get("profile");
+  stored[key] = text;
+  profile[key] = text;
+  await chrome.storage.local.set({ profile: stored });
+}
+
+$("#addExp").addEventListener("click", () => (addCard($("#experiences"), "#expTpl"), changed()));
+$("#addEdu").addEventListener("click", () => (addCard($("#education"), "#eduTpl"), changed()));
+$("#addLang").addEventListener("click", () => (addCard($("#languages"), "#langTpl"), changed()));
 $("#save").addEventListener("click", save);
 document.addEventListener("keydown", (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key === "s") {
@@ -476,7 +531,8 @@ document.addEventListener("keydown", (e) => {
 });
 
 // Text read from a PDF (pdftext.js: the bundled pdf.js, in this browser) goes into the matching text box for review.
-// A box that already holds other text is not overwritten: the status line offers to replace it. Saved with Save / Next.
+// A box that already holds other text is not overwritten: the status line offers to replace it. The text put in the
+// box is saved at once (saveMaterial). Returns once that's done.
 const lastPdfText = {};
 async function textFromPdf(file, key, status) {
   const box = $(`[data-k="${key}"]`);
@@ -495,11 +551,12 @@ async function textFromPdf(file, key, status) {
     status.textContent = `No text found in ${file.name} (a scanned image?). Paste the text below instead.`;
     return;
   }
-  const apply = () => {
+  const apply = async () => {
     box.value = text;
     lastPdfText[key] = text;
     status.className = "status";
-    status.textContent = `Read ${text.length} characters from ${file.name} (in this browser). Review and edit it below; it's saved with Save or Next.`;
+    await saveMaterial(key, text);
+    status.textContent = `Read ${text.length} characters from ${file.name} (in this browser) and saved them. Review and edit them below${inSetup() ? " (changes save as you type)" : ", then Save"}.`;
   };
   const cur = box.value.trim();
   if (!cur || cur === lastPdfText[key]) return apply();
@@ -509,16 +566,19 @@ async function textFromPdf(file, key, status) {
   status.append(b);
 }
 
-$("#resumeFile").addEventListener("change", (e) => {
+// The resume file is saved when chosen, and a PDF's text right after it (textFromPdf), so a reload keeps both.
+$("#resumeFile").addEventListener("change", async (e) => {
   const file = e.target.files[0];
   if (!file) return;
-  const r = new FileReader();
-  r.onload = async () => {
-    await chrome.storage.local.set({ resumeFile: { name: file.name, type: file.type, dataUrl: r.result } });
-    $("#resumeName").textContent = `Saved: ${file.name}`;
-  };
-  r.readAsDataURL(file);
-  if (globalThis.AAF_PDFTEXT?.isPdf(file)) textFromPdf(file, "resumeText", $("#resumeTextStatus"));
+  const dataUrl = await new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result);
+    r.onerror = () => rej(r.error);
+    r.readAsDataURL(file);
+  });
+  await chrome.storage.local.set({ resumeFile: { name: file.name, type: file.type, dataUrl } });
+  $("#resumeName").textContent = `Saved: ${file.name}`;
+  if (globalThis.AAF_PDFTEXT?.isPdf(file)) await textFromPdf(file, "resumeText", $("#resumeTextStatus"));
   else $("#resumeTextStatus").textContent = "Not a PDF: paste your resume's text below.";
 });
 // LinkedIn's "Save to PDF": only its text is kept (the LinkedIn profile text box), never the file.
