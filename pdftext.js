@@ -1,6 +1,9 @@
 // PDF text extraction for the Options page, entirely in this browser: the bundled pdf.js (lib/pdfjs, Apache-2.0,
-// pdfjs-dist 5.7.284) reads the file the user picked. Nothing is fetched from the network and no remote code runs:
-// the library is files of the extension. Used for the resume (when it's a PDF) and the LinkedIn profile PDF
+// pdfjs-dist 5.7.284, its LEGACY build: legacy/build/pdf.min.mjs and pdf.worker.min.mjs, unmodified) reads the file the
+// user picked. The legacy build carries core-js polyfills for the newer built-ins the modern build calls directly:
+// 1.1.0 shipped the modern build, and an older Chrome failed with "a.toHex is not a function". Its targets are
+// Chrome >= 118 (pdf.js gulpfile ENV_TARGETS), which is the manifest's minimum_chrome_version. Nothing is fetched
+// from the network and no remote code runs: the library is files of the extension. Used for the resume (when it's a PDF) and the LinkedIn profile PDF
 // (LinkedIn's "More > Save to PDF"); the text goes into the Options text boxes for review.
 //
 //   const text = await AAF_PDFTEXT.extract(arrayBuffer)   // "" for a PDF without a text layer (a scan)

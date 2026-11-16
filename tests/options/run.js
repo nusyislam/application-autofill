@@ -25,7 +25,7 @@ const only = arg("--only") || "";
 // --dump <pdf under the repo>: print the text pdftext.js extracts from that file (e.g. your own resume saved as
 // tests/options/<name>-raw.pdf, git-ignored), nothing else.
 const dump = arg("--dump");
-const SCENARIOS = dump ? ["dump"] : ["empty", "api-only", "filled", "resume", "skipped", "pdf", "next", "done", "clear-default", "clear-ticked", "clear-cancel", "clear-export", "reload-setup", "reload-outside", "leave-warns", "prefill-setup", "prefill-nokey", "prefill-existing", "prefill-links", "autofill-outside", "autofill-setup", "import-empty", "import-replace", "import-cancel"].filter((s) => s.startsWith(only));
+const SCENARIOS = dump ? ["dump"] : ["empty", "api-only", "filled", "resume", "skipped", "pdf", "pdf-old", "next", "done", "clear-default", "clear-ticked", "clear-cancel", "clear-export", "reload-setup", "reload-outside", "leave-warns", "prefill-setup", "prefill-nokey", "prefill-existing", "prefill-links", "autofill-outside", "autofill-setup", "import-empty", "import-replace", "import-cancel"].filter((s) => s.startsWith(only));
 const query = (s) => `s=${encodeURIComponent(s)}` + (s === "dump" ? `&f=${encodeURIComponent(path.relative(repo, path.resolve(dump)).split(path.sep).join("/"))}` : "");
 const edge = [path.join(process.env["ProgramFiles(x86)"] || "", "Microsoft/Edge/Application/msedge.exe"), path.join(process.env.ProgramFiles || "", "Microsoft/Edge/Application/msedge.exe")].find((p) => fs.existsSync(p));
 if (!edge) {
@@ -72,6 +72,7 @@ function runEdge(url, profileDir) {
   fs.mkdirSync(outDir, { recursive: true });
   let pass = 0;
   let fail = 0;
+  const texts = {}; // the extracted texts (INFO lines) of "pdf" and "pdf-old", compared after the run
   console.log(`Options-page tests (${path.relative(repo, tree) || "working tree"}):`);
   for (const s of SCENARIOS) {
     const dom = await runEdge(`http://127.0.0.1:${port}/options.html?${query(s)}`, path.join(outDir, `edge-options-${s}`));
@@ -81,11 +82,19 @@ function runEdge(url, profileDir) {
     if (s !== "dump") fs.writeFileSync(path.join(outDir, `options-${s}.txt`), lines.join("\n") + "\n");
     // INFO lines (the extracted texts) are printed for a dump, or when the scenario failed.
     const failed = lines.some((l) => !l.startsWith("PASS") && !l.startsWith("INFO"));
+    if (s === "pdf" || s === "pdf-old") texts[s] = lines.filter((l) => l.startsWith("INFO") && !l.startsWith("INFO removed")).join("\n");
     for (const l of lines) {
       if (l.startsWith("PASS")) pass++;
       else if (!l.startsWith("INFO")) fail++;
       if (!l.startsWith("INFO") || failed || s === "dump") console.log(`  ${s}: ${l}`);
     }
+  }
+  // An older Chrome (the pdf-old scenario, newer built-ins deleted) must extract exactly the same text from both PDFs.
+  if (texts.pdf != null && texts["pdf-old"] != null) {
+    const same = texts.pdf === texts["pdf-old"] && /resume text/.test(texts.pdf) && /LinkedIn text/.test(texts.pdf);
+    if (same) pass++;
+    else fail++;
+    console.log(`  pdf-old: ${same ? "PASS" : "FAIL"} both PDFs extract identically with the newer built-ins removed (${texts.pdf.length} / ${texts["pdf-old"].length} characters of INFO text)`);
   }
   server.close();
   console.log(fail ? `Options-page tests: ${fail} failed, ${pass} passed` : `Options-page tests: all ${pass} passed`);

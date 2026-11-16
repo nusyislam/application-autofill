@@ -776,6 +776,15 @@
   window.addEventListener("error", (e) => lines.push(`FAIL script error: ${e.message} (${e.filename?.split("/").pop()}:${e.lineno})`));
   window.addEventListener("unhandledrejection", (e) => lines.push(`FAIL unhandled rejection: ${e.reason?.message || e.reason}`));
   (async () => {
+    // An older Chrome: the same PDF checks with the newer built-ins deleted before pdf.js loaded (stub.js); run.js then
+    // compares both extracted texts with the "pdf" scenario's.
+    SCENARIOS["pdf-old"] = async () => {
+      const gone = window.__removedBuiltins || [];
+      check("newer built-ins removed before pdf.js loaded (toHex, fromBase64, Promise.withResolvers ...)", gone.includes("Uint8Array.prototype.toHex") && gone.includes("Promise.withResolvers"), gone.join(", ") || "none removed");
+      lines.push(`INFO removed: ${gone.join(", ")}`);
+      await SCENARIOS.pdf();
+      check("pdf.js parsed on the page's thread (no Worker started, so the stripped built-ins applied to the worker code too)", window.__workersStarted === 0, `${window.__workersStarted} started`);
+    };
     const run = SCENARIOS[window.__scenario];
     try {
       if (!run) throw new Error(`no scenario "${window.__scenario}"`);

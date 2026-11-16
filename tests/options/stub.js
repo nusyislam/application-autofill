@@ -3,6 +3,35 @@
 // saved. Fake data only. Download links (the backup export) are recorded in window.__downloads, not followed.
 (() => {
   const scenario = new URLSearchParams(location.search).get("s") || "";
+  // An older Chrome (1.1.0 failed there: "a.toHex is not a function"): before any page script or pdf.js loads, the
+  // newer built-ins pdf.js may use are deleted, so the bundled build must bring its own polyfills.
+  if (scenario === "pdf-old") {
+    const gone = [];
+    const drop = (obj, key, name) => {
+      if (obj && key in obj) {
+        delete obj[key];
+        if (!(key in obj)) gone.push(name);
+      }
+    };
+    for (const k of ["toHex", "toBase64", "setFromHex", "setFromBase64"]) drop(Uint8Array.prototype, k, `Uint8Array.prototype.${k}`);
+    for (const k of ["fromHex", "fromBase64"]) drop(Uint8Array, k, `Uint8Array.${k}`);
+    drop(Promise, "withResolvers", "Promise.withResolvers");
+    drop(Promise, "try", "Promise.try");
+    drop(Map, "groupBy", "Map.groupBy");
+    drop(Object, "groupBy", "Object.groupBy");
+    drop(Map.prototype, "getOrInsert", "Map.prototype.getOrInsert");
+    drop(Map.prototype, "getOrInsertComputed", "Map.prototype.getOrInsertComputed");
+    drop(Math, "sumPrecise", "Math.sumPrecise");
+    window.__removedBuiltins = gone;
+    // The parser must run on the page's thread (pdftext.js sets globalThis.pdfjsWorker): a real Worker would load the
+    // worker file in a fresh scope these deletions don't reach.
+    window.__workersStarted = 0;
+    const W = window.Worker;
+    window.Worker = function (...a) {
+      window.__workersStarted++;
+      return new W(...a);
+    };
+  }
   const FILLED = {
     firstName: "Test", lastName: "Applicant", email: "test@example.com", phone: "6465550100",
     address1: "1 Test Street", city: "Springfield", state: "New York", zip: "10001",
@@ -25,6 +54,7 @@
     resume: { onboarding: { step: 4 } },
     skipped: { onboarding: { finished: true, how: "skipped" } },
     pdf: {},
+    "pdf-old": {},
     next: {},
     done: { profile: { firstName: "Test", lastName: "Applicant", email: "test@example.com", city: "Springfield", state: "New York", answers: { workAuth: "Yes" } }, onboarding: { step: 7 } },
     "clear-default": full(),

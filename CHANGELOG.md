@@ -2,6 +2,13 @@
 
 Company names in this file are fictional stand-ins for the job postings that taught each fix.
 
+## 1.1.1 (2026-11-16)
+
+Hotfix for PDF uploads in Options on older Chrome versions.
+
+- Options: reading a PDF resume or LinkedIn's "Save to PDF" failed on a slightly older Chrome with "Couldn't read text from <file>.pdf (a.toHex is not a function)". The bundled pdf.js is now its legacy build (the same version, 5.7.284, unmodified), which includes polyfills for the newer browser features the standard build calls directly. Extraction is unchanged: both test PDFs give exactly the same text with those features removed from the browser.
+- The extension now declares Chrome 118 as its minimum version, the oldest the legacy pdf.js build supports, so the store won't offer it to browsers that can't run it.
+
 ## 1.1.0 (2026-11-15)
 
 Setup and profile editing in Options, plus fixes from real applications since 1.0.2. No new permissions.

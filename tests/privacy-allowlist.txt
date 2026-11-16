@@ -10,4 +10,4 @@ tests/fixtures/greenhouse-learnfix.html :: AAF.companyAliases("pwc")
 # The license names its author.
 LICENSE :: Copyright (c) 2026 Nusaybah Islam
 # pdf.js (vendored, minified): an XFA class name that equals a case-sensitive pattern; the line is third-party code.
-lib/pdfjs/pdf.worker.min.mjs :: extends XFAObject{constructor(e){super(Ql,"trace",!0);this.area=new XFAObjectArray}}
+lib/pdfjs/pdf.worker.min.mjs :: extends XFAObject{constructor(e){super(nf,"trace",!0);this.area=new XFAObjectArray}}
