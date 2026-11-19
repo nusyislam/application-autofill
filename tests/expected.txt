@@ -718,3 +718,6 @@ lever-eeo-descriptions :: Veteran status = => "checked:v1" mark=-
 lever-eeo-descriptions :: Gender = => "checked:Female" mark=-
 lever-eeo-descriptions :: !LOG => none acceptable
 lever-eeo-descriptions :: !LOG => A person having origins
+yc-apply :: apply note => "Hi Sam,\n\nI built a data pipeline
+yc-apply :: apply note => mark=needs
+yc-waas :: !LOG => no apply dialog open

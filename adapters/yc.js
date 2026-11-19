@@ -5,8 +5,9 @@
 // How it works on the site: the candidate profile is filled once on WaaS itself; applying to a job opens a
 // dialog ("Reach out to <Founder> at <Company>") with a textarea for a short note to the founder, then Close /
 // Send, under a weekly application limit. So the only thing to fill is that note:
-//   - the dialog: div[id^="headlessui-dialog-panel"][data-headlessui-state="open"] holding a textarea and a
-//     Send button (Grammarly injects its own elements into it);
+//   - the dialog: an open role="dialog" (Radix since Nov 2026, textarea#apply-message), else the older
+//     div[id^="headlessui-dialog-panel"][data-headlessui-state="open"]; either holds the note box and a Send button
+//     (Grammarly injects its own elements into it);
 //   - the job: the JobDetailPage react-component JSON when there is one, else the visible page (h1 "<Title> at
 //     <Company> (W25)", the breadcrumb, the one-liner, the location / type / visa tags, "About the role");
 //   - the note is drafted with the draft model (background.js YC_NOTE), set with the native setter + input
@@ -21,28 +22,47 @@
   if (!AAF.once("adapter:yc")) return;
   const { dbg, mark, sleep, nativeSet } = AAF;
 
-  const DIALOG = 'div[id^="headlessui-dialog-panel"][data-headlessui-state="open"]';
+  // The apply dialog, by stable hooks first: an open role="dialog" / aria-modal element (WaaS moved to a Radix
+  // dialog in Nov 2026: div[role="dialog"][data-state="open"] with textarea#apply-message, and the old selector found
+  // nothing, so the log said "no apply dialog open" with the dialog on screen), then the older Headless UI panel
+  // (div[id^="headlessui-dialog-panel"][data-headlessui-state="open"]). Either way it must hold the note box and a
+  // Send button; the innermost such element wins.
+  const DIALOG = '[role="dialog"], [role="alertdialog"], [aria-modal="true"], div[id^="headlessui-dialog-panel"]';
   const text = (el) => ((el && (el.innerText || el.textContent)) || "").replace(/\s+/g, " ").trim();
   const isWaas = () => /(^|\.)workatastartup\.com$/i.test(location.hostname);
   const isYcJobs = () => /(^|\.)ycombinator\.com$/i.test(location.hostname) && /^\/companies\/[^/]+\/jobs\b/.test(location.pathname);
 
   // ------------------------------------------------------------- the dialog
+  const isOpen = (d) => {
+    if (d.hidden || d.getAttribute("aria-hidden") === "true") return false;
+    const state = d.getAttribute("data-state") ?? d.getAttribute("data-headlessui-state");
+    if (/^headlessui-dialog-panel/.test(d.id)) return d.getAttribute("data-headlessui-state") === "open";
+    if (state != null && state !== "" && !/\bopen\b/.test(state)) return false;
+    const r = d.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+  };
+  const noteBox = (d) => d.querySelector("textarea#apply-message") || d.querySelector("textarea");
+  const hasSend = (d) => [...d.querySelectorAll('button, [role="button"]')].some((b) => /^send( message| note)?$/i.test(text(b)));
   function dialog() {
-    return [...document.querySelectorAll(DIALOG)].find((d) => d.querySelector("textarea") && [...d.querySelectorAll("button")].some((b) => /^send$/i.test(text(b)))) || null;
+    const found = [...document.querySelectorAll(DIALOG)].filter((d) => isOpen(d) && noteBox(d) && hasSend(d));
+    return found.find((d) => !found.some((o) => o !== d && d.contains(o))) || null;
   }
-  // "Reach out to Alex at AfterPlan" -> founder first name and company; the orange "qualifications might not
-  // match this job" note.
+  const hookOf = (d) => (/^headlessui-dialog-panel/.test(d.id) ? "" : d.getAttribute("role") ? `role="${d.getAttribute("role")}"` : 'aria-modal="true"');
+  // "Reach out to Alex at AfterPlan" -> founder first name and company (the dialog's aria-labelledby title, else
+  // any heading / block reading so); the "qualifications might not match this job" note (a <p> in the old dialog,
+  // nested <div>s in the new one: the innermost block holding it).
   function dialogInfo(d) {
-    const title = [...d.querySelectorAll("div, h1, h2, h3")].map(text).find((t) => /^reach out to .+ at .+$/i.test(t)) || "";
+    const named = (d.getAttribute("aria-labelledby") || "").split(/\s+/).map((id) => text(document.getElementById(id))).find(Boolean) || "";
+    const title = [named, ...[...d.querySelectorAll("div, h1, h2, h3")].map(text)].find((t) => /^reach out to .+ at .+$/i.test(t)) || "";
     const m = title.match(/^reach out to (.+?) at (.+)$/i) || [];
-    const note = [...d.querySelectorAll("p")].map(text).find((t) => /qualifications might not match/i.test(t)) || "";
+    const note = [...d.querySelectorAll("p, div")].filter((el) => !el.querySelector("p, div")).map(text).find((t) => /qualifications might not match/i.test(t)) || "";
     return { founder: (m[1] || "").trim().split(/\s+/)[0] || "", company: (m[2] || "").trim(), note };
   }
   // An explicit ban on AI-written notes. "Human-written messages are more likely to get a response" is not a
   // ban, and neither is "your application may be evaluated using AI-assisted tools".
   const NOTE_BAN = /\b(do not|don t|dont|must not|never|please do not)\b[^.]{0,60}\b(ai|chat ?gpt|llms?|generative|language models?)\b|\b(ai|chat ?gpt|llm)[- ]?(written|generated)\b[^.]{0,50}\b(not (be )?(accepted|considered|allowed|permitted)|rejected|disqualif\w*|ignored)\b/i;
   const noteField = (d) => {
-    const ta = d.querySelector("textarea");
+    const ta = noteBox(d);
     const { founder, company } = dialogInfo(d);
     const label = `Note to ${founder || "the founder"}${company ? ` at ${company}` : ""}`;
     return { c: ta.parentElement || ta, id: "yc-note", label, nl: AAF.norm(label), nid: "yc note", type: "textarea", ctrl: ta, required: true };
@@ -134,6 +154,7 @@
     const f = noteField(d);
     const ta = f.ctrl;
     const redraft = !!AAF.ycForce;
+    if (hookOf(d)) dbg(`YC: apply dialog found by ${hookOf(d)}${ta.id ? `, note box #${ta.id}` : ""}`);
     if (info.note) {
       AAF.setNote?.("YC: your qualifications might not match this job");
       dbg(`YC: "${info.note.slice(0, 140)}"`);
