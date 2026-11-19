@@ -29,10 +29,36 @@
       </style>
       <div class="wrap"><div class="toast"></div><button>Autofill page</button></div>`;
     document.documentElement.appendChild(host);
+    // A press on the button never reaches the page: a dialog that closes on any pointerdown outside it (YC Work at
+    // a Startup's Radix Apply dialog) closed itself when the button was clicked, leaving nothing to fill. Every
+    // portal; the click itself still runs the fill.
+    for (const type of ["pointerdown", "mousedown", "touchstart"]) host.addEventListener(type, (e) => e.stopPropagation());
     const btn = root.querySelector("button");
     btn.addEventListener("click", () => AAF.fillPage({ fromButton: true }));
     ui = { host, btn, toast: root.querySelector(".toast") };
     return ui;
+  }
+  // Where the button sits: floating at the bottom right (the default), or inside an element the adapter names
+  // (`buttonSpot()`: { parent, before }), so a click on it counts as inside that element (YC's Apply dialog). It
+  // goes back to floating when the spot is gone (the dialog closed and took the button with it).
+  const FLOAT = "position:fixed;right:16px;bottom:16px;z-index:2147483647;";
+  const INLINE = "position:static;display:inline-flex;align-self:center;margin:0 8px 0 0;z-index:auto;";
+  function placeButton(spot) {
+    const u = ensureUI();
+    if (spot?.parent?.isConnected) {
+      const before = spot.before?.parentElement === spot.parent ? spot.before : null;
+      if (u.host.parentElement !== spot.parent || (before && u.host.nextSibling !== before)) {
+        spot.parent.insertBefore(u.host, before);
+        u.host.dataset.aafSpot = "inline";
+        AAF.dbg?.("Autofill button placed inside the open dialog (a click there counts as inside it)");
+      }
+      if (u.host.style.position !== "static") u.host.style.cssText = INLINE + (u.host.style.display === "none" ? "display:none;" : "");
+    } else if (u.host.parentElement !== document.documentElement) {
+      const hidden = u.host.style.display === "none";
+      document.documentElement.appendChild(u.host);
+      u.host.style.cssText = FLOAT + (hidden ? "display:none;" : "");
+      delete u.host.dataset.aafSpot;
+    }
   }
   function toast(html, ms) {
     const u = ensureUI();
@@ -42,8 +68,9 @@
     if (ms) u._t = setTimeout(() => (u.toast.style.display = "none"), ms);
   }
   // Show the button only on form pages (the adapter decides what a form page is), never in an iframe.
-  function showButton(isForm) {
+  function showButton(isForm, spot = null) {
     if (inFrame) return;
+    if (isForm || ui) placeButton(isForm ? spot : null);
     if (isForm) ensureUI().host.style.display = "";
     else if (ui) ui.host.style.display = "none";
   }

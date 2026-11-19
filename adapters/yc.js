@@ -275,6 +275,14 @@
     rootInfo: () => (dialog() ? "<the apply dialog>" : "<no apply dialog>"),
     noFieldsWhy: () => (dialog() ? "" : "no apply dialog open, nothing to fill"),
     isFormPage: () => !!dialog(),
+    // Inside the open dialog, in its footer before the Close / Send row (never in that row, never replacing a
+    // button): the new dialog closes on any pointerdown outside it, so the floating button closed it.
+    buttonSpot: () => {
+      const d = dialog();
+      const send = d && [...d.querySelectorAll('button, [role="button"]')].find((b) => /^send( message| note)?$/i.test(text(b)));
+      const row = send?.parentElement;
+      return row && row.parentElement && d.contains(row.parentElement) ? { parent: row.parentElement, before: row } : null;
+    },
     isApplicationFlow: () => false,
     isApplicationQuestionsPage: () => false,
   };

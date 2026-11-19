@@ -721,3 +721,5 @@ lever-eeo-descriptions :: !LOG => A person having origins
 yc-apply :: apply note => "Hi Sam,\n\nI built a data pipeline
 yc-apply :: apply note => mark=needs
 yc-waas :: !LOG => no apply dialog open
+yc-apply-dismiss :: dialog note => "Hi Sam,\n\nI built a data pipeline
+yc-apply-dismiss :: dialog note => mark=needs

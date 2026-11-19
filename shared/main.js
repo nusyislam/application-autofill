@@ -209,7 +209,7 @@
       showButton(false);
       return;
     }
-    showButton(A.isFormPage());
+    showButton(A.isFormPage(), A.buttonSpot?.());
   }, 1500);
 
   // Fields the user edited by hand during this page session (trusted input / change / click events
