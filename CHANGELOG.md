@@ -2,9 +2,12 @@
 
 Company names in this file are fictional stand-ins for the job postings that taught each fix.
 
-## Unreleased
+## 1.1.2 (2026-11-19)
+
+Fixes for YC Work at a Startup's new Apply dialog.
 
 - YC Work at a Startup: the note to the founder works again with the new Apply dialog. The site changed the dialog's markup, so the extension logged "no apply dialog open" while it was on screen. It now finds the dialog by its role, its note box and its Send button, and still recognizes the older dialog.
+- YC Work at a Startup: clicking the floating "Autofill page" button closed the new dialog (it closes on any click outside it), leaving nothing to fill. While the dialog is open, the button now sits inside it, next to Close / Send (never replacing them), and goes back to floating when the dialog closes. On every site, a press on the floating button no longer reaches the page, so it can't close a dialog that way.
 
 ## 1.1.1 (2026-11-16)
 
